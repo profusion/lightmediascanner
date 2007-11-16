@@ -42,6 +42,7 @@
 
 #define PATH_SIZE PATH_MAX
 #define DEFAULT_SLAVE_TIMEOUT 1000
+#define DEFAULT_COMMIT_INTERVAL 100
 
 struct fds {
     int r;
@@ -68,6 +69,7 @@ struct lms {
     int n_parsers;
     char *db_path;
     int slave_timeout;
+    unsigned int commit_interval;
     unsigned int is_processing:1;
 };
 
@@ -621,7 +623,7 @@ _run_parsers(lms_t *lms, struct db *db, void **parser_match, struct lms_file_inf
 static int
 _slave_work(lms_t *lms, struct fds *fds)
 {
-    int r, len, base;
+    int r, len, base, counter;
     char path[PATH_SIZE];
     void **parser_match;
     struct db *db;
@@ -636,6 +638,7 @@ _slave_work(lms_t *lms, struct fds *fds)
         return -2;
     }
 
+    counter = 0;
     _db_begin_transaction(db);
 
     while (((r = _slave_recv_path(fds, &len, &base, path)) == 0) && len > 0) {
@@ -672,6 +675,12 @@ _slave_work(lms_t *lms, struct fds *fds)
 
       inform_end:
         _slave_send_reply(fds, r);
+        counter++;
+        if (counter > lms->commit_interval) {
+            _db_end_transaction(db);
+            _db_begin_transaction(db);
+            counter = 0;
+        }
     }
 
     free(parser_match);
@@ -1051,6 +1060,7 @@ lms_new(const char *db_path)
         return NULL;
     }
 
+    lms->commit_interval = DEFAULT_COMMIT_INTERVAL;
     lms->slave_timeout = DEFAULT_SLAVE_TIMEOUT;
     lms->db_path = strdup(db_path);
     if (!lms->db_path) {
@@ -1271,3 +1281,14 @@ void lms_set_slave_timeout(lms_t *lms, int ms)
     lms->slave_timeout = ms;
 }
 
+unsigned int
+lms_get_commit_interval(const lms_t *lms)
+{
+    return lms->commit_interval;
+}
+
+void
+lms_set_commit_interval(lms_t *lms, unsigned int transactions)
+{
+    lms->commit_interval = transactions;
+}
