@@ -33,6 +33,8 @@ AC_DEFINE_UNQUOTED(PLUGINSDIR, ["$PLUGINSDIR"], [Where plugins are installed.])
 
 AC_CHECK_FUNCS(realpath)
 
+PKG_CHECK_MODULES(SQLITE3, [sqlite3 >= 3.3])
+
 AC_OUTPUT([
 Makefile
 src/Makefile

@@ -53,7 +53,7 @@ _match(struct plugin *p, const char *path, int len, int base)
 }
 
 static int
-_parse(struct plugin *plugin, const struct lms_file_info *finfo, void *match)
+_parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, void *match)
 {
     write(plugin->fd, finfo->path, finfo->path_len);
     write(plugin->fd, "\n", 1);

@@ -68,7 +68,7 @@ extern "C" {
     typedef struct lms lms_t;
     typedef struct lms_plugin lms_plugin_t;
 
-    API lms_t *lms_new(void) GNUC_MALLOC GNUC_WARN_UNUSED_RESULT;
+    API lms_t *lms_new(const char *db_path) GNUC_MALLOC GNUC_WARN_UNUSED_RESULT;
     API int lms_free(lms_t *lms) GNUC_NON_NULL(1);
     API int lms_process(lms_t *lms, const char *top_path) GNUC_NON_NULL(1, 2);
     API int lms_is_processing(const lms_t *lms) GNUC_PURE GNUC_NON_NULL(1);

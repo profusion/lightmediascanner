@@ -66,8 +66,19 @@ struct parser {
 struct lms {
     struct parser *parsers;
     int n_parsers;
+    char *db_path;
     int slave_timeout;
     unsigned int is_processing:1;
+};
+
+struct db {
+    sqlite3 *handle;
+    sqlite3_stmt *transaction_begin;
+    sqlite3_stmt *transaction_commit;
+    sqlite3_stmt *transaction_rollback;
+    sqlite3_stmt *get_file_info;
+    sqlite3_stmt *insert_file_info;
+    sqlite3_stmt *update_file_info;
 };
 
 /***********************************************************************
@@ -176,18 +187,398 @@ _slave_recv_path(const struct fds *slave, int *plen, int *dlen, char *path)
  ***********************************************************************/
 
 static int
-_retrieve_file_status(struct lms_file_info *finfo)
+_db_create_tables_if_required(sqlite3 *db)
+{
+    char *errmsg;
+    int r;
+
+    errmsg = NULL;
+    r = sqlite3_exec(db,
+                     "CREATE TABLE IF NOT EXISTS files ("
+                     "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                     "path TEXT NOT NULL UNIQUE, "
+                     "mtime INTEGER NOT NULL, "
+                     "valid INTEGER(1) NOT NULL"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create 'files' table: %s\n", errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    r = sqlite3_exec(db,
+                     "CREATE INDEX IF NOT EXISTS files_path_idx ON files ("
+                     "path"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create 'files_path_idx' index: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -2;
+    }
+
+    return 0;
+}
+
+static sqlite3_stmt *
+_db_compile_stmt(sqlite3 *db, const char *sql)
+{
+    sqlite3_stmt *stmt;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        fprintf(stderr, "ERROR: could not prepare \"%s\": %s\n", sql,
+                sqlite3_errmsg(db));
+
+    return stmt;
+}
+
+static int
+_db_compile_all_stmts(struct db *db)
+{
+    db->transaction_begin = _db_compile_stmt(db->handle,
+        "BEGIN TRANSACTION");
+    if (!db->transaction_begin)
+        return -1;
+
+    db->transaction_commit = _db_compile_stmt(db->handle,
+        "COMMIT");
+    if (!db->transaction_commit)
+        return -2;
+
+    db->transaction_rollback = _db_compile_stmt(db->handle,
+        "ROLLBACK");
+    if (!db->transaction_rollback)
+        return -3;
+
+    db->get_file_info = _db_compile_stmt(db->handle,
+        "SELECT id, mtime, valid FROM files WHERE path = ?");
+    if (!db->get_file_info)
+        return -4;
+
+    db->insert_file_info = _db_compile_stmt(db->handle,
+        "INSERT INTO files (path, mtime, valid) VALUES(?, ?, ?)");
+    if (!db->insert_file_info)
+        return -5;
+
+    db->update_file_info = _db_compile_stmt(db->handle,
+        "UPDATE files SET mtime = ?, valid = ? WHERE id = ?");
+    if (!db->update_file_info)
+        return -6;
+
+    return 0;
+}
+
+static struct db *
+_db_open(const char *db_path)
+{
+    struct db *db;
+
+    db = calloc(1, sizeof(*db));
+    if (!db) {
+        perror("calloc");
+        return NULL;
+    }
+
+    if (sqlite3_open(db_path, &db->handle) != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not open DB \"%s\": %s\n",
+                db_path, sqlite3_errmsg(db->handle));
+        goto error;
+    }
+
+    if (_db_create_tables_if_required(db->handle) != 0) {
+        fprintf(stderr, "ERROR: could not setup tables and indexes.\n");
+        goto error;
+    }
+
+    if (_db_compile_all_stmts(db) != 0) {
+        fprintf(stderr, "ERROR: could not compile statements.\n");
+        goto error;
+    }
+
+    return db;
+
+  error:
+    sqlite3_close(db->handle);
+    free(db);
+    return NULL;
+}
+
+static int
+_db_finalize_stmt(sqlite3_stmt *stmt, const char *name)
+{
+    int r;
+
+    r = sqlite3_finalize(stmt);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not finalize %s statement: #%d\n",
+                name, r);
+        return -1;
+    }
+
+    return 0;
+}
+
+static int
+_db_close(struct db *db)
+{
+    if (db->transaction_begin)
+        _db_finalize_stmt(db->transaction_begin, "transaction_begin");
+
+    if (db->transaction_commit)
+        _db_finalize_stmt(db->transaction_commit, "transaction_commit");
+
+    if (db->transaction_rollback)
+        _db_finalize_stmt(db->transaction_rollback, "transaction_rollback");
+
+    if (db->get_file_info)
+        _db_finalize_stmt(db->get_file_info, "get_file_info");
+
+    if (db->insert_file_info)
+        _db_finalize_stmt(db->insert_file_info, "insert_file_info");
+
+    if (db->update_file_info)
+        _db_finalize_stmt(db->update_file_info, "update_file_info");
+
+    if (sqlite3_close(db->handle) != SQLITE_OK) {
+        fprintf(stderr, "ERROR: clould not close DB: %s\n",
+                sqlite3_errmsg(db->handle));
+        return -1;
+    }
+    free(db);
+
+    return 0;
+}
+
+static int
+_db_begin_transaction(struct db *db)
+{
+    sqlite3_stmt *stmt;
+    int r, ret;
+
+    stmt = db->transaction_begin;
+
+    ret = 0;
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not begin transaction: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -1;
+    }
+
+    r = sqlite3_reset(stmt);
+    if (r != SQLITE_OK)
+        fprintf(stderr, "ERROR: could not reset SQL statement: %s\n",
+                sqlite3_errmsg(db->handle));
+
+    return ret;
+}
+
+static int
+_db_end_transaction(struct db *db)
+{
+    sqlite3_stmt *stmt;
+    int r, ret;
+
+    stmt = db->transaction_commit;
+
+    ret = 0;
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not end transaction: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -1;
+    }
+
+    r = sqlite3_reset(stmt);
+    if (r != SQLITE_OK)
+        fprintf(stderr, "ERROR: could not reset SQL statement: %s\n",
+                sqlite3_errmsg(db->handle));
+
+    return ret;
+}
+
+static int
+_db_reset_stmt(sqlite3_stmt *stmt)
+{
+    int r, ret;
+
+    ret = r = sqlite3_reset(stmt);
+    if (r != SQLITE_OK)
+        fprintf(stderr, "ERROR: could not reset SQL statement: #%d\n", r);
+
+    r = sqlite3_clear_bindings(stmt);
+    ret += r;
+    if (r != SQLITE_OK)
+        fprintf(stderr, "ERROR: could not clear SQL: #%d\n", r);
+
+    return ret;
+}
+
+static int
+_db_get_file_info(struct db *db, struct lms_file_info *finfo)
+{
+    sqlite3_stmt *stmt;
+    int r, ret;
+
+    stmt = db->get_file_info;
+
+    r = sqlite3_bind_text(stmt, 1, finfo->path, finfo->path_len, SQLITE_STATIC);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not bind SQL value 1: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -1;
+        goto done;
+    }
+
+    r = sqlite3_step(stmt);
+    if (r == SQLITE_DONE) {
+        ret = 1;
+        finfo->id = -1;
+        goto done;
+    }
+
+    if (r != SQLITE_ROW) {
+        fprintf(stderr, "ERROR: could not get file info from table: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -2;
+        goto done;
+    }
+
+    finfo->id = sqlite3_column_int64(stmt, 0);
+    finfo->mtime = sqlite3_column_int(stmt, 1);
+    finfo->is_valid = sqlite3_column_int(stmt, 2);
+    ret = 0;
+
+  done:
+    _db_reset_stmt(stmt);
+
+    return ret;
+}
+
+static int
+_db_update_file_info(struct db *db, struct lms_file_info *finfo)
+{
+    sqlite3_stmt *stmt;
+    int r, ret;
+
+    stmt = db->update_file_info;
+
+    r = sqlite3_bind_int(stmt, 1, finfo->mtime);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not bind SQL value 1: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -1;
+        goto done;
+    }
+
+    r = sqlite3_bind_int(stmt, 2, finfo->is_valid);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not bind SQL value 2: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -2;
+        goto done;
+    }
+
+    r = sqlite3_bind_int64(stmt, 3, finfo->id);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not bind SQL value 3: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -3;
+        goto done;
+    }
+
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not update file info: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -4;
+        goto done;
+    }
+
+    ret = 0;
+
+  done:
+    _db_reset_stmt(stmt);
+
+    return ret;
+}
+
+static int
+_db_insert_file_info(struct db *db, struct lms_file_info *finfo)
+{
+    sqlite3_stmt *stmt;
+    int r, ret;
+
+    stmt = db->insert_file_info;
+
+    r = sqlite3_bind_text(stmt, 1, finfo->path, finfo->path_len, SQLITE_STATIC);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not bind SQL value 1: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -1;
+        goto done;
+    }
+
+    r = sqlite3_bind_int(stmt, 2, finfo->mtime);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not bind SQL value 2: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -2;
+        goto done;
+    }
+
+    r = sqlite3_bind_int(stmt, 3, finfo->is_valid);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not bind SQL value 3: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -3;
+        goto done;
+    }
+
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not insert file info: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -4;
+        goto done;
+    }
+
+    finfo->id = sqlite3_last_insert_rowid(db->handle);
+    ret = 0;
+
+  done:
+    _db_reset_stmt(stmt);
+
+    return ret;
+}
+
+static int
+_retrieve_file_status(struct db *db, struct lms_file_info *finfo)
 {
     struct stat st;
+    int r;
 
     if (stat(finfo->path, &st) != 0) {
         perror("stat");
         return -1;
     }
 
-    finfo->mtime = st.st_mtime;
-    finfo->is_valid = 1;
-    return 1;
+    r = _db_get_file_info(db, finfo);
+    if (r == 0) {
+        if (st.st_mtime <= finfo->mtime)
+            return 0;
+        else {
+            finfo->mtime = st.st_mtime;
+            return 1;
+        }
+    } else if (r == 1) {
+        finfo->mtime = st.st_mtime;
+        finfo->is_valid = 1;
+        return 1;
+    } else
+        return -2;
 }
 
 static int
@@ -211,7 +602,7 @@ _check_parsers_using(lms_t *lms, void **parser_match, struct lms_file_info *finf
 }
 
 static int
-_run_parsers(lms_t *lms, void **parser_match, struct lms_file_info *finfo)
+_run_parsers(lms_t *lms, struct db *db, void **parser_match, struct lms_file_info *finfo)
 {
     int i, r;
 
@@ -221,7 +612,7 @@ _run_parsers(lms_t *lms, void **parser_match, struct lms_file_info *finfo)
 
         plugin = lms->parsers[i].plugin;
         if (parser_match[i])
-            r += plugin->parse(plugin, finfo, parser_match[i]);
+            r += plugin->parse(plugin, db->handle, finfo, parser_match[i]);
     }
 
     return r;
@@ -233,10 +624,19 @@ _slave_work(lms_t *lms, struct fds *fds)
     int r, len, base;
     char path[PATH_SIZE];
     void **parser_match;
+    struct db *db;
+
+    db = _db_open(lms->db_path);
+    if (!db)
+        return -1;
 
     parser_match = malloc(lms->n_parsers * sizeof(*parser_match));
-    if (!parser_match)
-        return -1;
+    if (!parser_match) {
+        _db_close(db);
+        return -2;
+    }
+
+    _db_begin_transaction(db);
 
     while (((r = _slave_recv_path(fds, &len, &base, path)) == 0) && len > 0) {
         struct lms_file_info finfo;
@@ -246,7 +646,7 @@ _slave_work(lms_t *lms, struct fds *fds)
         finfo.path_len = len;
         finfo.base = base;
 
-        r = _retrieve_file_status(&finfo);
+        r = _retrieve_file_status(db, &finfo);
         if (r == 0)
             goto inform_end;
         else if (r < 0) {
@@ -259,14 +659,24 @@ _slave_work(lms_t *lms, struct fds *fds)
             goto inform_end;
 
         finfo.is_valid = 1;
+        if (finfo.id > 0)
+            r = _db_update_file_info(db, &finfo);
+        else
+            r = _db_insert_file_info(db, &finfo);
+        if (r < 0) {
+            fprintf(stderr, "ERROR: could not register path in DB\n");
+            goto inform_end;
+        }
 
-        r = _run_parsers(lms, parser_match, &finfo);
+        r = _run_parsers(lms, db, parser_match, &finfo);
 
       inform_end:
         _slave_send_reply(fds, r);
     }
 
     free(parser_match);
+    _db_end_transaction(db);
+    _db_close(db);
 
     return r;
 }
@@ -631,7 +1041,7 @@ _parser_unload(struct parser *p)
  * Public API.
  ***********************************************************************/
 lms_t *
-lms_new(void)
+lms_new(const char *db_path)
 {
     lms_t *lms;
 
@@ -642,6 +1052,12 @@ lms_new(void)
     }
 
     lms->slave_timeout = DEFAULT_SLAVE_TIMEOUT;
+    lms->db_path = strdup(db_path);
+    if (!lms->db_path) {
+        perror("strdup");
+        free(lms);
+        return NULL;
+    }
 
     return lms;
 }
@@ -664,6 +1080,7 @@ lms_free(lms_t *lms)
         free(lms->parsers);
     }
 
+    free(lms->db_path);
     free(lms);
     return 0;
 }

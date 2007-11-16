@@ -7,11 +7,6 @@ noinst_PROGRAMS = \
 	test
 
 
-test_SOURCES = \
-	test.c
-
-test_LDADD = \
-	$(top_builddir)/src/lib/liblightmediascanner.la
-
-test_DEPENDENCIES = \
-	$(top_builddir)/src/lib/liblightmediascanner.la
+test_SOURCES = test.c
+test_LDADD = $(top_builddir)/src/lib/liblightmediascanner.la @SQLITE3_LIBS@
+test_DEPENDENCIES = $(top_builddir)/src/lib/liblightmediascanner.la

@@ -36,6 +36,7 @@
 #endif
 
 #include <lightmediascanner.h>
+#include <sqlite3.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -52,7 +53,7 @@ extern "C" {
     };
 
     typedef void *(*lms_plugin_match_fn_t)(lms_plugin_t *p, const char *path, int len, int base);
-    typedef int (*lms_plugin_parse_fn_t)(lms_plugin_t *p, const struct lms_file_info *finfo, void *match);
+    typedef int (*lms_plugin_parse_fn_t)(lms_plugin_t *p, sqlite3 *db, const struct lms_file_info *finfo, void *match);
     typedef int (*lms_plugin_close_fn_t)(lms_plugin_t *p);
 
     struct lms_plugin {

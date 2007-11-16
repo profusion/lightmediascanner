@@ -11,7 +11,7 @@ usage(const char *prgname)
 {
     fprintf(stderr,
             "Usage:\n"
-            "\t%s <slave-timeout> <parser> <scan-path>\n"
+            "\t%s <slave-timeout> <db-path> <parser> <scan-path>\n"
             "\n",
             prgname);
 }
@@ -19,23 +19,26 @@ usage(const char *prgname)
 int
 main(int argc, char *argv[])
 {
-    char *parser_name, *scan_path;
+    char *db_path, *parser_name, *scan_path;
     lms_t *lms;
     lms_plugin_t *parser;
     int slave_timeout;
 
-    if (argc < 4) {
+    if (argc < 5) {
         usage(argv[0]);
         return 1;
     }
 
     slave_timeout = atoi(argv[1]);
-    parser_name = argv[2];
-    scan_path = argv[3];
+    db_path = argv[2];
+    parser_name = argv[3];
+    scan_path = argv[4];
 
-    lms = lms_new();
+    lms = lms_new(db_path);
     if (!lms) {
-        fprintf(stderr, "ERROR: could not create light media scanner.\n");
+        fprintf(stderr,
+                "ERROR: could not create light media scanner for DB \"%s\".\n",
+                db_path);
         return -1;
     }
 
