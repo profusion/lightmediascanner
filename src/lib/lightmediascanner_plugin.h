@@ -35,14 +35,31 @@
 #  define API
 #endif
 
+#include <lightmediascanner.h>
+#include <sys/types.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+    struct lms_file_info {
+        const char *path;
+        time_t mtime;
+        int64_t id;
+        int path_len;
+        int base;
+        unsigned int is_valid:1;
+    };
+
+    typedef void *(*lms_plugin_match_fn_t)(lms_plugin_t *p, const char *path, int len, int base);
+    typedef int (*lms_plugin_parse_fn_t)(lms_plugin_t *p, const struct lms_file_info *finfo, void *match);
+    typedef int (*lms_plugin_close_fn_t)(lms_plugin_t *p);
+
     struct lms_plugin {
         const char *name;
-        int (*parse)(struct lms_plugin *p, const char *path, int len, int base);
-        int (*close)(struct lms_plugin *p);
+        lms_plugin_match_fn_t match;
+        lms_plugin_parse_fn_t parse;
+        lms_plugin_close_fn_t close;
     };
 
 #ifdef __cplusplus

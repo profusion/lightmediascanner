@@ -46,21 +46,23 @@ struct plugin {
     int fd;
 };
 
-static int
-_parse(struct lms_plugin *p, const char *path, int len, int base)
+static void *
+_match(struct plugin *p, const char *path, int len, int base)
 {
-    struct plugin *plugin = (struct plugin *)p;
+    return (void*)1;
+}
 
-    write(plugin->fd, path, len);
+static int
+_parse(struct plugin *plugin, const struct lms_file_info *finfo, void *match)
+{
+    write(plugin->fd, finfo->path, finfo->path_len);
     write(plugin->fd, "\n", 1);
     return 0;
 }
 
 static int
-_close(struct lms_plugin *p)
+_close(struct plugin *plugin)
 {
-    struct plugin *plugin = (struct plugin *)p;
-
     if (close(plugin->fd) != 0)
         perror("close");
 
@@ -78,8 +80,9 @@ lms_plugin_open(void)
 
     plugin = malloc(sizeof(*plugin));
     plugin->plugin.name = _name;
-    plugin->plugin.parse = _parse;
-    plugin->plugin.close = _close;
+    plugin->plugin.match = (lms_plugin_match_fn_t)_match;
+    plugin->plugin.parse = (lms_plugin_parse_fn_t)_parse;
+    plugin->plugin.close = (lms_plugin_close_fn_t)_close;
     plugin->fd = open(logfile, O_WRONLY | O_CREAT, 0600);
     if (plugin->fd < 0) {
         perror("open");

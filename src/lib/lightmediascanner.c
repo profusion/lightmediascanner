@@ -25,6 +25,7 @@
 #define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <limits.h>
@@ -175,22 +176,97 @@ _slave_recv_path(const struct fds *slave, int *plen, int *dlen, char *path)
  ***********************************************************************/
 
 static int
+_retrieve_file_status(struct lms_file_info *finfo)
+{
+    struct stat st;
+
+    if (stat(finfo->path, &st) != 0) {
+        perror("stat");
+        return -1;
+    }
+
+    finfo->mtime = st.st_mtime;
+    finfo->is_valid = 1;
+    return 1;
+}
+
+static int
+_check_parsers_using(lms_t *lms, void **parser_match, struct lms_file_info *finfo)
+{
+    int used, i;
+
+    used = 0;
+    for (i = 0; i < lms->n_parsers; i++) {
+        lms_plugin_t *plugin;
+        void *r;
+
+        plugin = lms->parsers[i].plugin;
+        r = plugin->match(plugin, finfo->path, finfo->path_len, finfo->base);
+        parser_match[i] = r;
+        if (r)
+            used = 1;
+    }
+
+    return used;
+}
+
+static int
+_run_parsers(lms_t *lms, void **parser_match, struct lms_file_info *finfo)
+{
+    int i, r;
+
+    r = 0;
+    for (i = 0; i < lms->n_parsers; i++) {
+        lms_plugin_t *plugin;
+
+        plugin = lms->parsers[i].plugin;
+        if (parser_match[i])
+            r += plugin->parse(plugin, finfo, parser_match[i]);
+    }
+
+    return r;
+}
+
+static int
 _slave_work(lms_t *lms, struct fds *fds)
 {
     int r, len, base;
     char path[PATH_SIZE];
+    void **parser_match;
+
+    parser_match = malloc(lms->n_parsers * sizeof(*parser_match));
+    if (!parser_match)
+        return -1;
 
     while (((r = _slave_recv_path(fds, &len, &base, path)) == 0) && len > 0) {
-        int i;
+        struct lms_file_info finfo;
+        int used, r;
 
-        for (i = 0; i < lms->n_parsers; i++) {
-            lms_plugin_t *plugin;
+        finfo.path = path;
+        finfo.path_len = len;
+        finfo.base = base;
 
-            plugin = lms->parsers[i].plugin;
-            plugin->parse(plugin, path, len, base);
+        r = _retrieve_file_status(&finfo);
+        if (r == 0)
+            goto inform_end;
+        else if (r < 0) {
+            fprintf(stderr, "ERROR: could not detect file status.\n");
+            goto inform_end;
         }
-        _slave_send_reply(fds, 0);
+
+        used = _check_parsers_using(lms, parser_match, &finfo);
+        if (!used)
+            goto inform_end;
+
+        finfo.is_valid = 1;
+
+        r = _run_parsers(lms, parser_match, &finfo);
+
+      inform_end:
+        _slave_send_reply(fds, r);
     }
+
+    free(parser_match);
 
     return r;
 }
