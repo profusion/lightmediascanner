@@ -40,7 +40,7 @@
 #include "lightmediascanner_plugin.h"
 
 #define PATH_SIZE PATH_MAX
-#define SLAVE_TIMEOUT 1000
+#define DEFAULT_SLAVE_TIMEOUT 1000
 
 struct fds {
     int r;
@@ -65,6 +65,7 @@ struct parser {
 struct lms {
     struct parser *parsers;
     int n_parsers;
+    int slave_timeout;
     unsigned int is_processing:1;
 };
 
@@ -106,11 +107,11 @@ _master_send_finish(const struct fds *master)
 }
 
 static int
-_master_recv_reply(const struct fds *master, struct pollfd *pfd, int *reply)
+_master_recv_reply(const struct fds *master, struct pollfd *pfd, int *reply, int timeout)
 {
     int r;
 
-    r = poll(pfd, 1, SLAVE_TIMEOUT);
+    r = poll(pfd, 1, timeout);
     if (r < 0) {
         perror("poll");
         return -1;
@@ -405,7 +406,8 @@ _process_file(struct pinfo *pinfo, int base, char *path, const char *name)
     if (_master_send_path(&pinfo->master, new_len, base, path) != 0)
         return -2;
 
-    r = _master_recv_reply(&pinfo->master, &pinfo->poll, &reply);
+    r = _master_recv_reply(&pinfo->master, &pinfo->poll, &reply,
+                           pinfo->lms->slave_timeout);
     if (r < 0)
         return -3;
     else if (r == 1) {
@@ -555,7 +557,17 @@ _parser_unload(struct parser *p)
 lms_t *
 lms_new(void)
 {
-    return calloc(1, sizeof(lms_t));
+    lms_t *lms;
+
+    lms = calloc(1, sizeof(lms_t));
+    if (!lms) {
+        perror("calloc");
+        return NULL;
+    }
+
+    lms->slave_timeout = DEFAULT_SLAVE_TIMEOUT;
+
+    return lms;
 }
 
 int
@@ -754,3 +766,15 @@ lms_is_processing(const lms_t *lms)
 {
     return lms->is_processing;
 }
+
+int
+lms_get_slave_timeout(const lms_t *lms)
+{
+    return lms->slave_timeout;
+}
+
+void lms_set_slave_timeout(lms_t *lms, int ms)
+{
+    lms->slave_timeout = ms;
+}
+

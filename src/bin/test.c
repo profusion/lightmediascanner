@@ -4,13 +4,14 @@
 
 #include <lightmediascanner.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 void
 usage(const char *prgname)
 {
     fprintf(stderr,
             "Usage:\n"
-            "\t%s <parser> <scan-path>\n"
+            "\t%s <slave-timeout> <parser> <scan-path>\n"
             "\n",
             prgname);
 }
@@ -21,20 +22,24 @@ main(int argc, char *argv[])
     char *parser_name, *scan_path;
     lms_t *lms;
     lms_plugin_t *parser;
+    int slave_timeout;
 
-    if (argc < 3) {
+    if (argc < 4) {
         usage(argv[0]);
         return 1;
     }
 
-    parser_name = argv[1];
-    scan_path = argv[2];
+    slave_timeout = atoi(argv[1]);
+    parser_name = argv[2];
+    scan_path = argv[3];
 
     lms = lms_new();
     if (!lms) {
         fprintf(stderr, "ERROR: could not create light media scanner.\n");
         return -1;
     }
+
+    lms_set_slave_timeout(lms, slave_timeout);
 
     parser = lms_parser_find_and_add(lms, parser_name);
     if (!parser) {

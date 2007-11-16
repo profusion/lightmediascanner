@@ -72,6 +72,8 @@ extern "C" {
     API int lms_free(lms_t *lms) GNUC_NON_NULL(1);
     API int lms_process(lms_t *lms, const char *top_path) GNUC_NON_NULL(1, 2);
     API int lms_is_processing(const lms_t *lms) GNUC_PURE GNUC_NON_NULL(1);
+    API int lms_get_slave_timeout(const lms_t *lms) GNUC_NON_NULL(1);
+    API void lms_set_slave_timeout(lms_t *lms, int ms) GNUC_NON_NULL(1);
 
     API lms_plugin_t *lms_parser_add(lms_t *lms, const char *so_path) GNUC_NON_NULL(1, 2);
     API lms_plugin_t *lms_parser_find_and_add(lms_t *lms, const char *name) GNUC_NON_NULL(1, 2);
