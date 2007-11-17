@@ -1,3 +1,10 @@
 MAINTAINERCLEANFILES = Makefile.in
 
-SUBDIRS = dummy
+SUBDIRS =
+
+if USE_MODULE_DUMMY
+SUBDIRS += dummy
+endif
+
+DIST_SUBDIRS = \
+	dummy

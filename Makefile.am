@@ -11,7 +11,7 @@ MAINTAINERCLEANFILES = \
 	ltmain.sh \
 	missing
 
-SUBDIRS = src
+SUBDIRS = src m4
 
 EXTRA_DIST = \
 	README \

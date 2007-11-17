@@ -7,6 +7,8 @@ AC_ISC_POSIX
 
 AM_INIT_AUTOMAKE(1.6 dist-bzip2)
 AM_CONFIG_HEADER(config.h)
+AC_SUBST(ACLOCAL_AMFLAGS, "-I m4")
+_XTERM_COLORS
 
 AC_PROG_CC
 AM_PROG_CC_STDC
@@ -33,13 +35,46 @@ AC_DEFINE_UNQUOTED(PLUGINSDIR, ["$PLUGINSDIR"], [Where plugins are installed.])
 
 AC_CHECK_FUNCS(realpath)
 
+# required modules
 PKG_CHECK_MODULES(SQLITE3, [sqlite3 >= 3.3])
+
+# plugins declarations
+AC_LMS_OPTIONAL_MODULE([dummy], true)
 
 AC_OUTPUT([
 Makefile
+m4/Makefile
 src/Makefile
 src/bin/Makefile
 src/lib/Makefile
 src/plugins/Makefile
 src/plugins/dummy/Makefile
 ])
+
+
+# report
+txt_strip() {
+        echo "[$]@" | sed -e 's/^[[ \t]]*\([[^ \t]]*\)[[ \t]]*$/\1/g'
+}
+
+MODS=""
+for mod in $OPTIONAL_MODULES; do
+        MODS="$MODS ${COLOR_HGREEN}+$mod${COLOR_END}"
+done
+MODS=$(txt_strip $MODS)
+
+UNUSED_MODS=""
+for mod in $UNUSED_OPTIONAL_MODULES; do
+        UNUSED_MODS="$UNUSED_MODS ${COLOR_HRED}-$mod${COLOR_END}"
+done
+UNUSED_MODS=$(txt_strip $UNUSED_MODS)
+
+cat << SUMMARY_EOF
+
+Summary:
+ * project........: $PACKAGE $VERSION
+ * prefix.........: $(txt_strip $prefix)
+ * CFLAGS.........: $(txt_strip $CFLAGS)
+SUMMARY_EOF
+
+echo -e " * modules........: $MODS $UNUSED_MODS"
