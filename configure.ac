@@ -40,6 +40,7 @@ PKG_CHECK_MODULES(SQLITE3, [sqlite3 >= 3.3])
 
 # plugins declarations
 AC_LMS_OPTIONAL_MODULE([dummy], true)
+AC_LMS_OPTIONAL_MODULE([jpeg], true)
 
 AC_OUTPUT([
 Makefile
@@ -49,6 +50,7 @@ src/bin/Makefile
 src/lib/Makefile
 src/plugins/Makefile
 src/plugins/dummy/Makefile
+src/plugins/jpeg/Makefile
 ])
 
 
