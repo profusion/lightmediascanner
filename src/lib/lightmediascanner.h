@@ -60,6 +60,7 @@
 #  define GNUC_CONST
 #  define GNUC_UNUSED
 #  define GNUC_WARN_UNUSED_RESULT
+#  define GNUC_NON_NULL(...)
 #endif
 
 #ifdef __cplusplus
