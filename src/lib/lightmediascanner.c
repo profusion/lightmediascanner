@@ -39,6 +39,7 @@
 
 #include "lightmediascanner.h"
 #include "lightmediascanner_plugin.h"
+#include "lightmediascanner_db_private.h"
 
 #define PATH_SIZE PATH_MAX
 #define DEFAULT_SLAVE_TIMEOUT 1000
@@ -224,47 +225,35 @@ _db_create_tables_if_required(sqlite3 *db)
     return 0;
 }
 
-static sqlite3_stmt *
-_db_compile_stmt(sqlite3 *db, const char *sql)
-{
-    sqlite3_stmt *stmt;
-
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
-        fprintf(stderr, "ERROR: could not prepare \"%s\": %s\n", sql,
-                sqlite3_errmsg(db));
-
-    return stmt;
-}
-
 static int
 _db_compile_all_stmts(struct db *db)
 {
-    db->transaction_begin = _db_compile_stmt(db->handle,
+    db->transaction_begin = lms_db_compile_stmt(db->handle,
         "BEGIN TRANSACTION");
     if (!db->transaction_begin)
         return -1;
 
-    db->transaction_commit = _db_compile_stmt(db->handle,
+    db->transaction_commit = lms_db_compile_stmt(db->handle,
         "COMMIT");
     if (!db->transaction_commit)
         return -2;
 
-    db->transaction_rollback = _db_compile_stmt(db->handle,
+    db->transaction_rollback = lms_db_compile_stmt(db->handle,
         "ROLLBACK");
     if (!db->transaction_rollback)
         return -3;
 
-    db->get_file_info = _db_compile_stmt(db->handle,
+    db->get_file_info = lms_db_compile_stmt(db->handle,
         "SELECT id, mtime, valid FROM files WHERE path = ?");
     if (!db->get_file_info)
         return -4;
 
-    db->insert_file_info = _db_compile_stmt(db->handle,
+    db->insert_file_info = lms_db_compile_stmt(db->handle,
         "INSERT INTO files (path, mtime, valid) VALUES(?, ?, ?)");
     if (!db->insert_file_info)
         return -5;
 
-    db->update_file_info = _db_compile_stmt(db->handle,
+    db->update_file_info = lms_db_compile_stmt(db->handle,
         "UPDATE files SET mtime = ?, valid = ? WHERE id = ?");
     if (!db->update_file_info)
         return -6;
@@ -308,40 +297,25 @@ _db_open(const char *db_path)
 }
 
 static int
-_db_finalize_stmt(sqlite3_stmt *stmt, const char *name)
-{
-    int r;
-
-    r = sqlite3_finalize(stmt);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not finalize %s statement: #%d\n",
-                name, r);
-        return -1;
-    }
-
-    return 0;
-}
-
-static int
 _db_close(struct db *db)
 {
     if (db->transaction_begin)
-        _db_finalize_stmt(db->transaction_begin, "transaction_begin");
+        lms_db_finalize_stmt(db->transaction_begin, "transaction_begin");
 
     if (db->transaction_commit)
-        _db_finalize_stmt(db->transaction_commit, "transaction_commit");
+        lms_db_finalize_stmt(db->transaction_commit, "transaction_commit");
 
     if (db->transaction_rollback)
-        _db_finalize_stmt(db->transaction_rollback, "transaction_rollback");
+        lms_db_finalize_stmt(db->transaction_rollback, "transaction_rollback");
 
     if (db->get_file_info)
-        _db_finalize_stmt(db->get_file_info, "get_file_info");
+        lms_db_finalize_stmt(db->get_file_info, "get_file_info");
 
     if (db->insert_file_info)
-        _db_finalize_stmt(db->insert_file_info, "insert_file_info");
+        lms_db_finalize_stmt(db->insert_file_info, "insert_file_info");
 
     if (db->update_file_info)
-        _db_finalize_stmt(db->update_file_info, "update_file_info");
+        lms_db_finalize_stmt(db->update_file_info, "update_file_info");
 
     if (sqlite3_close(db->handle) != SQLITE_OK) {
         fprintf(stderr, "ERROR: clould not close DB: %s\n",
@@ -402,23 +376,6 @@ _db_end_transaction(struct db *db)
 }
 
 static int
-_db_reset_stmt(sqlite3_stmt *stmt)
-{
-    int r, ret;
-
-    ret = r = sqlite3_reset(stmt);
-    if (r != SQLITE_OK)
-        fprintf(stderr, "ERROR: could not reset SQL statement: #%d\n", r);
-
-    r = sqlite3_clear_bindings(stmt);
-    ret += r;
-    if (r != SQLITE_OK)
-        fprintf(stderr, "ERROR: could not clear SQL: #%d\n", r);
-
-    return ret;
-}
-
-static int
 _db_get_file_info(struct db *db, struct lms_file_info *finfo)
 {
     sqlite3_stmt *stmt;
@@ -426,13 +383,9 @@ _db_get_file_info(struct db *db, struct lms_file_info *finfo)
 
     stmt = db->get_file_info;
 
-    r = sqlite3_bind_text(stmt, 1, finfo->path, finfo->path_len, SQLITE_STATIC);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not bind SQL value 1: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -1;
+    ret = lms_db_bind_text(stmt, 1, finfo->path, finfo->path_len);
+    if (ret != 0)
         goto done;
-    }
 
     r = sqlite3_step(stmt);
     if (r == SQLITE_DONE) {
@@ -454,7 +407,7 @@ _db_get_file_info(struct db *db, struct lms_file_info *finfo)
     ret = 0;
 
   done:
-    _db_reset_stmt(stmt);
+    lms_db_reset_stmt(stmt);
 
     return ret;
 }
@@ -467,29 +420,17 @@ _db_update_file_info(struct db *db, struct lms_file_info *finfo)
 
     stmt = db->update_file_info;
 
-    r = sqlite3_bind_int(stmt, 1, finfo->mtime);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not bind SQL value 1: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -1;
+    ret = lms_db_bind_int(stmt, 1, finfo->mtime);
+    if (ret != 0)
         goto done;
-    }
 
-    r = sqlite3_bind_int(stmt, 2, finfo->is_valid);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not bind SQL value 2: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -2;
+    ret = lms_db_bind_int(stmt, 2, finfo->is_valid);
+    if (ret != 0)
         goto done;
-    }
 
-    r = sqlite3_bind_int64(stmt, 3, finfo->id);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not bind SQL value 3: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -3;
+    ret = lms_db_bind_int(stmt, 3, finfo->id);
+    if (ret != 0)
         goto done;
-    }
 
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
@@ -502,7 +443,7 @@ _db_update_file_info(struct db *db, struct lms_file_info *finfo)
     ret = 0;
 
   done:
-    _db_reset_stmt(stmt);
+    lms_db_reset_stmt(stmt);
 
     return ret;
 }
@@ -515,29 +456,17 @@ _db_insert_file_info(struct db *db, struct lms_file_info *finfo)
 
     stmt = db->insert_file_info;
 
-    r = sqlite3_bind_text(stmt, 1, finfo->path, finfo->path_len, SQLITE_STATIC);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not bind SQL value 1: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -1;
+    ret = lms_db_bind_text(stmt, 1, finfo->path, finfo->path_len);
+    if (ret != 0)
         goto done;
-    }
 
-    r = sqlite3_bind_int(stmt, 2, finfo->mtime);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not bind SQL value 2: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -2;
+    ret = lms_db_bind_int(stmt, 2, finfo->mtime);
+    if (ret != 0)
         goto done;
-    }
 
-    r = sqlite3_bind_int(stmt, 3, finfo->is_valid);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not bind SQL value 3: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -3;
+    ret = lms_db_bind_int(stmt, 3, finfo->is_valid);
+    if (ret != 0)
         goto done;
-    }
 
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
@@ -551,7 +480,7 @@ _db_insert_file_info(struct db *db, struct lms_file_info *finfo)
     ret = 0;
 
   done:
-    _db_reset_stmt(stmt);
+    lms_db_reset_stmt(stmt);
 
     return ret;
 }

@@ -5,12 +5,17 @@ AM_CPPFLAGS = -I$(top_srcdir)/src/lib
 include_HEADERS = \
 	lightmediascanner.h \
 	lightmediascanner_plugin.h \
-	lightmediascanner_utils.h
+	lightmediascanner_utils.h \
+	lightmediascanner_db.h
+noinst_HEADERS = lightmediascanner_db_private.h
 
 lib_LTLIBRARIES = liblightmediascanner.la
 
 liblightmediascanner_la_SOURCES = \
 	lightmediascanner.c \
-	lightmediascanner_utils.c
+	lightmediascanner_utils.c \
+	lightmediascanner_db_common.c \
+	lightmediascanner_db_image.c
+
 liblightmediascanner_la_LIBADD = -ldl @SQLITE3_LIBS@
 liblightmediascanner_la_LDFLAGS = -version-info @version_info@
