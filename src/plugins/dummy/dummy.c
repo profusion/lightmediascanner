@@ -63,10 +63,33 @@ _parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, vo
 static int
 _close(struct plugin *plugin)
 {
+    free(plugin);
+    return 0;
+}
+
+static int
+_start(struct plugin *plugin, sqlite3 *db)
+{
+    char logfile[PATH_MAX];
+
+    snprintf(logfile, sizeof(logfile), "/tmp/dummy-%d.log", getuid());
+    plugin->fd = open(logfile, O_WRONLY | O_CREAT, 0600);
+    if (plugin->fd < 0) {
+        perror("open");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int
+_finish(struct plugin *plugin, sqlite3 *db)
+{
     if (close(plugin->fd) != 0)
         perror("close");
 
-    free(plugin);
+    plugin->fd = 0;
+
     return 0;
 }
 
@@ -74,21 +97,14 @@ API struct lms_plugin *
 lms_plugin_open(void)
 {
     struct plugin *plugin;
-    char logfile[PATH_MAX];
-
-    snprintf(logfile, sizeof(logfile), "/tmp/dummy-%d.log", getuid());
 
     plugin = malloc(sizeof(*plugin));
     plugin->plugin.name = _name;
     plugin->plugin.match = (lms_plugin_match_fn_t)_match;
     plugin->plugin.parse = (lms_plugin_parse_fn_t)_parse;
     plugin->plugin.close = (lms_plugin_close_fn_t)_close;
-    plugin->fd = open(logfile, O_WRONLY | O_CREAT, 0600);
-    if (plugin->fd < 0) {
-        perror("open");
-        free(plugin);
-        return NULL;
-    }
+    plugin->plugin.start = (lms_plugin_start_fn_t)_start;
+    plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 
     return (struct lms_plugin *)plugin;
 }

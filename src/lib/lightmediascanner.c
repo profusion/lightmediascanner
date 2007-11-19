@@ -583,8 +583,52 @@ _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
         return -2;
 }
 
+static int _parser_del_int(lms_t *lms, int i);
+
 static int
-_check_parsers_using(lms_t *lms, void **parser_match, struct lms_file_info *finfo)
+_parsers_start(lms_t *lms, struct db *db)
+{
+    int i;
+
+    for (i = 0; i < lms->n_parsers; i++) {
+        lms_plugin_t *plugin;
+        int r;
+
+        plugin = lms->parsers[i].plugin;
+        r = plugin->start(plugin, db->handle);
+        if (r != 0) {
+            fprintf(stderr, "ERROR: parser \"%s\" failed to start: %d.\n",
+                    plugin->name, r);
+            plugin->finish(plugin, db->handle);
+            _parser_del_int(lms, i);
+            i--; /* cancel i++ */
+        }
+    }
+
+    return 0;
+}
+
+static int
+_parsers_finish(lms_t *lms, struct db *db)
+{
+    int i;
+
+    for (i = 0; i < lms->n_parsers; i++) {
+        lms_plugin_t *plugin;
+        int r;
+
+        plugin = lms->parsers[i].plugin;
+        r = plugin->finish(plugin, db->handle);
+        if (r != 0)
+            fprintf(stderr, "ERROR: parser \"%s\" failed to finish: %d.\n",
+                    plugin->name, r);
+    }
+
+    return 0;
+}
+
+static int
+_parsers_check_using(lms_t *lms, void **parser_match, struct lms_file_info *finfo)
 {
     int used, i;
 
@@ -604,7 +648,7 @@ _check_parsers_using(lms_t *lms, void **parser_match, struct lms_file_info *finf
 }
 
 static int
-_run_parsers(lms_t *lms, struct db *db, void **parser_match, struct lms_file_info *finfo)
+_parsers_run(lms_t *lms, struct db *db, void **parser_match, struct lms_file_info *finfo)
 {
     int i, r;
 
@@ -632,10 +676,22 @@ _slave_work(lms_t *lms, struct fds *fds)
     if (!db)
         return -1;
 
+    if (_parsers_start(lms, db) != 0) {
+        fprintf(stderr, "ERROR: could not start parsers.\n");
+        r = -2;
+        goto end;
+    }
+    if (lms->n_parsers < 1) {
+        fprintf(stderr, "ERROR: no parser could be started, exit.\n");
+        r = -3;
+        goto end;
+    }
+
     parser_match = malloc(lms->n_parsers * sizeof(*parser_match));
     if (!parser_match) {
         _db_close(db);
-        return -2;
+        r = -4;
+        goto end;
     }
 
     counter = 0;
@@ -657,7 +713,7 @@ _slave_work(lms_t *lms, struct fds *fds)
             goto inform_end;
         }
 
-        used = _check_parsers_using(lms, parser_match, &finfo);
+        used = _parsers_check_using(lms, parser_match, &finfo);
         if (!used)
             goto inform_end;
 
@@ -671,7 +727,7 @@ _slave_work(lms_t *lms, struct fds *fds)
             goto inform_end;
         }
 
-        r = _run_parsers(lms, db, parser_match, &finfo);
+        r = _parsers_run(lms, db, parser_match, &finfo);
 
       inform_end:
         _slave_send_reply(fds, r);
@@ -685,6 +741,9 @@ _slave_work(lms_t *lms, struct fds *fds)
 
     free(parser_match);
     _db_end_transaction(db);
+    _parsers_finish(lms, db);
+
+  end:
     _db_close(db);
 
     return r;
@@ -1142,6 +1201,38 @@ lms_parser_find_and_add(lms_t *lms, const char *name)
     return lms_parser_add(lms, so_path);
 }
 
+static int
+_parser_del_int(lms_t *lms, int i)
+{
+    struct parser *parser;
+
+    parser = lms->parsers + i;
+    _parser_unload(parser);
+    lms->n_parsers--;
+
+    if (lms->n_parsers == 0) {
+        free(lms->parsers);
+        lms->parsers = NULL;
+        return 0;
+    } else {
+        int dif;
+
+        dif = lms->n_parsers - i;
+        if (dif)
+            lms->parsers = memmove(parser, parser + 1,
+                                   dif * sizeof(struct parser));
+
+        lms->parsers = realloc(lms->parsers,
+                               lms->n_parsers * sizeof(struct parser));
+        if (!lms->parsers) {
+            lms->n_parsers = 0;
+            return -1;
+        }
+
+        return 0;
+    }
+}
+
 int
 lms_parser_del(lms_t *lms, lms_plugin_t *handle)
 {
@@ -1158,37 +1249,9 @@ lms_parser_del(lms_t *lms, lms_plugin_t *handle)
         return -4;
     }
 
-    for (i = 0; i < lms->n_parsers; i++) {
-        if (lms->parsers[i].plugin == handle) {
-            struct parser *parser;
-
-            parser = lms->parsers + i;
-            _parser_unload(parser);
-            lms->n_parsers--;
-
-            if (lms->n_parsers == 0) {
-                free(lms->parsers);
-                lms->parsers = NULL;
-                return 0;
-            } else {
-                int dif;
-
-                dif = lms->n_parsers - i;
-                if (dif)
-                    lms->parsers = memmove(parser, parser + 1,
-                                           dif * sizeof(struct parser));
-
-                lms->parsers = realloc(lms->parsers,
-                                       lms->n_parsers * sizeof(struct parser));
-                if (!lms->parsers) {
-                    lms->n_parsers = 0;
-                    return -5;
-                }
-
-                return 0;
-            }
-        }
-    }
+    for (i = 0; i < lms->n_parsers; i++)
+        if (lms->parsers[i].plugin == handle)
+            return _parser_del_int(lms, i);
 
     return -3;
 }
