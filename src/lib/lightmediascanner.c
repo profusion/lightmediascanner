@@ -82,6 +82,7 @@ struct db {
     sqlite3_stmt *get_file_info;
     sqlite3_stmt *insert_file_info;
     sqlite3_stmt *update_file_info;
+    sqlite3_stmt *delete_file_info;
 };
 
 /***********************************************************************
@@ -258,6 +259,11 @@ _db_compile_all_stmts(struct db *db)
     if (!db->update_file_info)
         return -6;
 
+    db->delete_file_info = lms_db_compile_stmt(db->handle,
+        "DELETE FROM files WHERE id = ?");
+    if (!db->delete_file_info)
+        return -6;
+
     return 0;
 }
 
@@ -316,6 +322,9 @@ _db_close(struct db *db)
 
     if (db->update_file_info)
         lms_db_finalize_stmt(db->update_file_info, "update_file_info");
+
+    if (db->delete_file_info)
+        lms_db_finalize_stmt(db->delete_file_info, "delete_file_info");
 
     if (sqlite3_close(db->handle) != SQLITE_OK) {
         fprintf(stderr, "ERROR: clould not close DB: %s\n",
@@ -486,6 +495,33 @@ _db_insert_file_info(struct db *db, struct lms_file_info *finfo)
 }
 
 static int
+_db_delete_file_info(struct db *db, struct lms_file_info *finfo)
+{
+    sqlite3_stmt *stmt;
+    int r, ret;
+
+    stmt = db->delete_file_info;
+
+    ret = lms_db_bind_int64(stmt, 1, finfo->id);
+    if (ret != 0)
+        goto done;
+
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not delete file info: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -2;
+        goto done;
+    }
+    ret = 0;
+
+  done:
+    lms_db_reset_stmt(stmt);
+
+    return ret;
+}
+
+static int
 _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
 {
     struct stat st;
@@ -578,18 +614,30 @@ _parsers_check_using(lms_t *lms, void **parser_match, struct lms_file_info *finf
 static int
 _parsers_run(lms_t *lms, struct db *db, void **parser_match, struct lms_file_info *finfo)
 {
-    int i, r;
+    int i, failed, available;
 
-    r = 0;
+    failed = 0;
+    available = 0;
     for (i = 0; i < lms->n_parsers; i++) {
         lms_plugin_t *plugin;
 
         plugin = lms->parsers[i].plugin;
-        if (parser_match[i])
-            r += plugin->parse(plugin, db->handle, finfo, parser_match[i]);
+        if (parser_match[i]) {
+            int r;
+
+            available++;
+            r = plugin->parse(plugin, db->handle, finfo, parser_match[i]);
+            if (r != 0)
+                failed++;
+        }
     }
 
-    return r;
+    if (!failed)
+        return 0;
+    else if (failed == available)
+        return -1;
+    else
+        return 1; /* non critical */
 }
 
 static int
@@ -656,6 +704,11 @@ _slave_work(lms_t *lms, struct fds *fds)
         }
 
         r = _parsers_run(lms, db, parser_match, &finfo);
+        if (r < 0) {
+            fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
+                    getpid(), finfo.path);
+            _db_delete_file_info(db, &finfo);
+        }
 
       inform_end:
         _slave_send_reply(fds, r);
