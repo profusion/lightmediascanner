@@ -1,6 +1,81 @@
 #include "lightmediascanner_db_private.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
+#if SQLITE_VERSION_NUMBER < 3003009
+int
+sqlite3_prepare_v2(sqlite3 *db, const char *sql, int len, sqlite3_stmt **stmt, const char **tail)
+{
+    return sqlite3_prepare(db, sql, len, stmt, tail);
+}
+#endif /* SQLITE_VERSION_NUMBER < 3003009 */
+
+#if SQLITE_VERSION_NUMBER < 3003007
+int
+sqlite3_clear_bindings(sqlite3_stmt *stmt)
+{
+    int i, last;
+    int rc;
+
+    rc = SQLITE_OK;
+    last = sqlite3_bind_parameter_count(stmt);
+    for(i = 1; rc == SQLITE_OK && i <= last; i++) {
+        rc = sqlite3_bind_null(stmt, i);
+    }
+    return rc;
+}
+#endif /* SQLITE_VERSION_NUMBER < 3003007 */
+
+#if SQLITE_VERSION_NUMBER < 3003008
+/* Until 3.3.8 it doesn't support CREATE TRIGGER IF NOT EXISTS, so
+ * just ignore errors :-(
+ */
+int
+lms_db_create_trigger_if_not_exists(sqlite3 *db, const char *sql)
+{
+    char *errmsg, *query;
+    int r, sql_len, prefix_len;
+
+    prefix_len = sizeof("CREATE TRIGGER ") - 1;
+    sql_len = strlen(sql);
+    query = malloc((prefix_len + sql_len + 1) * sizeof(char));
+    if (!query)
+        return -1;
+
+    memcpy(query, "CREATE TRIGGER ", prefix_len);
+    memcpy(query + prefix_len, sql, sql_len + 1);
+    r = sqlite3_exec(db, query, NULL, NULL, &errmsg);
+    free(query);
+    if (r != SQLITE_OK)
+        sqlite3_free(errmsg);
+    return 0;
+}
+#else /* SQLITE_VERSION_NUMBER < 3003008 */
+int
+lms_db_create_trigger_if_not_exists(sqlite3 *db, const char *sql)
+{
+    char *errmsg, *query;
+    int r, sql_len, prefix_len;
+
+    prefix_len = sizeof("CREATE TRIGGER IF NOT EXISTS ") - 1;
+    sql_len = strlen(sql);
+    query = malloc((prefix_len + sql_len + 1) * sizeof(char));
+    if (!query)
+        return -1;
+
+    memcpy(query, "CREATE TRIGGER IF NOT EXISTS ", prefix_len);
+    memcpy(query + prefix_len, sql, sql_len + 1);
+    r = sqlite3_exec(db, query, NULL, NULL, &errmsg);
+    free(query);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create trigger: %s\n", errmsg);
+        sqlite3_free(errmsg);
+        return -2;
+    }
+    return 0;
+}
+#endif /* SQLITE_VERSION_NUMBER < 3003008 */
 
 sqlite3_stmt *
 lms_db_compile_stmt(sqlite3 *db, const char *sql)

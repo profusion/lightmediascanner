@@ -15,7 +15,7 @@ static int
 _db_create_table_if_required(sqlite3 *db)
 {
     char *errmsg;
-    int r;
+    int r, ret;
 
     errmsg = NULL;
     r = sqlite3_exec(db,
@@ -52,39 +52,20 @@ _db_create_table_if_required(sqlite3 *db)
         return -2;
     }
 
-    r = sqlite3_exec(db,
-                     "CREATE TRIGGER IF NOT EXISTS"
-                     "   delete_images_on_files_deleted "
-                     "DELETE ON files "
-                     "FOR EACH ROW BEGIN "
-                     "   DELETE FROM images WHERE id = OLD.id;"
-                     "END;",
-                     NULL, NULL, &errmsg);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not create trigger to delete images on "
-                "files deletion: %s\n",
-                errmsg);
-        sqlite3_free(errmsg);
-        return -2;
-    }
+    ret = lms_db_create_trigger_if_not_exists(db,
+        "   delete_images_on_files_deleted "
+        "DELETE ON files FOR EACH ROW BEGIN "
+        "   DELETE FROM images WHERE id = OLD.id; END;");
+    if (ret != 0)
+        goto done;
 
-    r = sqlite3_exec(db,
-                     "CREATE TRIGGER IF NOT EXISTS"
-                     "   delete_files_on_images_deleted "
-                     "DELETE ON images "
-                     "FOR EACH ROW BEGIN "
-                     "   DELETE FROM files WHERE id = OLD.id;"
-                     "END;",
-                     NULL, NULL, &errmsg);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not create trigger to delete files on "
-                "images deletion: %s\n",
-                errmsg);
-        sqlite3_free(errmsg);
-        return -2;
-    }
+    ret = lms_db_create_trigger_if_not_exists(db,
+        "   delete_files_on_images_deleted "
+        "DELETE ON images FOR EACH ROW BEGIN "
+        "   DELETE FROM files WHERE id = OLD.id; END;");
 
-    return 0;
+  done:
+    return ret;
 }
 
 static int

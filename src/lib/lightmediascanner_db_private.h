@@ -45,5 +45,6 @@ int lms_db_bind_text(sqlite3_stmt *stmt, int col, const char *text, int len) GNU
 int lms_db_bind_int64(sqlite3_stmt *stmt, int col, int64_t value) GNUC_NON_NULL(1);
 int lms_db_bind_int(sqlite3_stmt *stmt, int col, int value) GNUC_NON_NULL(1);
 int lms_db_bind_double(sqlite3_stmt *stmt, int col, double value) GNUC_NON_NULL(1);
+int lms_db_create_trigger_if_not_exists(sqlite3 *db, const char *sql) GNUC_NON_NULL(1, 2);
 
 #endif /* _LIGHTMEDIASCANNER_DB_PRIVATE_H_ */
