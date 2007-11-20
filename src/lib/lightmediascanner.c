@@ -946,14 +946,20 @@ _process_file(struct pinfo *pinfo, int base, char *path, const char *name)
     if (r < 0)
         return -3;
     else if (r == 1) {
-        reply = 1;
         fprintf(stderr, "ERROR: slave took too long, restart %d\n",
                 pinfo->child);
         if (_restart_slave(pinfo) != 0)
             return -4;
+        return 1;
+    } else {
+        if (reply < 0) {
+            /* XXX callback library users to inform error. */
+            fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
+                    getpid(), path);
+            return (-reply) << 8;
+        } else
+            return reply;
     }
-
-    return reply;
 }
 
 static int
@@ -968,13 +974,13 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
         return -1;
     else if (new_len + 1 >= PATH_SIZE) {
         fprintf(stderr, "ERROR: path too long\n");
-        return -2;
+        return 2;
     }
 
     dir = opendir(path);
     if (dir == NULL) {
         perror("opendir");
-        return -3;
+        return 3;
     }
 
     path[new_len] = '/';
@@ -999,7 +1005,7 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
                 fprintf(stderr,
                         "ERROR: unrecoverable error parsing dir, "
                         "exit \"%s\".\n", path);
-                r = -4;
+                r = -5;
                 goto end;
             }
         }
