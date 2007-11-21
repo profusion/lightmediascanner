@@ -304,8 +304,6 @@ _exif_text_encoding_get(int fd, unsigned int count, int offset, struct lms_strin
     s->str[count] = '\0';
     s->len = count;
 
-    fprintf(stderr, "CODING TEXT[%s] %d\n", s->str, s->len);
-
     lms_strstrip(s->str, &s->len);
     if (s->len == 0) {
         free(s->str);
