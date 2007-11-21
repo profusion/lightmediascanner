@@ -69,6 +69,7 @@ extern "C" {
     typedef struct lms_db_image lms_db_image_t;
 
     API lms_db_image_t *lms_db_image_new(sqlite3 *db) GNUC_NON_NULL(1);
+    API int lms_db_image_start(lms_db_image_t *ldi) GNUC_NON_NULL(1);
     API int lms_db_image_free(lms_db_image_t *lms_db_image) GNUC_NON_NULL(1);
     API int lms_db_image_add(lms_db_image_t *lms_db_image, struct lms_image_info *info) GNUC_NON_NULL(1, 2);
 

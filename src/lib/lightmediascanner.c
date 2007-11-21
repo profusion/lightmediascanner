@@ -289,11 +289,6 @@ _db_open(const char *db_path)
         goto error;
     }
 
-    if (_db_compile_all_stmts(db) != 0) {
-        fprintf(stderr, "ERROR: could not compile statements.\n");
-        goto error;
-    }
-
     return db;
 
   error:
@@ -550,6 +545,29 @@ _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
 static int _parser_del_int(lms_t *lms, int i);
 
 static int
+_parsers_setup(lms_t *lms, struct db *db)
+{
+    int i;
+
+    for (i = 0; i < lms->n_parsers; i++) {
+        lms_plugin_t *plugin;
+        int r;
+
+        plugin = lms->parsers[i].plugin;
+        r = plugin->setup(plugin, db->handle);
+        if (r != 0) {
+            fprintf(stderr, "ERROR: parser \"%s\" failed to setup: %d.\n",
+                    plugin->name, r);
+            plugin->finish(plugin, db->handle);
+            _parser_del_int(lms, i);
+            i--; /* cancel i++ */
+        }
+    }
+
+    return 0;
+}
+
+static int
 _parsers_start(lms_t *lms, struct db *db)
 {
     int i;
@@ -652,21 +670,33 @@ _slave_work(lms_t *lms, struct fds *fds)
     if (!db)
         return -1;
 
+    if (_parsers_setup(lms, db) != 0) {
+        fprintf(stderr, "ERROR: could not setup parsers.\n");
+        r = -2;
+        goto end;
+    }
+
+    if (_db_compile_all_stmts(db) != 0) {
+        fprintf(stderr, "ERROR: could not compile statements.\n");
+        r = -3;
+        goto end;
+    }
+
     if (_parsers_start(lms, db) != 0) {
         fprintf(stderr, "ERROR: could not start parsers.\n");
-        r = -2;
+        r = -4;
         goto end;
     }
     if (lms->n_parsers < 1) {
         fprintf(stderr, "ERROR: no parser could be started, exit.\n");
-        r = -3;
+        r = -5;
         goto end;
     }
 
     parser_match = malloc(lms->n_parsers * sizeof(*parser_match));
     if (!parser_match) {
-        _db_close(db);
-        r = -4;
+        perror("malloc");
+        r = -6;
         goto end;
     }
 
@@ -722,9 +752,8 @@ _slave_work(lms_t *lms, struct fds *fds)
 
     free(parser_match);
     _db_end_transaction(db);
-    _parsers_finish(lms, db);
-
   end:
+    _parsers_finish(lms, db);
     _db_close(db);
 
     return r;

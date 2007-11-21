@@ -68,6 +68,12 @@ _close(struct plugin *plugin)
 }
 
 static int
+_setup(struct plugin *plugin, sqlite3 *db)
+{
+    return 0;
+}
+
+static int
 _start(struct plugin *plugin, sqlite3 *db)
 {
     char logfile[PATH_MAX];
@@ -103,6 +109,7 @@ lms_plugin_open(void)
     plugin->plugin.match = (lms_plugin_match_fn_t)_match;
     plugin->plugin.parse = (lms_plugin_parse_fn_t)_parse;
     plugin->plugin.close = (lms_plugin_close_fn_t)_close;
+    plugin->plugin.setup = (lms_plugin_setup_fn_t)_setup;
     plugin->plugin.start = (lms_plugin_start_fn_t)_start;
     plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 

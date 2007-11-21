@@ -68,20 +68,6 @@ _db_create_table_if_required(sqlite3 *db)
     return ret;
 }
 
-static int
-_db_compile_all_stmts(lms_db_image_t *ldi)
-{
-    ldi->insert = lms_db_compile_stmt(ldi->db,
-        "INSERT OR REPLACE INTO images ("
-        "id, title, artist, date, width, height, orientation, "
-        "thumb_width, thumb_height, gps_lat, gps_long, gps_alt) VALUES ("
-        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    if (!ldi->insert)
-        return -1;
-
-    return 0;
-}
-
 lms_db_image_t *
 lms_db_image_new(sqlite3 *db)
 {
@@ -104,13 +90,24 @@ lms_db_image_new(sqlite3 *db)
     ldi->_references = 1;
     ldi->db = db;
 
-    if (_db_compile_all_stmts(ldi) != 0) {
-        fprintf(stderr, "ERROR: could not compile image statements.\n");
-        lms_db_image_free(ldi);
-        return NULL;
-    }
-
     return ldi;
+}
+
+int
+lms_db_image_start(lms_db_image_t *ldi)
+{
+    if (!ldi)
+        return -1;
+
+    ldi->insert = lms_db_compile_stmt(ldi->db,
+        "INSERT OR REPLACE INTO images ("
+        "id, title, artist, date, width, height, orientation, "
+        "thumb_width, thumb_height, gps_lat, gps_long, gps_alt) VALUES ("
+        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    if (!ldi->insert)
+        return -2;
+
+    return 0;
 }
 
 int

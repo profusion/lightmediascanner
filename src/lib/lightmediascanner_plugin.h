@@ -55,6 +55,7 @@ extern "C" {
     typedef void *(*lms_plugin_match_fn_t)(lms_plugin_t *p, const char *path, int len, int base);
     typedef int (*lms_plugin_parse_fn_t)(lms_plugin_t *p, sqlite3 *db, const struct lms_file_info *finfo, void *match);
     typedef int (*lms_plugin_close_fn_t)(lms_plugin_t *p);
+    typedef int (*lms_plugin_setup_fn_t)(lms_plugin_t *p, sqlite3 *db);
     typedef int (*lms_plugin_start_fn_t)(lms_plugin_t *p, sqlite3 *db);
     typedef int (*lms_plugin_finish_fn_t)(lms_plugin_t *p, sqlite3 *db);
 
@@ -63,6 +64,7 @@ extern "C" {
         lms_plugin_match_fn_t match;
         lms_plugin_parse_fn_t parse;
         lms_plugin_close_fn_t close;
+        lms_plugin_setup_fn_t setup;
         lms_plugin_start_fn_t start;
         lms_plugin_finish_fn_t finish;
     };
