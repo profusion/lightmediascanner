@@ -73,6 +73,25 @@ extern "C" {
     API int lms_db_image_free(lms_db_image_t *lms_db_image) GNUC_NON_NULL(1);
     API int lms_db_image_add(lms_db_image_t *lms_db_image, struct lms_image_info *info) GNUC_NON_NULL(1, 2);
 
+    /* Audio Records */
+    struct lms_audio_info {
+        int64_t id;
+        struct lms_string_size title;
+        struct lms_string_size artist;
+        struct lms_string_size album;
+        struct lms_string_size genre;
+        double length;
+        unsigned char trackno;
+        unsigned char rating;
+    };
+
+    typedef struct lms_db_audio lms_db_audio_t;
+
+    API lms_db_audio_t *lms_db_audio_new(sqlite3 *db) GNUC_NON_NULL(1);
+    API int lms_db_audio_start(lms_db_audio_t *ldi) GNUC_NON_NULL(1);
+    API int lms_db_audio_free(lms_db_audio_t *lms_db_audio) GNUC_NON_NULL(1);
+    API int lms_db_audio_add(lms_db_audio_t *lms_db_audio, struct lms_audio_info *info) GNUC_NON_NULL(1, 2);
+
 #ifdef __cplusplus
 }
 #endif

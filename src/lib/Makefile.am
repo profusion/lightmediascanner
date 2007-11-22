@@ -15,7 +15,8 @@ liblightmediascanner_la_SOURCES = \
 	lightmediascanner.c \
 	lightmediascanner_utils.c \
 	lightmediascanner_db_common.c \
-	lightmediascanner_db_image.c
+	lightmediascanner_db_image.c \
+	lightmediascanner_db_audio.c
 
 liblightmediascanner_la_LIBADD = -ldl @SQLITE3_LIBS@
 liblightmediascanner_la_LDFLAGS = -version-info @version_info@
