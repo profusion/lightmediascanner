@@ -9,7 +9,7 @@ struct lms_db_image {
     int _references;
 };
 
-lms_db_image_t *_singleton = NULL;
+static lms_db_image_t *_singleton = NULL;
 
 static int
 _db_create_table_if_required(sqlite3 *db)
@@ -53,16 +53,16 @@ _db_create_table_if_required(sqlite3 *db)
     }
 
     ret = lms_db_create_trigger_if_not_exists(db,
-        "   delete_images_on_files_deleted "
+        "delete_images_on_files_deleted "
         "DELETE ON files FOR EACH ROW BEGIN "
-        "   DELETE FROM images WHERE id = OLD.id; END;");
+        " DELETE FROM images WHERE id = OLD.id; END;");
     if (ret != 0)
         goto done;
 
     ret = lms_db_create_trigger_if_not_exists(db,
-        "   delete_files_on_images_deleted "
+        "delete_files_on_images_deleted "
         "DELETE ON images FOR EACH ROW BEGIN "
-        "   DELETE FROM files WHERE id = OLD.id; END;");
+        " DELETE FROM files WHERE id = OLD.id; END;");
 
   done:
     return ret;
@@ -129,7 +129,7 @@ lms_db_image_free(lms_db_image_t *ldi)
     return 0;
 }
 
-int
+static int
 _db_insert(lms_db_image_t *ldi, const struct lms_image_info *info)
 {
     sqlite3_stmt *stmt;
