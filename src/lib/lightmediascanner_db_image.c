@@ -6,7 +6,8 @@
 struct lms_db_image {
     sqlite3 *db;
     sqlite3_stmt *insert;
-    int _references;
+    unsigned int _references;
+    unsigned int _is_started:1;
 };
 
 static lms_db_image_t *_singleton = NULL;
@@ -98,6 +99,8 @@ lms_db_image_start(lms_db_image_t *ldi)
 {
     if (!ldi)
         return -1;
+    if (ldi->_is_started)
+        return 0;
 
     ldi->insert = lms_db_compile_stmt(ldi->db,
         "INSERT OR REPLACE INTO images ("
@@ -107,6 +110,7 @@ lms_db_image_start(lms_db_image_t *ldi)
     if (!ldi->insert)
         return -2;
 
+    ldi->_is_started = 1;
     return 0;
 }
 
@@ -115,6 +119,10 @@ lms_db_image_free(lms_db_image_t *ldi)
 {
     if (!ldi)
         return -1;
+    if (ldi->_references == 0) {
+        fprintf(stderr, "ERROR: over-called lms_db_image_free(%p)\n", ldi);
+        return -1;
+    }
 
     ldi->_references--;
     if (ldi->_references > 0)

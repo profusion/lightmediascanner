@@ -12,7 +12,8 @@ struct lms_db_audio {
     sqlite3_stmt *get_artist;
     sqlite3_stmt *get_album;
     sqlite3_stmt *get_genre;
-    int _references;
+    unsigned int _references;
+    unsigned int _is_started:1;
 };
 
 static lms_db_audio_t *_singleton = NULL;
@@ -185,6 +186,8 @@ lms_db_audio_start(lms_db_audio_t *lda)
 {
     if (!lda)
         return -1;
+    if (lda->_is_started)
+        return 0;
 
     lda->insert_audio = lms_db_compile_stmt(lda->db,
         "INSERT OR REPLACE INTO audios "
@@ -223,6 +226,7 @@ lms_db_audio_start(lms_db_audio_t *lda)
     if (!lda->get_genre)
         return -8;
 
+    lda->_is_started = 1;
     return 0;
 }
 
@@ -231,6 +235,10 @@ lms_db_audio_free(lms_db_audio_t *lda)
 {
     if (!lda)
         return -1;
+    if (lda->_references == 0) {
+        fprintf(stderr, "ERROR: over-called lms_db_audio_free(%p)\n", lda);
+        return -1;
+    }
 
     lda->_references--;
     if (lda->_references > 0)
