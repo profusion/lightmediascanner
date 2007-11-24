@@ -363,7 +363,7 @@ _db_get_album(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t *a
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int64_or_null(stmt, 2, album_id);
+    ret = lms_db_bind_int64_or_null(stmt, 2, artist_id);
     if (ret != 0)
         goto done;
 
