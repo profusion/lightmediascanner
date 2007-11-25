@@ -83,6 +83,7 @@ struct db {
     sqlite3_stmt *insert_file_info;
     sqlite3_stmt *update_file_info;
     sqlite3_stmt *delete_file_info;
+    sqlite3_stmt *clear_file_dtime;
 };
 
 /***********************************************************************
@@ -264,6 +265,11 @@ _db_compile_all_stmts(struct db *db)
     if (!db->delete_file_info)
         return -6;
 
+    db->clear_file_dtime = lms_db_compile_stmt(db->handle,
+        "UPDATE files SET dtime = 0 WHERE id = ?");
+    if (!db->clear_file_dtime)
+        return -7;
+
     return 0;
 }
 
@@ -320,6 +326,9 @@ _db_close(struct db *db)
 
     if (db->delete_file_info)
         lms_db_finalize_stmt(db->delete_file_info, "delete_file_info");
+
+    if (db->clear_file_dtime)
+        lms_db_finalize_stmt(db->clear_file_dtime, "clear_file_dtime");
 
     if (sqlite3_close(db->handle) != SQLITE_OK) {
         fprintf(stderr, "ERROR: clould not close DB: %s\n",
@@ -508,6 +517,35 @@ _db_delete_file_info(struct db *db, struct lms_file_info *finfo)
         ret = -2;
         goto done;
     }
+    ret = 0;
+
+  done:
+    lms_db_reset_stmt(stmt);
+
+    return ret;
+}
+
+static int
+_db_clear_file_dtime(struct db *db, struct lms_file_info *finfo)
+{
+    sqlite3_stmt *stmt;
+    int r, ret;
+
+    stmt = db->clear_file_dtime;
+
+    ret = lms_db_bind_int64(stmt, 1, finfo->id);
+    if (ret != 0)
+        goto done;
+
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not clear file dtime: %s\n",
+                sqlite3_errmsg(db->handle));
+        ret = -2;
+        goto done;
+    }
+
+    finfo->dtime = 0;
     ret = 0;
 
   done:
@@ -712,9 +750,11 @@ _slave_work(lms_t *lms, struct fds *fds)
         finfo.base = base;
 
         r = _retrieve_file_status(db, &finfo);
-        if (r == 0)
+        if (r == 0) {
+            if (finfo.dtime)
+                _db_clear_file_dtime(db, &finfo);
             goto inform_end;
-        else if (r < 0) {
+        } else if (r < 0) {
             fprintf(stderr, "ERROR: could not detect file status.\n");
             goto inform_end;
         }
