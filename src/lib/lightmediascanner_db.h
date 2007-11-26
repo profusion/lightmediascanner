@@ -80,7 +80,6 @@ extern "C" {
         struct lms_string_size artist;
         struct lms_string_size album;
         struct lms_string_size genre;
-        double length;
         unsigned char trackno;
         unsigned char rating;
     };

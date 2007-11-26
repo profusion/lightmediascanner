@@ -45,7 +45,6 @@ _db_create_tables_if_required(sqlite3 *db)
         "title TEXT, "
         "album_id INTEGER, "
         "genre_id INTEGER, "
-        "length REAL NOT NULL, "
         "trackno INTEGER, "
         "rating INTEGER "
         ")");
@@ -191,8 +190,8 @@ lms_db_audio_start(lms_db_audio_t *lda)
 
     lda->insert_audio = lms_db_compile_stmt(lda->db,
         "INSERT OR REPLACE INTO audios "
-        "(id, title, album_id, genre_id, length, trackno, rating) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)");
+        "(id, title, album_id, genre_id, trackno, rating) "
+        "VALUES (?, ?, ?, ?, ?, ?)");
     if (!lda->insert_audio)
         return -2;
 
@@ -485,15 +484,11 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_double(stmt, 5, info->length);
+    ret = lms_db_bind_int(stmt, 5, info->trackno);
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 6, info->trackno);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 7, info->rating);
+    ret = lms_db_bind_int(stmt, 6, info->rating);
     if (ret != 0)
         goto done;
 
@@ -501,7 +496,7 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
     if (r != SQLITE_DONE) {
         fprintf(stderr, "ERROR: could not insert audio info: %s\n",
                 sqlite3_errmsg(lda->db));
-        ret = -8;
+        ret = -7;
         goto done;
     }
 

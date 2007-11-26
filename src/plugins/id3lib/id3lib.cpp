@@ -117,8 +117,8 @@ _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
   const ID3_Frame *frame;
   int todo;
 
-  todo = 7; /* info fields left to parse: title, artist, album, genre,
-               length, trackno, rating */
+  todo = 6; /* info fields left to parse: title, artist, album, genre,
+               trackno, rating */
 
   itr = tag.CreateIterator();
 
@@ -160,14 +160,6 @@ _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
       if (!info->genre.str) {
         _id3lib_get_string(frame, ID3FN_TEXT, &info->genre);
         if (info->genre.str)
-          todo--;
-      }
-      break;
-
-    case ID3FID_SONGLEN:
-      if (info->length < 1.0) {
-        info->length = _id3lib_get_string_as_double(frame, ID3FN_TEXT);
-        if (info->length >= 1.0)
           todo--;
       }
       break;
