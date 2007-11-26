@@ -16,7 +16,6 @@ AM_PROG_CC_C_O
 AC_HEADER_STDC
 AC_C_CONST
 
-define([AC_LIBTOOL_LANG_CXX_CONFIG], [:])dnl
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])dnl
 AC_PROG_LIBTOOL
 
@@ -38,9 +37,19 @@ AC_CHECK_FUNCS(realpath)
 # required modules
 PKG_CHECK_MODULES(SQLITE3, [sqlite3 >= 3.3])
 
+# plugins checks
+# plugins checks
+
+AM_CONDITIONAL(HAVE_ID3LIB, false)
+define([CHECK_MODULE_ID3LIB],
+[
+        AC_LMS_CHECK_PKG(ID3LIB, id3lib)
+])
+
 # plugins declarations
 AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
+AC_LMS_OPTIONAL_MODULE([id3lib], true, [CHECK_MODULE_ID3LIB])
 
 AC_OUTPUT([
 Makefile
@@ -51,6 +60,7 @@ src/lib/Makefile
 src/plugins/Makefile
 src/plugins/dummy/Makefile
 src/plugins/jpeg/Makefile
+src/plugins/id3lib/Makefile
 ])
 
 
