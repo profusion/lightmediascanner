@@ -50,6 +50,7 @@ define([CHECK_MODULE_ID3LIB],
 AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
 AC_LMS_OPTIONAL_MODULE([id3lib], true, [CHECK_MODULE_ID3LIB])
+AC_LMS_OPTIONAL_MODULE([video-dummy], true)
 
 AC_OUTPUT([
 Makefile
@@ -61,6 +62,7 @@ src/plugins/Makefile
 src/plugins/dummy/Makefile
 src/plugins/jpeg/Makefile
 src/plugins/id3lib/Makefile
+src/plugins/video-dummy/Makefile
 ])
 
 

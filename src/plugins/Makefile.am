@@ -14,7 +14,13 @@ if USE_MODULE_ID3LIB
 SUBDIRS += id3lib
 endif
 
+if USE_MODULE_VIDEO_DUMMY
+SUBDIRS += video-dummy
+endif
+
+
 DIST_SUBDIRS = \
 	dummy \
 	jpeg \
-	id3lib
+	id3lib \
+	video-dummy
