@@ -1386,28 +1386,54 @@ lms_process(lms_t *lms, const char *top_path)
 int
 lms_is_processing(const lms_t *lms)
 {
+    if (!lms) {
+        fprintf(stderr, "ERROR: lms_is_processing(NULL)\n");
+        return -1;
+    }
+
     return lms->is_processing;
 }
 
 int
 lms_get_slave_timeout(const lms_t *lms)
 {
+    if (!lms) {
+        fprintf(stderr, "ERROR: lms_get_slave_timeout(NULL)\n");
+        return -1;
+    }
+
     return lms->slave_timeout;
 }
 
 void lms_set_slave_timeout(lms_t *lms, int ms)
 {
+    if (!lms) {
+        fprintf(stderr, "ERROR: lms_set_slave_timeout(NULL, %d)\n", ms);
+        return;
+    }
+
     lms->slave_timeout = ms;
 }
 
 unsigned int
 lms_get_commit_interval(const lms_t *lms)
 {
+    if (!lms) {
+        fprintf(stderr, "ERROR: lms_get_commit_interval(NULL)\n");
+        return (unsigned int)-1;
+    }
+
     return lms->commit_interval;
 }
 
 void
 lms_set_commit_interval(lms_t *lms, unsigned int transactions)
 {
+    if (!lms) {
+        fprintf(stderr, "ERROR: lms_set_commit_interval(NULL, %u)\n",
+                transactions);
+        return;
+    }
+
     lms->commit_interval = transactions;
 }
