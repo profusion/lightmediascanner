@@ -1394,6 +1394,17 @@ lms_is_processing(const lms_t *lms)
     return lms->is_processing;
 }
 
+const char *
+lms_get_db_path(const lms_t *lms)
+{
+    if (!lms) {
+        fprintf(stderr, "ERROR: lms_get_db_path(NULL)\n");
+        return NULL;
+    }
+
+    return lms->db_path;
+}
+
 int
 lms_get_slave_timeout(const lms_t *lms)
 {
