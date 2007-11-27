@@ -205,7 +205,10 @@ _match(struct plugin *p, const char *path, int len, int base)
     int i;
 
     i = lms_which_extension(path, len, _exts, LMS_ARRAY_SIZE(_exts));
-    return (void*)(i >= 0);
+    if (i < 0)
+      return NULL;
+    else
+      return (void*)(i + 1);
 }
 
 static int
@@ -219,6 +222,16 @@ _parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, vo
     r = _id3lib_get_data(tag, &info);
     if (r != 0)
       goto done;
+
+    if (!info.title.str) {
+      int ext_idx;
+
+      ext_idx = ((int)match) - 1;
+      info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
+      info.title.str = (char *)malloc((info.title.len + 1) * sizeof(char));
+      memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
+      info.title.str[info.title.len] = '\0';
+    }
 
     info.id = finfo->id;
     r = lms_db_audio_add(plugin->audio_db, &info);

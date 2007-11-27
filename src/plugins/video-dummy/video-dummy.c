@@ -33,6 +33,7 @@
 #include <lightmediascanner_db.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 static const char _name[] = "video-dummy";
 static const struct lms_string_size _exts[] = {
@@ -65,7 +66,13 @@ static int
 _parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, void *match)
 {
     struct lms_video_info info = {0};
-    int r;
+    int r, ext_idx;
+
+    ext_idx = ((int)match) - 1;
+    info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
+    info.title.str = malloc((info.title.len + 1) * sizeof(char));
+    memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
+    info.title.str[info.title.len] = '\0';
 
     info.id = finfo->id;
     r = lms_db_video_add(plugin->video_db, &info);
