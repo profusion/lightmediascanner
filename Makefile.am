@@ -17,3 +17,6 @@ EXTRA_DIST = \
 	README \
 	AUTHORS \
 	COPYING
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = lightmediascanner.pc

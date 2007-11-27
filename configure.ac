@@ -53,6 +53,7 @@ AC_LMS_OPTIONAL_MODULE([id3lib], true, [CHECK_MODULE_ID3LIB])
 AC_LMS_OPTIONAL_MODULE([video-dummy], true)
 
 AC_OUTPUT([
+lightmediascanner.pc
 Makefile
 m4/Makefile
 src/Makefile
