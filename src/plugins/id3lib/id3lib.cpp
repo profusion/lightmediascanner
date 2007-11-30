@@ -92,24 +92,6 @@ _id3lib_get_string_as_int(const ID3_Frame *frame, ID3_FieldID field_id)
   return 0;
 }
 
-static double
-_id3lib_get_string_as_double(const ID3_Frame *frame, ID3_FieldID field_id)
-{
-  char buf[32];
-  ID3_Field* field;
-  size_t size;
-
-  field = frame->GetField(field_id);
-  if (!field)
-    return 0.0;
-
-  size = field->Get(buf, sizeof(buf));
-  if (size > 0)
-    return atof(buf);
-
-  return 0.0;
-}
-
 static int
 _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
 {
