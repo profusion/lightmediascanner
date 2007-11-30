@@ -13,8 +13,7 @@ struct lms_db_video {
 static lms_db_video_t *_singleton = NULL;
 
 static int
-_db_create_table_if_required(sqlite3 *db)
-{
+_db_table_updater_videos_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
     char *errmsg;
     int r, ret;
 
@@ -46,6 +45,19 @@ _db_create_table_if_required(sqlite3 *db)
 
   done:
     return ret;
+}
+
+static lms_db_table_updater_t _db_table_updater_videos[] = {
+    _db_table_updater_videos_0
+};
+
+
+static int
+_db_create_table_if_required(sqlite3 *db)
+{
+    return lms_db_table_update_if_required(db, "videos",
+         LMS_ARRAY_SIZE(_db_table_updater_videos),
+         _db_table_updater_videos);
 }
 
 lms_db_video_t *

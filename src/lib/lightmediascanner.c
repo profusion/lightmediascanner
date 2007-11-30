@@ -199,6 +199,19 @@ _db_create_tables_if_required(sqlite3 *db)
 
     errmsg = NULL;
     r = sqlite3_exec(db,
+                     "CREATE TABLE IF NOT EXISTS lms_internal ("
+                     "tab TEXT NOT NULL UNIQUE, "
+                     "version INTEGER NOT NULL"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create 'lms_internal' table: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    r = sqlite3_exec(db,
                      "CREATE TABLE IF NOT EXISTS files ("
                      "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                      "path BLOB NOT NULL UNIQUE, "
@@ -209,7 +222,7 @@ _db_create_tables_if_required(sqlite3 *db)
     if (r != SQLITE_OK) {
         fprintf(stderr, "ERROR: could not create 'files' table: %s\n", errmsg);
         sqlite3_free(errmsg);
-        return -1;
+        return -2;
     }
 
     r = sqlite3_exec(db,
@@ -221,7 +234,7 @@ _db_create_tables_if_required(sqlite3 *db)
         fprintf(stderr, "ERROR: could not create 'files_path_idx' index: %s\n",
                 errmsg);
         sqlite3_free(errmsg);
-        return -2;
+        return -3;
     }
 
     return 0;

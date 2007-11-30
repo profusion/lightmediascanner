@@ -13,8 +13,7 @@ struct lms_db_image {
 static lms_db_image_t *_singleton = NULL;
 
 static int
-_db_create_table_if_required(sqlite3 *db)
-{
+_db_table_updater_images_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
     char *errmsg;
     int r, ret;
 
@@ -67,6 +66,19 @@ _db_create_table_if_required(sqlite3 *db)
 
   done:
     return ret;
+}
+
+static lms_db_table_updater_t _db_table_updater_images[] = {
+    _db_table_updater_images_0
+};
+
+
+static int
+_db_create_table_if_required(sqlite3 *db)
+{
+    return lms_db_table_update_if_required(db, "images",
+         LMS_ARRAY_SIZE(_db_table_updater_images),
+         _db_table_updater_images);
 }
 
 lms_db_image_t *

@@ -35,8 +35,7 @@ _db_create(sqlite3 *db, const char *name, const char *sql)
 }
 
 static int
-_db_create_tables_if_required(sqlite3 *db)
-{
+_db_table_updater_audios_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
     int ret;
 
     ret = _db_create(db, "audios",
@@ -47,31 +46,6 @@ _db_create_tables_if_required(sqlite3 *db)
         "genre_id INTEGER, "
         "trackno INTEGER, "
         "rating INTEGER "
-        ")");
-    if (ret != 0)
-        goto done;
-
-    ret = _db_create(db, "audio_artists",
-        "CREATE TABLE IF NOT EXISTS audio_artists ("
-        "id INTEGER PRIMARY KEY, "
-        "name TEXT UNIQUE"
-        ")");
-    if (ret != 0)
-        goto done;
-
-    ret = _db_create(db, "audio_albums",
-        "CREATE TABLE IF NOT EXISTS audio_albums ("
-        "id INTEGER PRIMARY KEY, "
-        "artist_id INTEGER, "
-        "name TEXT"
-        ")");
-    if (ret != 0)
-        goto done;
-
-    ret = _db_create(db, "audio_genres",
-        "CREATE TABLE IF NOT EXISTS audio_genres ("
-        "id INTEGER PRIMARY KEY, "
-        "name TEXT UNIQUE"
         ")");
     if (ret != 0)
         goto done;
@@ -94,9 +68,60 @@ _db_create_tables_if_required(sqlite3 *db)
     if (ret != 0)
         goto done;
 
+    ret = lms_db_create_trigger_if_not_exists(db,
+        "delete_audios_on_files_deleted "
+        "DELETE ON files FOR EACH ROW BEGIN"
+        "   DELETE FROM audios WHERE id = OLD.id; END;");
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_create_trigger_if_not_exists(db,
+        "delete_files_on_audios_deleted "
+        "DELETE ON audios FOR EACH ROW BEGIN"
+        " DELETE FROM files WHERE id = OLD.id; END;");
+
+  done:
+    return ret;
+}
+
+static lms_db_table_updater_t _db_table_updater_audios[] = {
+    _db_table_updater_audios_0
+};
+
+static int
+_db_table_updater_audio_artists_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
+    int ret;
+
+    ret = _db_create(db, "audio_artists",
+        "CREATE TABLE IF NOT EXISTS audio_artists ("
+        "id INTEGER PRIMARY KEY, "
+        "name TEXT UNIQUE"
+        ")");
+    if (ret != 0)
+        goto done;
+
     ret = _db_create(db, "audio_artists_name_idx",
         "CREATE INDEX IF NOT EXISTS "
         "audio_artists_name_idx ON audio_artists (name)");
+
+  done:
+    return ret;
+}
+
+static lms_db_table_updater_t _db_table_updater_audio_artists[] = {
+    _db_table_updater_audio_artists_0
+};
+
+static int
+_db_table_updater_audio_albums_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
+    int ret;
+
+    ret = _db_create(db, "audio_albums",
+        "CREATE TABLE IF NOT EXISTS audio_albums ("
+        "id INTEGER PRIMARY KEY, "
+        "artist_id INTEGER, "
+        "name TEXT"
+        ")");
     if (ret != 0)
         goto done;
 
@@ -112,37 +137,10 @@ _db_create_tables_if_required(sqlite3 *db)
     if (ret != 0)
         goto done;
 
-    ret = _db_create(db, "audio_genres_name_idx",
-        "CREATE INDEX IF NOT EXISTS "
-        "audio_albums_name_idx ON audio_albums (name)");
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_create_trigger_if_not_exists(db,
-        "delete_audios_on_files_deleted "
-        "DELETE ON files FOR EACH ROW BEGIN"
-        "   DELETE FROM audios WHERE id = OLD.id; END;");
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_create_trigger_if_not_exists(db,
-        "delete_files_on_audios_deleted "
-        "DELETE ON audios FOR EACH ROW BEGIN"
-        " DELETE FROM files WHERE id = OLD.id; END;");
-    if (ret != 0)
-        goto done;
-
     ret = lms_db_create_trigger_if_not_exists(db,
         "delete_audios_on_albums_deleted "
         "DELETE ON audio_albums FOR EACH ROW BEGIN"
         " DELETE FROM audios WHERE album_id = OLD.id; END;");
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_create_trigger_if_not_exists(db,
-        "delete_audios_on_genres_deleted "
-        "DELETE ON audio_genres FOR EACH ROW BEGIN"
-        " DELETE FROM audios WHERE genre_id = OLD.id; END;");
     if (ret != 0)
         goto done;
 
@@ -154,6 +152,69 @@ _db_create_tables_if_required(sqlite3 *db)
   done:
     return ret;
 }
+
+static lms_db_table_updater_t _db_table_updater_audio_albums[] = {
+    _db_table_updater_audio_albums_0
+};
+
+static int
+_db_table_updater_audio_genres_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
+    int ret;
+
+    ret = _db_create(db, "audio_genres",
+        "CREATE TABLE IF NOT EXISTS audio_genres ("
+        "id INTEGER PRIMARY KEY, "
+        "name TEXT UNIQUE"
+        ")");
+    if (ret != 0)
+        goto done;
+
+    ret = _db_create(db, "audio_genres_name_idx",
+        "CREATE INDEX IF NOT EXISTS "
+        "audio_albums_name_idx ON audio_albums (name)");
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_create_trigger_if_not_exists(db,
+        "delete_audios_on_genres_deleted "
+        "DELETE ON audio_genres FOR EACH ROW BEGIN"
+        " DELETE FROM audios WHERE genre_id = OLD.id; END;");
+
+  done:
+    return ret;
+}
+
+static lms_db_table_updater_t _db_table_updater_audio_genres[] = {
+    _db_table_updater_audio_genres_0
+};
+
+#define _DB_T_UPDATE(db, name, array)                                   \
+    lms_db_table_update_if_required(db, name, LMS_ARRAY_SIZE(array), array)
+
+static int
+_db_create_tables_if_required(sqlite3 *db)
+{
+    int ret;
+
+    ret = _DB_T_UPDATE(db, "audios", _db_table_updater_audios);
+    if (ret != 0)
+        goto done;
+
+    ret = _DB_T_UPDATE(db, "audio_artists", _db_table_updater_audio_artists);
+    if (ret != 0)
+        goto done;
+
+    ret = _DB_T_UPDATE(db, "audio_albums", _db_table_updater_audio_albums);
+    if (ret != 0)
+        goto done;
+
+    ret = _DB_T_UPDATE(db, "audio_genres", _db_table_updater_audio_genres);
+
+  done:
+    return ret;
+}
+
+#undef _DB_T_UPDATE
 
 lms_db_audio_t *
 lms_db_audio_new(sqlite3 *db)

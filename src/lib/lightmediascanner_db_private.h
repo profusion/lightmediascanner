@@ -49,4 +49,12 @@ int lms_db_bind_int(sqlite3_stmt *stmt, int col, int value) GNUC_NON_NULL(1);
 int lms_db_bind_double(sqlite3_stmt *stmt, int col, double value) GNUC_NON_NULL(1);
 int lms_db_create_trigger_if_not_exists(sqlite3 *db, const char *sql) GNUC_NON_NULL(1, 2);
 
+int lms_db_table_version_get(sqlite3 *db, const char *table) GNUC_NON_NULL(1, 2);
+int lms_db_table_version_set(sqlite3 *db, const char *table, unsigned int version) GNUC_NON_NULL(1, 2);
+
+typedef int (*lms_db_table_updater_t)(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run);
+
+int lms_db_table_update(sqlite3 *db, const char *table, unsigned int current_version, unsigned int last_version, const lms_db_table_updater_t *updaters) GNUC_NON_NULL(1, 2, 5);
+int lms_db_table_update_if_required(sqlite3 *db, const char *table, unsigned int last_version, lms_db_table_updater_t *updaters) GNUC_NON_NULL(1, 2, 4);
+
 #endif /* _LIGHTMEDIASCANNER_DB_PRIVATE_H_ */
