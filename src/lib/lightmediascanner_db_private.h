@@ -42,6 +42,7 @@ sqlite3_stmt *lms_db_compile_stmt(sqlite3 *db, const char *sql) GNUC_NON_NULL(1,
 int lms_db_finalize_stmt(sqlite3_stmt *stmt, const char *name) GNUC_NON_NULL(1, 2);
 int lms_db_reset_stmt(sqlite3_stmt *stmt) GNUC_NON_NULL(1);
 int lms_db_bind_text(sqlite3_stmt *stmt, int col, const char *text, int len) GNUC_NON_NULL(1);
+int lms_db_bind_blob(sqlite3_stmt *stmt, int col, const void *blob, int len) GNUC_NON_NULL(1);
 int lms_db_bind_int64(sqlite3_stmt *stmt, int col, int64_t value) GNUC_NON_NULL(1);
 int lms_db_bind_int64_or_null(sqlite3_stmt *stmt, int col, int64_t *p_value) GNUC_NON_NULL(1);
 int lms_db_bind_int(sqlite3_stmt *stmt, int col, int value) GNUC_NON_NULL(1);

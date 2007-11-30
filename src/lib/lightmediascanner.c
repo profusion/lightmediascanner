@@ -201,7 +201,7 @@ _db_create_tables_if_required(sqlite3 *db)
     r = sqlite3_exec(db,
                      "CREATE TABLE IF NOT EXISTS files ("
                      "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                     "path TEXT NOT NULL UNIQUE, "
+                     "path BLOB NOT NULL UNIQUE, "
                      "mtime INTEGER NOT NULL, "
                      "dtime INTEGER NOT NULL"
                      ")",
@@ -396,7 +396,7 @@ _db_get_file_info(struct db *db, struct lms_file_info *finfo)
 
     stmt = db->get_file_info;
 
-    ret = lms_db_bind_text(stmt, 1, finfo->path, finfo->path_len);
+    ret = lms_db_bind_blob(stmt, 1, finfo->path, finfo->path_len);
     if (ret != 0)
         goto done;
 
@@ -469,7 +469,7 @@ _db_insert_file_info(struct db *db, struct lms_file_info *finfo)
 
     stmt = db->insert_file_info;
 
-    ret = lms_db_bind_text(stmt, 1, finfo->path, finfo->path_len);
+    ret = lms_db_bind_blob(stmt, 1, finfo->path, finfo->path_len);
     if (ret != 0)
         goto done;
 

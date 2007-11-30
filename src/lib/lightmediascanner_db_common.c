@@ -145,6 +145,29 @@ lms_db_bind_text(sqlite3_stmt *stmt, int col, const char *text, int len)
 }
 
 int
+lms_db_bind_blob(sqlite3_stmt *stmt, int col, const void *blob, int len)
+{
+    int r;
+
+    if (blob)
+        r = sqlite3_bind_blob(stmt, col, blob, len, SQLITE_STATIC);
+    else
+        r = sqlite3_bind_null(stmt, col);
+
+    if (r == SQLITE_OK)
+        return 0;
+    else {
+        sqlite3 *db;
+        const char *err;
+
+        db = sqlite3_db_handle(stmt);
+        err = sqlite3_errmsg(db);
+        fprintf(stderr, "ERROR: could not bind SQL value %d: %s\n", col, err);
+        return -col;
+    }
+}
+
+int
 lms_db_bind_int64(sqlite3_stmt *stmt, int col, int64_t value)
 {
     int r;
