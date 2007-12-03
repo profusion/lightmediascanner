@@ -18,9 +18,14 @@ if USE_MODULE_VIDEO_DUMMY
 SUBDIRS += video-dummy
 endif
 
+if USE_MODULE_M3U
+SUBDIRS += m3u
+endif
+
 
 DIST_SUBDIRS = \
 	dummy \
 	jpeg \
 	id3lib \
-	video-dummy
+	video-dummy \
+	m3u
