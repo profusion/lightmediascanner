@@ -70,8 +70,8 @@ extern "C" {
 
     API lms_db_image_t *lms_db_image_new(sqlite3 *db) GNUC_NON_NULL(1);
     API int lms_db_image_start(lms_db_image_t *ldi) GNUC_NON_NULL(1);
-    API int lms_db_image_free(lms_db_image_t *lms_db_image) GNUC_NON_NULL(1);
-    API int lms_db_image_add(lms_db_image_t *lms_db_image, struct lms_image_info *info) GNUC_NON_NULL(1, 2);
+    API int lms_db_image_free(lms_db_image_t *ldi) GNUC_NON_NULL(1);
+    API int lms_db_image_add(lms_db_image_t *ldi, struct lms_image_info *info) GNUC_NON_NULL(1, 2);
 
     /* Audio Records */
     struct lms_audio_info {
@@ -87,9 +87,9 @@ extern "C" {
     typedef struct lms_db_audio lms_db_audio_t;
 
     API lms_db_audio_t *lms_db_audio_new(sqlite3 *db) GNUC_NON_NULL(1);
-    API int lms_db_audio_start(lms_db_audio_t *ldi) GNUC_NON_NULL(1);
-    API int lms_db_audio_free(lms_db_audio_t *lms_db_audio) GNUC_NON_NULL(1);
-    API int lms_db_audio_add(lms_db_audio_t *lms_db_audio, struct lms_audio_info *info) GNUC_NON_NULL(1, 2);
+    API int lms_db_audio_start(lms_db_audio_t *lda) GNUC_NON_NULL(1);
+    API int lms_db_audio_free(lms_db_audio_t *lda) GNUC_NON_NULL(1);
+    API int lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info) GNUC_NON_NULL(1, 2);
 
     /* Video Records */
     struct lms_video_info {
@@ -101,9 +101,9 @@ extern "C" {
     typedef struct lms_db_video lms_db_video_t;
 
     API lms_db_video_t *lms_db_video_new(sqlite3 *db) GNUC_NON_NULL(1);
-    API int lms_db_video_start(lms_db_video_t *ldi) GNUC_NON_NULL(1);
-    API int lms_db_video_free(lms_db_video_t *lms_db_video) GNUC_NON_NULL(1);
-    API int lms_db_video_add(lms_db_video_t *lms_db_video, struct lms_video_info *info) GNUC_NON_NULL(1, 2);
+    API int lms_db_video_start(lms_db_video_t *ldv) GNUC_NON_NULL(1);
+    API int lms_db_video_free(lms_db_video_t *ldv) GNUC_NON_NULL(1);
+    API int lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info) GNUC_NON_NULL(1, 2);
 
     /* Playlist Records */
     struct lms_playlist_info {
