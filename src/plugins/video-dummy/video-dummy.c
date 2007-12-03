@@ -59,7 +59,10 @@ _match(struct plugin *p, const char *path, int len, int base)
     int i;
 
     i = lms_which_extension(path, len, _exts, LMS_ARRAY_SIZE(_exts));
-    return (void*)(i >= 0);
+    if (i < 0)
+        return NULL;
+    else
+        return (void*)(i + 1);
 }
 
 static int
@@ -76,6 +79,8 @@ _parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, vo
 
     info.id = finfo->id;
     r = lms_db_video_add(plugin->video_db, &info);
+
+    free(info.title.str);
 
     return r;
 }
