@@ -105,6 +105,22 @@ extern "C" {
     API int lms_db_video_free(lms_db_video_t *lms_db_video) GNUC_NON_NULL(1);
     API int lms_db_video_add(lms_db_video_t *lms_db_video, struct lms_video_info *info) GNUC_NON_NULL(1, 2);
 
+    /* Playlist Records */
+    struct lms_playlist_info {
+        int64_t id;
+        struct lms_string_size title;
+        unsigned int n_entries;
+    };
+
+    typedef struct lms_db_playlist lms_db_playlist_t;
+
+    API lms_db_playlist_t *lms_db_playlist_new(sqlite3 *db) GNUC_NON_NULL(1);
+    API int lms_db_playlist_start(lms_db_playlist_t *ldp) GNUC_NON_NULL(1);
+    API int lms_db_playlist_free(lms_db_playlist_t *ldp) GNUC_NON_NULL(1);
+    API int lms_db_playlist_add(lms_db_playlist_t *ldp, struct lms_playlist_info *info) GNUC_NON_NULL(1, 2);
+
+
+
 #ifdef __cplusplus
 }
 #endif
