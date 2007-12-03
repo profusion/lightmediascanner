@@ -31,6 +31,32 @@ _db_table_updater_videos_0(sqlite3 *db, const char *table, unsigned int current_
         return -1;
     }
 
+    r = sqlite3_exec(db,
+                     "CREATE INDEX IF NOT EXISTS videos_title_idx ON videos ("
+                     "title"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr,
+                "ERROR: could not create 'videos_title_idx' index: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -2;
+    }
+
+    r = sqlite3_exec(db,
+                     "CREATE INDEX IF NOT EXISTS videos_artist_idx ON videos ("
+                     "artist"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr,
+                "ERROR: could not create 'videos_artist_idx' index: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -3;
+    }
+
     ret = lms_db_create_trigger_if_not_exists(db,
         "delete_videos_on_files_deleted "
         "DELETE ON files FOR EACH ROW BEGIN "
