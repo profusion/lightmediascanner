@@ -216,7 +216,8 @@ _db_create_tables_if_required(sqlite3 *db)
                      "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                      "path BLOB NOT NULL UNIQUE, "
                      "mtime INTEGER NOT NULL, "
-                     "dtime INTEGER NOT NULL"
+                     "dtime INTEGER NOT NULL, "
+                     "size INTEGER NOT NULL"
                      ")",
                      NULL, NULL, &errmsg);
     if (r != SQLITE_OK) {
@@ -259,17 +260,17 @@ _db_compile_all_stmts(struct db *db)
         return -3;
 
     db->get_file_info = lms_db_compile_stmt(db->handle,
-        "SELECT id, mtime, dtime FROM files WHERE path = ?");
+        "SELECT id, mtime, dtime, size FROM files WHERE path = ?");
     if (!db->get_file_info)
         return -4;
 
     db->insert_file_info = lms_db_compile_stmt(db->handle,
-        "INSERT INTO files (path, mtime, dtime) VALUES(?, ?, ?)");
+        "INSERT INTO files (path, mtime, dtime, size) VALUES(?, ?, ?, ?)");
     if (!db->insert_file_info)
         return -5;
 
     db->update_file_info = lms_db_compile_stmt(db->handle,
-        "UPDATE files SET mtime = ?, dtime = ? WHERE id = ?");
+        "UPDATE files SET mtime = ?, dtime = ?, size = ? WHERE id = ?");
     if (!db->update_file_info)
         return -6;
 
@@ -430,6 +431,7 @@ _db_get_file_info(struct db *db, struct lms_file_info *finfo)
     finfo->id = sqlite3_column_int64(stmt, 0);
     finfo->mtime = sqlite3_column_int(stmt, 1);
     finfo->dtime = sqlite3_column_int(stmt, 2);
+    finfo->size = sqlite3_column_int(stmt, 3);
     ret = 0;
 
   done:
@@ -454,7 +456,11 @@ _db_update_file_info(struct db *db, struct lms_file_info *finfo)
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 3, finfo->id);
+    ret = lms_db_bind_int(stmt, 3, finfo->size);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 4, finfo->id);
     if (ret != 0)
         goto done;
 
@@ -462,7 +468,7 @@ _db_update_file_info(struct db *db, struct lms_file_info *finfo)
     if (r != SQLITE_DONE) {
         fprintf(stderr, "ERROR: could not update file info: %s\n",
                 sqlite3_errmsg(db->handle));
-        ret = -4;
+        ret = -5;
         goto done;
     }
 
@@ -494,11 +500,15 @@ _db_insert_file_info(struct db *db, struct lms_file_info *finfo)
     if (ret != 0)
         goto done;
 
+    ret = lms_db_bind_int(stmt, 4, finfo->size);
+    if (ret != 0)
+        goto done;
+
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
         fprintf(stderr, "ERROR: could not insert file info: %s\n",
                 sqlite3_errmsg(db->handle));
-        ret = -4;
+        ret = -5;
         goto done;
     }
 
@@ -580,14 +590,16 @@ _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
 
     r = _db_get_file_info(db, finfo);
     if (r == 0) {
-        if (st.st_mtime <= finfo->mtime)
+        if (st.st_mtime <= finfo->mtime && finfo->size == st.st_size)
             return 0;
         else {
             finfo->mtime = st.st_mtime;
+            finfo->size = st.st_size;
             return 1;
         }
     } else if (r == 1) {
         finfo->mtime = st.st_mtime;
+        finfo->size = st.st_size;
         return 1;
     } else
         return -2;

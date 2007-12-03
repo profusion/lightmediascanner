@@ -50,6 +50,7 @@ extern "C" {
         int64_t id; /**< database id */
         time_t mtime; /**< in-disk modification time */
         time_t dtime; /**< deletion time */
+        size_t size; /**< file size in bytes */
     };
 
     typedef void *(*lms_plugin_match_fn_t)(lms_plugin_t *p, const char *path, int len, int base);
