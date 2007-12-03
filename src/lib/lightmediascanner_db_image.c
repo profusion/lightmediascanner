@@ -27,8 +27,6 @@ _db_table_updater_images_0(sqlite3 *db, const char *table, unsigned int current_
                      "width INTEGER NOT NULL, "
                      "height INTEGER NOT NULL, "
                      "orientation INTEGER NOT NULL, "
-                     "thumb_width INTEGER NOT NULL, "
-                     "thumb_height INTEGER NOT NULL, "
                      "gps_lat REAL DEFAULT 0.0, "
                      "gps_long REAL DEFAULT 0.0, "
                      "gps_alt REAL DEFAULT 0.0"
@@ -117,8 +115,8 @@ lms_db_image_start(lms_db_image_t *ldi)
     ldi->insert = lms_db_compile_stmt(ldi->db,
         "INSERT OR REPLACE INTO images ("
         "id, title, artist, date, width, height, orientation, "
-        "thumb_width, thumb_height, gps_lat, gps_long, gps_alt) VALUES ("
-        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        "gps_lat, gps_long, gps_alt) VALUES ("
+        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!ldi->insert)
         return -2;
 
@@ -154,21 +152,6 @@ _db_insert(lms_db_image_t *ldi, const struct lms_image_info *info)
 {
     sqlite3_stmt *stmt;
     int r, ret;
-    unsigned long tw, th;
-
-    if (info->height < info->width) {
-        tw = 128;
-        th = (info->height * 128) / info->width;
-        if (th == 0)
-            th = 1;
-    } else if (info->height == info->width)
-        tw = th = 128;
-    else {
-        th = 128;
-        tw = (info->width * 128) / info->height;
-        if (tw == 0)
-            tw = 1;
-    }
 
     stmt = ldi->insert;
 
@@ -200,23 +183,15 @@ _db_insert(lms_db_image_t *ldi, const struct lms_image_info *info)
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 8, tw);
+    ret = lms_db_bind_double(stmt, 8, info->gps.latitude);
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 9, th);
+    ret = lms_db_bind_double(stmt, 9, info->gps.longitude);
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_double(stmt, 10, info->gps.latitude);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_double(stmt, 11, info->gps.longitude);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_double(stmt, 12, info->gps.altitude);
+    ret = lms_db_bind_double(stmt, 10, info->gps.altitude);
     if (ret != 0)
         goto done;
 
@@ -224,7 +199,7 @@ _db_insert(lms_db_image_t *ldi, const struct lms_image_info *info)
     if (r != SQLITE_DONE) {
         fprintf(stderr, "ERROR: could not insert image info: %s\n",
                 sqlite3_errmsg(ldi->db));
-        ret = -13;
+        ret = -11;
         goto done;
     }
 
