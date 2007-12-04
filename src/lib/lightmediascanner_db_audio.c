@@ -68,6 +68,12 @@ _db_table_updater_audios_0(sqlite3 *db, const char *table, unsigned int current_
     if (ret != 0)
         goto done;
 
+    ret = _db_create(db, "audios_trackno_idx",
+        "CREATE INDEX IF NOT EXISTS "
+        "audios_trackno_idx ON audios (trackno)");
+    if (ret != 0)
+        goto done;
+
     ret = lms_db_create_trigger_if_not_exists(db,
         "delete_audios_on_files_deleted "
         "DELETE ON files FOR EACH ROW BEGIN"
