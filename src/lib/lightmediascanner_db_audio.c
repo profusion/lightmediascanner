@@ -45,7 +45,8 @@ _db_table_updater_audios_0(sqlite3 *db, const char *table, unsigned int current_
         "album_id INTEGER, "
         "genre_id INTEGER, "
         "trackno INTEGER, "
-        "rating INTEGER "
+        "rating INTEGER, "
+        "playcnt INTEGER"
         ")");
     if (ret != 0)
         goto done;
@@ -71,6 +72,12 @@ _db_table_updater_audios_0(sqlite3 *db, const char *table, unsigned int current_
     ret = _db_create(db, "audios_trackno_idx",
         "CREATE INDEX IF NOT EXISTS "
         "audios_trackno_idx ON audios (trackno)");
+    if (ret != 0)
+        goto done;
+
+    ret = _db_create(db, "audios_playcnt_idx",
+        "CREATE INDEX IF NOT EXISTS "
+        "audios_playcnt_idx ON audios (playcnt)");
     if (ret != 0)
         goto done;
 
@@ -257,8 +264,8 @@ lms_db_audio_start(lms_db_audio_t *lda)
 
     lda->insert_audio = lms_db_compile_stmt(lda->db,
         "INSERT OR REPLACE INTO audios "
-        "(id, title, album_id, genre_id, trackno, rating) "
-        "VALUES (?, ?, ?, ?, ?, ?)");
+        "(id, title, album_id, genre_id, trackno, rating, playcnt) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)");
     if (!lda->insert_audio)
         return -2;
 
@@ -559,11 +566,15 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
     if (ret != 0)
         goto done;
 
+    ret = lms_db_bind_int(stmt, 7, info->playcnt);
+    if (ret != 0)
+        goto done;
+
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
         fprintf(stderr, "ERROR: could not insert audio info: %s\n",
                 sqlite3_errmsg(lda->db));
-        ret = -7;
+        ret = -8;
         goto done;
     }
 
