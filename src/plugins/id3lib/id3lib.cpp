@@ -99,8 +99,8 @@ _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
   const ID3_Frame *frame;
   int todo;
 
-  todo = 6; /* info fields left to parse: title, artist, album, genre,
-               trackno, rating */
+  todo = 7; /* info fields left to parse: title, artist, album, genre,
+               trackno, rating, playcnt */
 
   itr = tag.CreateIterator();
 
@@ -158,6 +158,11 @@ _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
       if (!info->rating) {
         info->rating = frame->GetField(ID3FN_RATING)->Get();
         if (info->rating)
+          todo--;
+      }
+      if (!info->playcnt) {
+        info->playcnt = frame->GetField(ID3FN_COUNTER)->Get();
+        if (info->playcnt)
           todo--;
       }
       break;
