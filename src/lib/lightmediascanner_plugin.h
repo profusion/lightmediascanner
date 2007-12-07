@@ -22,6 +22,7 @@
 #define _LIGHTMEDIASCANNER_PLUGIN_H_ 1
 
 #include <lightmediascanner.h>
+#include <lightmediascanner_charset_conv.h>
 #include <sqlite3.h>
 #include <sys/types.h>
 
@@ -41,6 +42,7 @@ extern "C" {
 
     struct lms_context {
         sqlite3 *db;
+        lms_charset_conv_t *cs_conv;
     };
 
     typedef void *(*lms_plugin_match_fn_t)(lms_plugin_t *p, const char *path, int len, int base);

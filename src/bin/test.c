@@ -12,7 +12,7 @@ usage(const char *prgname)
     fprintf(stderr,
             "Usage:\n"
             "\t%s <commit-interval> <slave-timeout> <db-path> <parser> "
-            "<scan-path>\n"
+            "<charset> <scan-path>\n"
             "\n",
             prgname);
 }
@@ -20,7 +20,7 @@ usage(const char *prgname)
 int
 main(int argc, char *argv[])
 {
-    char *db_path, *parser_name, *scan_path;
+    char *db_path, *parser_name, *charset, *scan_path;
     lms_t *lms;
     lms_plugin_t *parser;
     int commit_interval, slave_timeout;
@@ -34,7 +34,8 @@ main(int argc, char *argv[])
     slave_timeout = atoi(argv[2]);
     db_path = argv[3];
     parser_name = argv[4];
-    scan_path = argv[5];
+    charset = argv[5];
+    scan_path = argv[6];
 
     lms = lms_new(db_path);
     if (!lms) {
@@ -55,15 +56,21 @@ main(int argc, char *argv[])
         return -2;
     }
 
-    if (lms_process(lms, scan_path) != 0) {
-        fprintf(stderr, "ERROR: processing \"%s\".\n", scan_path);
+    if (lms_charset_add(lms, charset) != 0) {
+        fprintf(stderr, "ERROR: could not add charset '%s'\n", charset);
         lms_free(lms);
         return -3;
     }
 
+    if (lms_process(lms, scan_path) != 0) {
+        fprintf(stderr, "ERROR: processing \"%s\".\n", scan_path);
+        lms_free(lms);
+        return -4;
+    }
+
     if (lms_free(lms) != 0) {
         fprintf(stderr, "ERROR: could not close light media scanner.\n");
-        return -4;
+        return -5;
     }
 
     return 0;

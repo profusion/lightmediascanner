@@ -40,6 +40,7 @@
 #include "lightmediascanner.h"
 #include "lightmediascanner_plugin.h"
 #include "lightmediascanner_db_private.h"
+#include "lightmediascanner_charset_conv.h"
 
 #define PATH_SIZE PATH_MAX
 #define DEFAULT_SLAVE_TIMEOUT 1000
@@ -68,6 +69,7 @@ struct parser {
 struct lms {
     struct parser *parsers;
     int n_parsers;
+    lms_charset_conv_t *cs_conv;
     char *db_path;
     int slave_timeout;
     unsigned int commit_interval;
@@ -608,6 +610,7 @@ _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
 static void
 _ctxt_init(struct lms_context *ctxt, const lms_t *lms, const struct db *db)
 {
+    ctxt->cs_conv = lms->cs_conv;
     ctxt->db = db->handle;
 }
 
@@ -1218,11 +1221,18 @@ lms_new(const char *db_path)
         return NULL;
     }
 
+    lms->cs_conv = lms_charset_conv_new();
+    if (!lms->cs_conv) {
+        free(lms);
+        return NULL;
+    }
+
     lms->commit_interval = DEFAULT_COMMIT_INTERVAL;
     lms->slave_timeout = DEFAULT_SLAVE_TIMEOUT;
     lms->db_path = strdup(db_path);
     if (!lms->db_path) {
         perror("strdup");
+        lms_charset_conv_free(lms->cs_conv);
         free(lms);
         return NULL;
     }
@@ -1249,6 +1259,7 @@ lms_free(lms_t *lms)
     }
 
     free(lms->db_path);
+    lms_charset_conv_free(lms->cs_conv);
     free(lms);
     return 0;
 }
@@ -1490,4 +1501,26 @@ lms_set_commit_interval(lms_t *lms, unsigned int transactions)
     }
 
     lms->commit_interval = transactions;
+}
+
+int
+lms_charset_add(lms_t *lms, const char *charset)
+{
+    if (!lms) {
+        fprintf(stderr, "ERROR: lms_charset_add(NULL)\n");
+        return -1;
+    }
+
+    return lms_charset_conv_add(lms->cs_conv, charset);
+}
+
+int
+lms_charset_del(lms_t *lms, const char *charset)
+{
+    if (!lms) {
+        fprintf(stderr, "ERROR: lms_charset_del(NULL)\n");
+        return -1;
+    }
+
+    return lms_charset_conv_del(lms->cs_conv, charset);
 }

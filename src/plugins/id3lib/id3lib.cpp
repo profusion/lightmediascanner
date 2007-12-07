@@ -220,6 +220,15 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
       info.title.str[info.title.len] = '\0';
     }
 
+    if (info.title.str)
+      lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
+    if (info.artist.str)
+      lms_charset_conv(ctxt->cs_conv, &info.artist.str, &info.artist.len);
+    if (info.album.str)
+      lms_charset_conv(ctxt->cs_conv, &info.album.str, &info.album.len);
+    if (info.genre.str)
+      lms_charset_conv(ctxt->cs_conv, &info.genre.str, &info.genre.len);
+
     info.id = finfo->id;
     r = lms_db_audio_add(plugin->audio_db, &info);
 

@@ -644,6 +644,11 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
       info.title.str[info.title.len] = '\0';
     }
 
+    if (info.title.str)
+      lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
+    if (info.artist.str)
+      lms_charset_conv(ctxt->cs_conv, &info.artist.str, &info.artist.len);
+
     info.id = finfo->id;
     r = lms_db_image_add(plugin->img_db, &info);
 

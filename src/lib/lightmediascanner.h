@@ -83,6 +83,9 @@ extern "C" {
     API lms_plugin_t *lms_parser_find_and_add(lms_t *lms, const char *name) GNUC_NON_NULL(1, 2);
     API int lms_parser_del(lms_t *lms, lms_plugin_t *handle) GNUC_NON_NULL(1, 2);
 
+    API int lms_charset_add(lms_t *lms, const char *charset) GNUC_NON_NULL(1, 2);
+    API int lms_charset_del(lms_t *lms, const char *charset) GNUC_NON_NULL(1, 2);
+
 #ifdef __cplusplus
 }
 #endif

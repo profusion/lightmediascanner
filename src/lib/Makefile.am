@@ -6,7 +6,8 @@ include_HEADERS = \
 	lightmediascanner.h \
 	lightmediascanner_plugin.h \
 	lightmediascanner_utils.h \
-	lightmediascanner_db.h
+	lightmediascanner_db.h \
+	lightmediascanner_charset_conv.h
 noinst_HEADERS = lightmediascanner_db_private.h
 
 lib_LTLIBRARIES = liblightmediascanner.la
@@ -14,6 +15,7 @@ lib_LTLIBRARIES = liblightmediascanner.la
 liblightmediascanner_la_SOURCES = \
 	lightmediascanner.c \
 	lightmediascanner_utils.c \
+	lightmediascanner_charset_conv.c \
 	lightmediascanner_db_common.c \
 	lightmediascanner_db_image.c \
 	lightmediascanner_db_audio.c \
