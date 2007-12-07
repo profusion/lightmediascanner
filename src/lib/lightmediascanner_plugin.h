@@ -21,20 +21,6 @@
 #ifndef _LIGHTMEDIASCANNER_PLUGIN_H_
 #define _LIGHTMEDIASCANNER_PLUGIN_H_ 1
 
-#ifdef API
-#undef API
-#endif
-
-#ifdef __GNUC__
-# if __GNUC__ >= 4
-#  define API __attribute__ ((visibility("default")))
-# else
-#  define API
-# endif
-#else
-#  define API
-#endif
-
 #include <lightmediascanner.h>
 #include <sqlite3.h>
 #include <sys/types.h>

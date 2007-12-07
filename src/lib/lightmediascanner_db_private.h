@@ -21,10 +21,6 @@
 #ifndef _LIGHTMEDIASCANNER_DB_PRIVATE_H_
 #define _LIGHTMEDIASCANNER_DB_PRIVATE_H_ 1
 
-#ifdef API
-#undef API
-#endif
-
 #ifdef __GNUC__
 # if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
 #  define GNUC_NON_NULL(...) __attribute__((nonnull(__VA_ARGS__)))
