@@ -10,7 +10,7 @@ struct lms_db_playlist {
     unsigned int _is_started:1;
 };
 
-static lms_db_playlist_t *_singleton = NULL;
+static struct lms_db_cache _cache = {0, NULL};
 
 static int
 _db_table_updater_playlists_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
@@ -78,9 +78,9 @@ lms_db_playlist_new(sqlite3 *db)
 {
     lms_db_playlist_t *ldp;
 
-    if (_singleton) {
-        _singleton->_references++;
-        return _singleton;
+    if (lms_db_cache_get(&_cache, db, (void**)&ldp) == 0) {
+        ldp->_references++;
+        return ldp;
     }
 
     if (!db)
@@ -94,6 +94,11 @@ lms_db_playlist_new(sqlite3 *db)
     ldp = calloc(1, sizeof(lms_db_playlist_t));
     ldp->_references = 1;
     ldp->db = db;
+
+    if (lms_db_cache_add(&_cache, db, ldp) != 0) {
+        lms_db_playlist_free(ldp);
+        return NULL;
+    }
 
     return ldp;
 }
@@ -119,6 +124,8 @@ lms_db_playlist_start(lms_db_playlist_t *ldp)
 int
 lms_db_playlist_free(lms_db_playlist_t *ldp)
 {
+    int r;
+
     if (!ldp)
         return -1;
     if (ldp->_references == 0) {
@@ -133,10 +140,10 @@ lms_db_playlist_free(lms_db_playlist_t *ldp)
     if (ldp->insert)
         lms_db_finalize_stmt(ldp->insert, "insert");
 
+    r = lms_db_cache_del(&_cache, ldp->db, ldp);
     free(ldp);
-    _singleton = NULL;
 
-    return 0;
+    return r;
 }
 
 static int

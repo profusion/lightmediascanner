@@ -10,7 +10,7 @@ struct lms_db_image {
     unsigned int _is_started:1;
 };
 
-static lms_db_image_t *_singleton = NULL;
+static struct lms_db_cache _cache = {0, NULL};
 
 static int
 _db_table_updater_images_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
@@ -84,9 +84,9 @@ lms_db_image_new(sqlite3 *db)
 {
     lms_db_image_t *ldi;
 
-    if (_singleton) {
-        _singleton->_references++;
-        return _singleton;
+    if (lms_db_cache_get(&_cache, db, (void**)&ldi) == 0) {
+        ldi->_references++;
+        return ldi;
     }
 
     if (!db)
@@ -100,6 +100,11 @@ lms_db_image_new(sqlite3 *db)
     ldi = calloc(1, sizeof(lms_db_image_t));
     ldi->_references = 1;
     ldi->db = db;
+
+    if (lms_db_cache_add(&_cache, db, ldi) != 0) {
+        lms_db_image_free(ldi);
+        return NULL;
+    }
 
     return ldi;
 }
@@ -127,6 +132,8 @@ lms_db_image_start(lms_db_image_t *ldi)
 int
 lms_db_image_free(lms_db_image_t *ldi)
 {
+    int r;
+
     if (!ldi)
         return -1;
     if (ldi->_references == 0) {
@@ -141,10 +148,10 @@ lms_db_image_free(lms_db_image_t *ldi)
     if (ldi->insert)
         lms_db_finalize_stmt(ldi->insert, "insert");
 
+    r = lms_db_cache_del(&_cache, ldi->db, ldi);
     free(ldi);
-    _singleton = NULL;
 
-    return 0;
+    return r;
 }
 
 static int

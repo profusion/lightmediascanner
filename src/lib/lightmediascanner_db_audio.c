@@ -16,7 +16,7 @@ struct lms_db_audio {
     unsigned int _is_started:1;
 };
 
-static lms_db_audio_t *_singleton = NULL;
+static struct lms_db_cache _cache = {0, NULL};
 
 static int
 _db_create(sqlite3 *db, const char *name, const char *sql)
@@ -234,9 +234,9 @@ lms_db_audio_new(sqlite3 *db)
 {
     lms_db_audio_t *lda;
 
-    if (_singleton) {
-        _singleton->_references++;
-        return _singleton;
+    if (lms_db_cache_get(&_cache, db, (void**)&lda) == 0) {
+        lda->_references++;
+        return lda;
     }
 
     if (!db)
@@ -250,6 +250,11 @@ lms_db_audio_new(sqlite3 *db)
     lda = calloc(1, sizeof(lms_db_audio_t));
     lda->_references = 1;
     lda->db = db;
+
+    if (lms_db_cache_add(&_cache, db, lda) != 0) {
+        lms_db_audio_free(lda);
+        return NULL;
+    }
 
     return lda;
 }
@@ -306,6 +311,8 @@ lms_db_audio_start(lms_db_audio_t *lda)
 int
 lms_db_audio_free(lms_db_audio_t *lda)
 {
+    int r;
+
     if (!lda)
         return -1;
     if (lda->_references == 0) {
@@ -338,10 +345,10 @@ lms_db_audio_free(lms_db_audio_t *lda)
     if (lda->get_genre)
         lms_db_finalize_stmt(lda->get_genre, "get_genre");
 
+    r = lms_db_cache_del(&_cache, lda->db, lda);
     free(lda);
-    _singleton = NULL;
 
-    return 0;
+    return r;
 }
 
 static int
