@@ -57,4 +57,19 @@ typedef int (*lms_db_table_updater_t)(sqlite3 *db, const char *table, unsigned i
 int lms_db_table_update(sqlite3 *db, const char *table, unsigned int current_version, unsigned int last_version, const lms_db_table_updater_t *updaters) GNUC_NON_NULL(1, 2, 5);
 int lms_db_table_update_if_required(sqlite3 *db, const char *table, unsigned int last_version, lms_db_table_updater_t *updaters) GNUC_NON_NULL(1, 2, 4);
 
+struct lms_db_cache_entry {
+    const sqlite3 *db;
+    void *data;
+};
+
+struct lms_db_cache {
+    int size;
+    struct lms_db_cache_entry *entries;
+};
+
+int lms_db_cache_add(struct lms_db_cache *cache, const sqlite3 *db, void *data) GNUC_NON_NULL(1, 2, 3);
+int lms_db_cache_del(struct lms_db_cache *cache, const sqlite3 *db, void *data) GNUC_NON_NULL(1, 2, 3);
+int lms_db_cache_get(struct lms_db_cache *cache, const sqlite3 *db, void **pdata) GNUC_NON_NULL(1, 2, 3);
+
+
 #endif /* _LIGHTMEDIASCANNER_DB_PRIVATE_H_ */

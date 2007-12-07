@@ -355,3 +355,98 @@ lms_db_table_update_if_required(sqlite3 *db, const char *table, unsigned int las
         return lms_db_table_update(db, table, current_version, last_version,
                                    updaters);
 }
+
+static int
+lms_db_cache_find_db(const struct lms_db_cache *cache, const sqlite3 *db)
+{
+    int i;
+
+    for (i = 0; i < cache->size; i++)
+        if (cache->entries[i].db == db)
+            return i;
+
+    return -1;
+}
+
+static int
+lms_db_cache_resize(struct lms_db_cache *cache, int new_size)
+{
+    cache->size = new_size;
+    cache->entries = realloc(cache->entries,
+                             cache->size * sizeof(*cache->entries));
+    if (cache->size && !cache->entries) {
+        perror("realloc");
+        cache->size = 0;
+        return -1;
+    }
+
+    return 0;
+}
+
+int
+lms_db_cache_add(struct lms_db_cache *cache, const sqlite3 *db, void *data)
+{
+    struct lms_db_cache_entry *e;
+    int idx;
+
+    idx = lms_db_cache_find_db(cache, db);
+    if (idx >= 0) {
+        e = cache->entries + idx;
+        if (e->data == data)
+            return 0;
+        else {
+            fprintf(stderr,
+                    "ERROR: cache %p for db %p has another data registered"
+                    ": %p (current is %p)\n", cache, db, e->data, data);
+            return -1;
+        }
+    }
+
+    idx = cache->size;
+    if (lms_db_cache_resize(cache, cache->size + 1) != 0) {
+        return -2;
+    }
+
+    e = cache->entries + idx;
+    e->db = db;
+    e->data = data;
+    return 0;
+}
+
+int
+lms_db_cache_del(struct lms_db_cache *cache, const sqlite3 *db, void *data)
+{
+    int idx;
+    struct lms_db_cache_entry *e;
+
+    idx = lms_db_cache_find_db(cache, db);
+    if (idx < 0) {
+        fprintf(stderr, "ERROR: no db %p found in cache %p\n", db, cache);
+        return -1;
+    }
+
+    e = cache->entries + idx;
+    if (e->data != data) {
+        fprintf(stderr, "ERROR: data mismatch in request to delete from cache: "
+                "want %p, has %p, cache %p, db %p\n", data, e->data, cache, db);
+        return -2;
+    }
+
+    for (; idx < cache->size - 1; idx++)
+        cache->entries[idx] = cache->entries[idx + 1];
+
+    return lms_db_cache_resize(cache, cache->size - 1);
+}
+
+int
+lms_db_cache_get(struct lms_db_cache *cache, const sqlite3 *db, void **pdata)
+{
+    int idx;
+
+    idx = lms_db_cache_find_db(cache, db);
+    if (idx < 0)
+        return -1;
+
+    *pdata = cache->entries[idx].data;
+    return 0;
+}
