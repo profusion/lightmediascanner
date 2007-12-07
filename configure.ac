@@ -46,12 +46,19 @@ define([CHECK_MODULE_ID3LIB],
         AC_LMS_CHECK_PKG(ID3LIB, id3lib)
 ])
 
+AM_CONDITIONAL(HAVE_VORBIS, false)
+define([CHECK_MODULE_VORBIS],
+[
+        AC_LMS_CHECK_PKG(VORBIS, vorbis)
+])
+
 # plugins declarations
 AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
 AC_LMS_OPTIONAL_MODULE([id3lib], true, [CHECK_MODULE_ID3LIB])
 AC_LMS_OPTIONAL_MODULE([video-dummy], true)
 AC_LMS_OPTIONAL_MODULE([m3u], true)
+AC_LMS_OPTIONAL_MODULE([ogg], true, [CHECK_MODULE_VORBIS])
 AC_LMS_OPTIONAL_MODULE([pls], true)
 
 AC_OUTPUT([
@@ -67,6 +74,7 @@ src/plugins/jpeg/Makefile
 src/plugins/id3lib/Makefile
 src/plugins/video-dummy/Makefile
 src/plugins/m3u/Makefile
+src/plugins/ogg/Makefile
 src/plugins/pls/Makefile
 ])
 

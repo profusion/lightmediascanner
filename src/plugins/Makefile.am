@@ -26,6 +26,9 @@ if USE_MODULE_PLS
 SUBDIRS += pls
 endif
 
+if USE_MODULE_OGG
+SUBDIRS += ogg
+endif
 
 DIST_SUBDIRS = \
 	dummy \
@@ -33,4 +36,5 @@ DIST_SUBDIRS = \
 	id3lib \
 	video-dummy \
 	m3u \
+	ogg \
 	pls
