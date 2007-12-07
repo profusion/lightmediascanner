@@ -594,7 +594,7 @@ _match(struct plugin *p, const char *path, int len, int base)
 }
 
 static int
-_parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, void *match)
+_parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
     struct lms_image_info info = {0};
     int fd, type, len, r;
@@ -660,9 +660,9 @@ _parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, vo
 }
 
 static int
-_setup(struct plugin *plugin, sqlite3 *db)
+_setup(struct plugin *plugin, struct lms_context *ctxt)
 {
-    plugin->img_db = lms_db_image_new(db);
+    plugin->img_db = lms_db_image_new(ctxt->db);
     if (!plugin->img_db)
         return -1;
 
@@ -670,13 +670,13 @@ _setup(struct plugin *plugin, sqlite3 *db)
 }
 
 static int
-_start(struct plugin *plugin, sqlite3 *db)
+_start(struct plugin *plugin, struct lms_context *ctxt)
 {
     return lms_db_image_start(plugin->img_db);
 }
 
 static int
-_finish(struct plugin *plugin, sqlite3 *db)
+_finish(struct plugin *plugin, struct lms_context *ctxt)
 {
     if (plugin->img_db)
         return lms_db_image_free(plugin->img_db);

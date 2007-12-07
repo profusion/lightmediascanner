@@ -289,7 +289,7 @@ _match(struct plugin *p, const char *path, int len, int base)
 }
 
 static int
-_parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, void *match)
+_parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
     struct lms_playlist_info info = {0};
     int fd, r, ext_idx;
@@ -324,9 +324,9 @@ _parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, vo
 }
 
 static int
-_setup(struct plugin *plugin, sqlite3 *db)
+_setup(struct plugin *plugin, struct lms_context *ctxt)
 {
-    plugin->playlist_db = lms_db_playlist_new(db);
+    plugin->playlist_db = lms_db_playlist_new(ctxt->db);
     if (!plugin->playlist_db)
         return -1;
 
@@ -334,13 +334,13 @@ _setup(struct plugin *plugin, sqlite3 *db)
 }
 
 static int
-_start(struct plugin *plugin, sqlite3 *db)
+_start(struct plugin *plugin, struct lms_context *ctxt)
 {
     return lms_db_playlist_start(plugin->playlist_db);
 }
 
 static int
-_finish(struct plugin *plugin, sqlite3 *db)
+_finish(struct plugin *plugin, struct lms_context *ctxt)
 {
     if (plugin->playlist_db)
         return lms_db_playlist_free(plugin->playlist_db);

@@ -605,23 +605,32 @@ _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
         return -2;
 }
 
+static void
+_ctxt_init(struct lms_context *ctxt, const lms_t *lms, const struct db *db)
+{
+    ctxt->db = db->handle;
+}
+
 static int _parser_del_int(lms_t *lms, int i);
 
 static int
 _parsers_setup(lms_t *lms, struct db *db)
 {
+    struct lms_context ctxt;
     int i;
+
+    _ctxt_init(&ctxt, lms, db);
 
     for (i = 0; i < lms->n_parsers; i++) {
         lms_plugin_t *plugin;
         int r;
 
         plugin = lms->parsers[i].plugin;
-        r = plugin->setup(plugin, db->handle);
+        r = plugin->setup(plugin, &ctxt);
         if (r != 0) {
             fprintf(stderr, "ERROR: parser \"%s\" failed to setup: %d.\n",
                     plugin->name, r);
-            plugin->finish(plugin, db->handle);
+            plugin->finish(plugin, &ctxt);
             _parser_del_int(lms, i);
             i--; /* cancel i++ */
         }
@@ -633,18 +642,21 @@ _parsers_setup(lms_t *lms, struct db *db)
 static int
 _parsers_start(lms_t *lms, struct db *db)
 {
+    struct lms_context ctxt;
     int i;
+
+    _ctxt_init(&ctxt, lms, db);
 
     for (i = 0; i < lms->n_parsers; i++) {
         lms_plugin_t *plugin;
         int r;
 
         plugin = lms->parsers[i].plugin;
-        r = plugin->start(plugin, db->handle);
+        r = plugin->start(plugin, &ctxt);
         if (r != 0) {
             fprintf(stderr, "ERROR: parser \"%s\" failed to start: %d.\n",
                     plugin->name, r);
-            plugin->finish(plugin, db->handle);
+            plugin->finish(plugin, &ctxt);
             _parser_del_int(lms, i);
             i--; /* cancel i++ */
         }
@@ -656,14 +668,17 @@ _parsers_start(lms_t *lms, struct db *db)
 static int
 _parsers_finish(lms_t *lms, struct db *db)
 {
+    struct lms_context ctxt;
     int i;
+
+    _ctxt_init(&ctxt, lms, db);
 
     for (i = 0; i < lms->n_parsers; i++) {
         lms_plugin_t *plugin;
         int r;
 
         plugin = lms->parsers[i].plugin;
-        r = plugin->finish(plugin, db->handle);
+        r = plugin->finish(plugin, &ctxt);
         if (r != 0)
             fprintf(stderr, "ERROR: parser \"%s\" failed to finish: %d.\n",
                     plugin->name, r);
@@ -695,7 +710,10 @@ _parsers_check_using(lms_t *lms, void **parser_match, struct lms_file_info *finf
 static int
 _parsers_run(lms_t *lms, struct db *db, void **parser_match, struct lms_file_info *finfo)
 {
+    struct lms_context ctxt;
     int i, failed, available;
+
+    _ctxt_init(&ctxt, lms, db);
 
     failed = 0;
     available = 0;
@@ -707,7 +725,7 @@ _parsers_run(lms_t *lms, struct db *db, void **parser_match, struct lms_file_inf
             int r;
 
             available++;
-            r = plugin->parse(plugin, db->handle, finfo, parser_match[i]);
+            r = plugin->parse(plugin, &ctxt, finfo, parser_match[i]);
             if (r != 0)
                 failed++;
         }

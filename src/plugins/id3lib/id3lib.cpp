@@ -199,7 +199,7 @@ _match(struct plugin *p, const char *path, int len, int base)
 }
 
 static int
-_parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, void *match)
+_parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
     struct lms_audio_info info = {0};
     ID3_Tag tag;
@@ -237,9 +237,9 @@ _parse(struct plugin *plugin, sqlite3 *db, const struct lms_file_info *finfo, vo
 }
 
 static int
-_setup(struct plugin *plugin, sqlite3 *db)
+_setup(struct plugin *plugin, struct lms_context *ctxt)
 {
-    plugin->audio_db = lms_db_audio_new(db);
+    plugin->audio_db = lms_db_audio_new(ctxt->db);
     if (!plugin->audio_db)
         return -1;
 
@@ -247,13 +247,13 @@ _setup(struct plugin *plugin, sqlite3 *db)
 }
 
 static int
-_start(struct plugin *plugin, sqlite3 *db)
+_start(struct plugin *plugin, struct lms_context *ctxt)
 {
     return lms_db_audio_start(plugin->audio_db);
 }
 
 static int
-_finish(struct plugin *plugin, sqlite3 *db)
+_finish(struct plugin *plugin,  struct lms_context *ctxt)
 {
     if (plugin->audio_db)
         return lms_db_audio_free(plugin->audio_db);
