@@ -89,7 +89,7 @@ _db_create_table_if_required(sqlite3 *db)
 lms_db_video_t *
 lms_db_video_new(sqlite3 *db)
 {
-    lms_db_video_t *ldi;
+    lms_db_video_t *ldv;
 
     if (_singleton) {
         _singleton->_references++;
@@ -104,60 +104,60 @@ lms_db_video_new(sqlite3 *db)
         return NULL;
     }
 
-    ldi = calloc(1, sizeof(lms_db_video_t));
-    ldi->_references = 1;
-    ldi->db = db;
+    ldv = calloc(1, sizeof(lms_db_video_t));
+    ldv->_references = 1;
+    ldv->db = db;
 
-    return ldi;
+    return ldv;
 }
 
 int
-lms_db_video_start(lms_db_video_t *ldi)
+lms_db_video_start(lms_db_video_t *ldv)
 {
-    if (!ldi)
+    if (!ldv)
         return -1;
-    if (ldi->_is_started)
+    if (ldv->_is_started)
         return 0;
 
-    ldi->insert = lms_db_compile_stmt(ldi->db,
+    ldv->insert = lms_db_compile_stmt(ldv->db,
         "INSERT OR REPLACE INTO videos (id, title, artist) VALUES (?, ?, ?)");
-    if (!ldi->insert)
+    if (!ldv->insert)
         return -2;
 
-    ldi->_is_started = 1;
+    ldv->_is_started = 1;
     return 0;
 }
 
 int
-lms_db_video_free(lms_db_video_t *ldi)
+lms_db_video_free(lms_db_video_t *ldv)
 {
-    if (!ldi)
+    if (!ldv)
         return -1;
-    if (ldi->_references == 0) {
-        fprintf(stderr, "ERROR: over-called lms_db_video_free(%p)\n", ldi);
+    if (ldv->_references == 0) {
+        fprintf(stderr, "ERROR: over-called lms_db_video_free(%p)\n", ldv);
         return -1;
     }
 
-    ldi->_references--;
-    if (ldi->_references > 0)
+    ldv->_references--;
+    if (ldv->_references > 0)
         return 0;
 
-    if (ldi->insert)
-        lms_db_finalize_stmt(ldi->insert, "insert");
+    if (ldv->insert)
+        lms_db_finalize_stmt(ldv->insert, "insert");
 
-    free(ldi);
+    free(ldv);
     _singleton = NULL;
 
     return 0;
 }
 
 static int
-_db_insert(lms_db_video_t *ldi, const struct lms_video_info *info)
+_db_insert(lms_db_video_t *ldv, const struct lms_video_info *info)
 {
     sqlite3_stmt *stmt;
     int r, ret;
 
-    stmt = ldi->insert;
+    stmt = ldv->insert;
 
     ret = lms_db_bind_int64(stmt, 1, info->id);
     if (ret != 0)
@@ -174,7 +174,7 @@ _db_insert(lms_db_video_t *ldi, const struct lms_video_info *info)
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
         fprintf(stderr, "ERROR: could not insert video info: %s\n",
-                sqlite3_errmsg(ldi->db));
+                sqlite3_errmsg(ldv->db));
         ret = -4;
         goto done;
     }
@@ -188,14 +188,14 @@ _db_insert(lms_db_video_t *ldi, const struct lms_video_info *info)
 }
 
 int
-lms_db_video_add(lms_db_video_t *ldi, struct lms_video_info *info)
+lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
 {
-    if (!ldi)
+    if (!ldv)
         return -1;
     if (!info)
         return -2;
     if (info->id < 1)
         return -3;
 
-    return _db_insert(ldi, info);
+    return _db_insert(ldv, info);
 }
