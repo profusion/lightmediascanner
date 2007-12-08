@@ -177,8 +177,7 @@ static int
 _check(lms_charset_conv_t *lcc, const char *istr, unsigned int ilen, char *ostr, unsigned int olen)
 {
     char *inbuf, *outbuf;
-    int inlen, outlen;
-    size_t r;
+    size_t r, inlen, outlen;
 
     inbuf = (char *)istr;
     inlen = ilen;
@@ -197,8 +196,7 @@ static int
 _conv(iconv_t cd, char **p_str, unsigned int *p_len, char *ostr, unsigned int olen)
 {
     char *inbuf, *outbuf;
-    int inlen, outlen;
-    size_t r;
+    size_t r, inlen, outlen;
 
     inbuf = *p_str;
     inlen = *p_len;
