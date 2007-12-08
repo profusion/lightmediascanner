@@ -90,8 +90,10 @@ lms_db_video_t *
 lms_db_video_new(sqlite3 *db)
 {
     lms_db_video_t *ldv;
+    void *p;
 
-    if (lms_db_cache_get(&_cache, db, (void**)&ldv) == 0) {
+    if (lms_db_cache_get(&_cache, db, &p) == 0) {
+        ldv = p;
         ldv->_references++;
         return ldv;
     }

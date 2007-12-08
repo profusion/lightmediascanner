@@ -83,8 +83,10 @@ lms_db_image_t *
 lms_db_image_new(sqlite3 *db)
 {
     lms_db_image_t *ldi;
+    void *p;
 
-    if (lms_db_cache_get(&_cache, db, (void**)&ldi) == 0) {
+    if (lms_db_cache_get(&_cache, db, &p) == 0) {
+        ldi = p;
         ldi->_references++;
         return ldi;
     }

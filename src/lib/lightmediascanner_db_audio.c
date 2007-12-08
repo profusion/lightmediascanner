@@ -233,8 +233,10 @@ lms_db_audio_t *
 lms_db_audio_new(sqlite3 *db)
 {
     lms_db_audio_t *lda;
+    void *p;
 
-    if (lms_db_cache_get(&_cache, db, (void**)&lda) == 0) {
+    if (lms_db_cache_get(&_cache, db, &p) == 0) {
+        lda = p;
         lda->_references++;
         return lda;
     }

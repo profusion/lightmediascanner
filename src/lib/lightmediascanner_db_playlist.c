@@ -77,8 +77,10 @@ lms_db_playlist_t *
 lms_db_playlist_new(sqlite3 *db)
 {
     lms_db_playlist_t *ldp;
+    void *p;
 
-    if (lms_db_cache_get(&_cache, db, (void**)&ldp) == 0) {
+    if (lms_db_cache_get(&_cache, db, &p) == 0) {
+        ldp = p;
         ldp->_references++;
         return ldp;
     }
