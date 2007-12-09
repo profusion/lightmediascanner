@@ -35,9 +35,18 @@
 
 #include "lightmediascanner.h"
 #include "lightmediascanner_private.h"
-#include "lightmediascanner_plugin.h"
 #include "lightmediascanner_db_private.h"
 
+struct db {
+    sqlite3 *handle;
+    sqlite3_stmt *transaction_begin;
+    sqlite3_stmt *transaction_commit;
+    sqlite3_stmt *get_file_info;
+    sqlite3_stmt *insert_file_info;
+    sqlite3_stmt *update_file_info;
+    sqlite3_stmt *delete_file_info;
+    sqlite3_stmt *set_file_dtime;
+};
 
 /***********************************************************************
  * Master-Slave communication.
@@ -145,96 +154,37 @@ _slave_recv_path(const struct fds *slave, int *plen, int *dlen, char *path)
  ***********************************************************************/
 
 static int
-_db_create_tables_if_required(sqlite3 *db)
-{
-    char *errmsg;
-    int r;
-
-    errmsg = NULL;
-    r = sqlite3_exec(db,
-                     "CREATE TABLE IF NOT EXISTS lms_internal ("
-                     "tab TEXT NOT NULL UNIQUE, "
-                     "version INTEGER NOT NULL"
-                     ")",
-                     NULL, NULL, &errmsg);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not create 'lms_internal' table: %s\n",
-                errmsg);
-        sqlite3_free(errmsg);
-        return -1;
-    }
-
-    r = sqlite3_exec(db,
-                     "CREATE TABLE IF NOT EXISTS files ("
-                     "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                     "path BLOB NOT NULL UNIQUE, "
-                     "mtime INTEGER NOT NULL, "
-                     "dtime INTEGER NOT NULL, "
-                     "size INTEGER NOT NULL"
-                     ")",
-                     NULL, NULL, &errmsg);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not create 'files' table: %s\n", errmsg);
-        sqlite3_free(errmsg);
-        return -2;
-    }
-
-    r = sqlite3_exec(db,
-                     "CREATE INDEX IF NOT EXISTS files_path_idx ON files ("
-                     "path"
-                     ")",
-                     NULL, NULL, &errmsg);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not create 'files_path_idx' index: %s\n",
-                errmsg);
-        sqlite3_free(errmsg);
-        return -3;
-    }
-
-    return 0;
-}
-
-static int
 _db_compile_all_stmts(struct db *db)
 {
-    db->transaction_begin = lms_db_compile_stmt(db->handle,
-        "BEGIN TRANSACTION");
+    sqlite3 *handle;
+
+    handle = db->handle;
+    db->transaction_begin = lms_db_compile_stmt_begin_transaction(handle);
     if (!db->transaction_begin)
         return -1;
 
-    db->transaction_commit = lms_db_compile_stmt(db->handle,
-        "COMMIT");
+    db->transaction_commit = lms_db_compile_stmt_end_transaction(handle);
     if (!db->transaction_commit)
         return -2;
 
-    db->transaction_rollback = lms_db_compile_stmt(db->handle,
-        "ROLLBACK");
-    if (!db->transaction_rollback)
-        return -3;
-
-    db->get_file_info = lms_db_compile_stmt(db->handle,
-        "SELECT id, mtime, dtime, size FROM files WHERE path = ?");
+    db->get_file_info = lms_db_compile_stmt_get_file_info(handle);
     if (!db->get_file_info)
         return -4;
 
-    db->insert_file_info = lms_db_compile_stmt(db->handle,
-        "INSERT INTO files (path, mtime, dtime, size) VALUES(?, ?, ?, ?)");
+    db->insert_file_info = lms_db_compile_stmt_insert_file_info(handle);
     if (!db->insert_file_info)
         return -5;
 
-    db->update_file_info = lms_db_compile_stmt(db->handle,
-        "UPDATE files SET mtime = ?, dtime = ?, size = ? WHERE id = ?");
+    db->update_file_info = lms_db_compile_stmt_update_file_info(handle);
     if (!db->update_file_info)
         return -6;
 
-    db->delete_file_info = lms_db_compile_stmt(db->handle,
-        "DELETE FROM files WHERE id = ?");
+    db->delete_file_info = lms_db_compile_stmt_delete_file_info(handle);
     if (!db->delete_file_info)
         return -6;
 
-    db->clear_file_dtime = lms_db_compile_stmt(db->handle,
-        "UPDATE files SET dtime = 0 WHERE id = ?");
-    if (!db->clear_file_dtime)
+    db->set_file_dtime = lms_db_compile_stmt_set_file_dtime(handle);
+    if (!db->set_file_dtime)
         return -7;
 
     return 0;
@@ -257,7 +207,7 @@ _db_open(const char *db_path)
         goto error;
     }
 
-    if (_db_create_tables_if_required(db->handle) != 0) {
+    if (lms_db_create_core_tables_if_required(db->handle) != 0) {
         fprintf(stderr, "ERROR: could not setup tables and indexes.\n");
         goto error;
     }
@@ -279,9 +229,6 @@ _db_close(struct db *db)
     if (db->transaction_commit)
         lms_db_finalize_stmt(db->transaction_commit, "transaction_commit");
 
-    if (db->transaction_rollback)
-        lms_db_finalize_stmt(db->transaction_rollback, "transaction_rollback");
-
     if (db->get_file_info)
         lms_db_finalize_stmt(db->get_file_info, "get_file_info");
 
@@ -294,8 +241,8 @@ _db_close(struct db *db)
     if (db->delete_file_info)
         lms_db_finalize_stmt(db->delete_file_info, "delete_file_info");
 
-    if (db->clear_file_dtime)
-        lms_db_finalize_stmt(db->clear_file_dtime, "clear_file_dtime");
+    if (db->set_file_dtime)
+        lms_db_finalize_stmt(db->set_file_dtime, "set_file_dtime");
 
     if (sqlite3_close(db->handle) != SQLITE_OK) {
         fprintf(stderr, "ERROR: clould not close DB: %s\n",
@@ -305,229 +252,6 @@ _db_close(struct db *db)
     free(db);
 
     return 0;
-}
-
-static int
-_db_begin_transaction(struct db *db)
-{
-    sqlite3_stmt *stmt;
-    int r, ret;
-
-    stmt = db->transaction_begin;
-
-    ret = 0;
-    r = sqlite3_step(stmt);
-    if (r != SQLITE_DONE) {
-        fprintf(stderr, "ERROR: could not begin transaction: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -1;
-    }
-
-    r = sqlite3_reset(stmt);
-    if (r != SQLITE_OK)
-        fprintf(stderr, "ERROR: could not reset SQL statement: %s\n",
-                sqlite3_errmsg(db->handle));
-
-    return ret;
-}
-
-static int
-_db_end_transaction(struct db *db)
-{
-    sqlite3_stmt *stmt;
-    int r, ret;
-
-    stmt = db->transaction_commit;
-
-    ret = 0;
-    r = sqlite3_step(stmt);
-    if (r != SQLITE_DONE) {
-        fprintf(stderr, "ERROR: could not end transaction: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -1;
-    }
-
-    r = sqlite3_reset(stmt);
-    if (r != SQLITE_OK)
-        fprintf(stderr, "ERROR: could not reset SQL statement: %s\n",
-                sqlite3_errmsg(db->handle));
-
-    return ret;
-}
-
-static int
-_db_get_file_info(struct db *db, struct lms_file_info *finfo)
-{
-    sqlite3_stmt *stmt;
-    int r, ret;
-
-    stmt = db->get_file_info;
-
-    ret = lms_db_bind_blob(stmt, 1, finfo->path, finfo->path_len);
-    if (ret != 0)
-        goto done;
-
-    r = sqlite3_step(stmt);
-    if (r == SQLITE_DONE) {
-        ret = 1;
-        finfo->id = -1;
-        goto done;
-    }
-
-    if (r != SQLITE_ROW) {
-        fprintf(stderr, "ERROR: could not get file info from table: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -2;
-        goto done;
-    }
-
-    finfo->id = sqlite3_column_int64(stmt, 0);
-    finfo->mtime = sqlite3_column_int(stmt, 1);
-    finfo->dtime = sqlite3_column_int(stmt, 2);
-    finfo->size = sqlite3_column_int(stmt, 3);
-    ret = 0;
-
-  done:
-    lms_db_reset_stmt(stmt);
-
-    return ret;
-}
-
-static int
-_db_update_file_info(struct db *db, struct lms_file_info *finfo)
-{
-    sqlite3_stmt *stmt;
-    int r, ret;
-
-    stmt = db->update_file_info;
-
-    ret = lms_db_bind_int(stmt, 1, finfo->mtime);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 2, finfo->dtime);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 3, finfo->size);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 4, finfo->id);
-    if (ret != 0)
-        goto done;
-
-    r = sqlite3_step(stmt);
-    if (r != SQLITE_DONE) {
-        fprintf(stderr, "ERROR: could not update file info: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -5;
-        goto done;
-    }
-
-    ret = 0;
-
-  done:
-    lms_db_reset_stmt(stmt);
-
-    return ret;
-}
-
-static int
-_db_insert_file_info(struct db *db, struct lms_file_info *finfo)
-{
-    sqlite3_stmt *stmt;
-    int r, ret;
-
-    stmt = db->insert_file_info;
-
-    ret = lms_db_bind_blob(stmt, 1, finfo->path, finfo->path_len);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 2, finfo->mtime);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 3, finfo->dtime);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 4, finfo->size);
-    if (ret != 0)
-        goto done;
-
-    r = sqlite3_step(stmt);
-    if (r != SQLITE_DONE) {
-        fprintf(stderr, "ERROR: could not insert file info: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -5;
-        goto done;
-    }
-
-    finfo->id = sqlite3_last_insert_rowid(db->handle);
-    ret = 0;
-
-  done:
-    lms_db_reset_stmt(stmt);
-
-    return ret;
-}
-
-static int
-_db_delete_file_info(struct db *db, struct lms_file_info *finfo)
-{
-    sqlite3_stmt *stmt;
-    int r, ret;
-
-    stmt = db->delete_file_info;
-
-    ret = lms_db_bind_int64(stmt, 1, finfo->id);
-    if (ret != 0)
-        goto done;
-
-    r = sqlite3_step(stmt);
-    if (r != SQLITE_DONE) {
-        fprintf(stderr, "ERROR: could not delete file info: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -2;
-        goto done;
-    }
-    ret = 0;
-
-  done:
-    lms_db_reset_stmt(stmt);
-
-    return ret;
-}
-
-static int
-_db_clear_file_dtime(struct db *db, struct lms_file_info *finfo)
-{
-    sqlite3_stmt *stmt;
-    int r, ret;
-
-    stmt = db->clear_file_dtime;
-
-    ret = lms_db_bind_int64(stmt, 1, finfo->id);
-    if (ret != 0)
-        goto done;
-
-    r = sqlite3_step(stmt);
-    if (r != SQLITE_DONE) {
-        fprintf(stderr, "ERROR: could not clear file dtime: %s\n",
-                sqlite3_errmsg(db->handle));
-        ret = -2;
-        goto done;
-    }
-
-    finfo->dtime = 0;
-    ret = 0;
-
-  done:
-    lms_db_reset_stmt(stmt);
-
-    return ret;
 }
 
 static int
@@ -541,7 +265,7 @@ _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
         return -1;
     }
 
-    r = _db_get_file_info(db, finfo);
+    r = lms_db_get_file_info(db->get_file_info, finfo);
     if (r == 0) {
         if (st.st_mtime <= finfo->mtime && finfo->size == st.st_size)
             return 0;
@@ -559,14 +283,14 @@ _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
 }
 
 static void
-_ctxt_init(struct lms_context *ctxt, const lms_t *lms, const struct db *db)
+_ctxt_init(struct lms_context *ctxt, const lms_t *lms, sqlite3 *db)
 {
     ctxt->cs_conv = lms->cs_conv;
-    ctxt->db = db->handle;
+    ctxt->db = db;
 }
 
-static int
-_parsers_setup(lms_t *lms, struct db *db)
+int
+lms_parsers_setup(lms_t *lms, sqlite3 *db)
 {
     struct lms_context ctxt;
     int i;
@@ -591,8 +315,8 @@ _parsers_setup(lms_t *lms, struct db *db)
     return 0;
 }
 
-static int
-_parsers_start(lms_t *lms, struct db *db)
+int
+lms_parsers_start(lms_t *lms, sqlite3 *db)
 {
     struct lms_context ctxt;
     int i;
@@ -617,8 +341,8 @@ _parsers_start(lms_t *lms, struct db *db)
     return 0;
 }
 
-static int
-_parsers_finish(lms_t *lms, struct db *db)
+int
+lms_parsers_finish(lms_t *lms, sqlite3 *db)
 {
     struct lms_context ctxt;
     int i;
@@ -639,8 +363,8 @@ _parsers_finish(lms_t *lms, struct db *db)
     return 0;
 }
 
-static int
-_parsers_check_using(lms_t *lms, void **parser_match, struct lms_file_info *finfo)
+int
+lms_parsers_check_using(lms_t *lms, void **parser_match, struct lms_file_info *finfo)
 {
     int used, i;
 
@@ -659,8 +383,8 @@ _parsers_check_using(lms_t *lms, void **parser_match, struct lms_file_info *finf
     return used;
 }
 
-static int
-_parsers_run(lms_t *lms, struct db *db, void **parser_match, struct lms_file_info *finfo)
+int
+lms_parsers_run(lms_t *lms, sqlite3 *db, void **parser_match, struct lms_file_info *finfo)
 {
     struct lms_context ctxt;
     int i, failed, available;
@@ -703,7 +427,7 @@ _slave_work(lms_t *lms, struct fds *fds)
     if (!db)
         return -1;
 
-    if (_parsers_setup(lms, db) != 0) {
+    if (lms_parsers_setup(lms, db->handle) != 0) {
         fprintf(stderr, "ERROR: could not setup parsers.\n");
         r = -2;
         goto end;
@@ -715,7 +439,7 @@ _slave_work(lms_t *lms, struct fds *fds)
         goto end;
     }
 
-    if (_parsers_start(lms, db) != 0) {
+    if (lms_parsers_start(lms, db->handle) != 0) {
         fprintf(stderr, "ERROR: could not start parsers.\n");
         r = -4;
         goto end;
@@ -734,7 +458,7 @@ _slave_work(lms_t *lms, struct fds *fds)
     }
 
     counter = 0;
-    _db_begin_transaction(db);
+    lms_db_begin_transaction(db->transaction_begin);
 
     while (((r = _slave_recv_path(fds, &len, &base, path)) == 0) && len > 0) {
         struct lms_file_info finfo;
@@ -746,49 +470,51 @@ _slave_work(lms_t *lms, struct fds *fds)
 
         r = _retrieve_file_status(db, &finfo);
         if (r == 0) {
-            if (finfo.dtime)
-                _db_clear_file_dtime(db, &finfo);
+            if (finfo.dtime) {
+                finfo.dtime = 0;
+                lms_db_set_file_dtime(db->set_file_dtime, &finfo);
+            }
             goto inform_end;
         } else if (r < 0) {
             fprintf(stderr, "ERROR: could not detect file status.\n");
             goto inform_end;
         }
 
-        used = _parsers_check_using(lms, parser_match, &finfo);
+        used = lms_parsers_check_using(lms, parser_match, &finfo);
         if (!used)
             goto inform_end;
 
         finfo.dtime = 0;
         if (finfo.id > 0)
-            r = _db_update_file_info(db, &finfo);
+            r = lms_db_update_file_info(db->update_file_info, &finfo);
         else
-            r = _db_insert_file_info(db, &finfo);
+            r = lms_db_insert_file_info(db->insert_file_info, &finfo);
         if (r < 0) {
             fprintf(stderr, "ERROR: could not register path in DB\n");
             goto inform_end;
         }
 
-        r = _parsers_run(lms, db, parser_match, &finfo);
+        r = lms_parsers_run(lms, db->handle, parser_match, &finfo);
         if (r < 0) {
             fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
                     getpid(), finfo.path);
-            _db_delete_file_info(db, &finfo);
+            lms_db_delete_file_info(db->delete_file_info, &finfo);
         }
 
       inform_end:
         _slave_send_reply(fds, r);
         counter++;
         if (counter > lms->commit_interval) {
-            _db_end_transaction(db);
-            _db_begin_transaction(db);
+            lms_db_end_transaction(db->transaction_commit);
+            lms_db_begin_transaction(db->transaction_begin);
             counter = 0;
         }
     }
 
     free(parser_match);
-    _db_end_transaction(db);
+    lms_db_end_transaction(db->transaction_commit);
   end:
-    _parsers_finish(lms, db);
+    lms_parsers_finish(lms, db->handle);
     _db_close(db);
 
     return r;
@@ -836,8 +562,8 @@ _close_fds(struct fds *fds)
     return r;
 }
 
-static int
-_close_pipes(struct pinfo *pinfo)
+int
+lms_close_pipes(struct pinfo *pinfo)
 {
     int r;
 
@@ -847,8 +573,8 @@ _close_pipes(struct pinfo *pinfo)
     return r;
 }
 
-static int
-_create_pipes(struct pinfo *pinfo)
+int
+lms_create_pipes(struct pinfo *pinfo)
 {
     int fds[2];
 
@@ -874,8 +600,8 @@ _create_pipes(struct pinfo *pinfo)
     return 0;
 }
 
-static int
-_create_slave(struct pinfo *pinfo)
+int
+lms_create_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds))
 {
     int r;
 
@@ -890,7 +616,7 @@ _create_slave(struct pinfo *pinfo)
 
     _close_fds(&pinfo->master);
     nice(19);
-    r = _slave_work(pinfo->lms, &pinfo->slave);
+    r = work(pinfo->lms, &pinfo->slave);
     lms_free(pinfo->lms);
     _exit(r);
     return r; /* shouldn't reach anyway... */
@@ -911,15 +637,15 @@ _waitpid(pid_t pid)
     return r;
 }
 
-static int
-_finish_slave(struct pinfo *pinfo)
+int
+lms_finish_slave(struct pinfo *pinfo, int (*finish)(const struct fds *fds))
 {
     int r;
 
     if (pinfo->child <= 0)
         return 0;
 
-    r = _master_send_finish(&pinfo->master);
+    r = finish(&pinfo->master);
     if (r == 0)
         r = _waitpid(pinfo->child);
     else {
@@ -929,12 +655,13 @@ _finish_slave(struct pinfo *pinfo)
         else
             r =_waitpid(pinfo->child);
     }
+    pinfo->child = 0;
 
     return r;
 }
 
-static int
-_restart_slave(struct pinfo *pinfo)
+int
+lms_restart_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds))
 {
     int status;
 
@@ -968,7 +695,7 @@ _restart_slave(struct pinfo *pinfo)
         perror("waitpid");
 
     _consume_garbage(&pinfo->poll);
-    return _create_slave(pinfo);
+    return lms_create_slave(pinfo, work);
 }
 
 static int
@@ -1012,7 +739,7 @@ _process_file(struct pinfo *pinfo, int base, char *path, const char *name)
     else if (r == 1) {
         fprintf(stderr, "ERROR: slave took too long, restart %d\n",
                 pinfo->child);
-        if (_restart_slave(pinfo) != 0)
+        if (lms_restart_slave(pinfo, _slave_work) != 0)
             return -4;
         return 1;
     } else {
@@ -1111,12 +838,12 @@ lms_process(lms_t *lms, const char *top_path)
 
     pinfo.lms = lms;
 
-    if (_create_pipes(&pinfo) != 0) {
+    if (lms_create_pipes(&pinfo) != 0) {
         r = -5;
         goto end;
     }
 
-    if (_create_slave(&pinfo) != 0) {
+    if (lms_create_slave(&pinfo, _slave_work) != 0) {
         r = -6;
         goto close_pipes;
     }
@@ -1144,9 +871,9 @@ lms_process(lms_t *lms, const char *top_path)
     free(bname);
 
   finish_slave:
-    _finish_slave(&pinfo);
+    lms_finish_slave(&pinfo, _master_send_finish);
   close_pipes:
-    _close_pipes(&pinfo);
+    lms_close_pipes(&pinfo);
   end:
     return r;
 }

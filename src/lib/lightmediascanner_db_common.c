@@ -450,3 +450,320 @@ lms_db_cache_get(struct lms_db_cache *cache, const sqlite3 *db, void **pdata)
     *pdata = cache->entries[idx].data;
     return 0;
 }
+
+int
+lms_db_create_core_tables_if_required(sqlite3 *db)
+{
+    char *errmsg;
+    int r;
+
+    errmsg = NULL;
+    r = sqlite3_exec(db,
+                     "CREATE TABLE IF NOT EXISTS lms_internal ("
+                     "tab TEXT NOT NULL UNIQUE, "
+                     "version INTEGER NOT NULL"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create 'lms_internal' table: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    r = sqlite3_exec(db,
+                     "CREATE TABLE IF NOT EXISTS files ("
+                     "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                     "path BLOB NOT NULL UNIQUE, "
+                     "mtime INTEGER NOT NULL, "
+                     "dtime INTEGER NOT NULL, "
+                     "size INTEGER NOT NULL"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create 'files' table: %s\n", errmsg);
+        sqlite3_free(errmsg);
+        return -2;
+    }
+
+    r = sqlite3_exec(db,
+                     "CREATE INDEX IF NOT EXISTS files_path_idx ON files ("
+                     "path"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create 'files_path_idx' index: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -3;
+    }
+
+    return 0;
+}
+
+
+sqlite3_stmt *
+lms_db_compile_stmt_begin_transaction(sqlite3 *db)
+{
+    return lms_db_compile_stmt(db, "BEGIN TRANSACTION");
+}
+
+int
+lms_db_begin_transaction(sqlite3_stmt *stmt)
+{
+    int r, ret;
+
+    ret = 0;
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not begin transaction: %s\n",
+                sqlite3_errmsg(sqlite3_db_handle(stmt)));
+        ret = -1;
+    }
+
+    r = sqlite3_reset(stmt);
+    if (r != SQLITE_OK)
+        fprintf(stderr, "ERROR: could not reset SQL statement: %s\n",
+                sqlite3_errmsg(sqlite3_db_handle(stmt)));
+
+    return ret;
+}
+
+sqlite3_stmt *
+lms_db_compile_stmt_end_transaction(sqlite3 *db)
+{
+    return lms_db_compile_stmt(db, "COMMIT");
+}
+
+int
+lms_db_end_transaction(sqlite3_stmt *stmt)
+{
+    int r, ret;
+
+    ret = 0;
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not end transaction: %s\n",
+                sqlite3_errmsg(sqlite3_db_handle(stmt)));
+        ret = -1;
+    }
+
+    r = sqlite3_reset(stmt);
+    if (r != SQLITE_OK)
+        fprintf(stderr, "ERROR: could not reset SQL statement: %s\n",
+                sqlite3_errmsg(sqlite3_db_handle(stmt)));
+
+    return ret;
+}
+
+sqlite3_stmt *
+lms_db_compile_stmt_get_file_info(sqlite3 *db)
+{
+    return lms_db_compile_stmt(db,
+        "SELECT id, mtime, dtime, size FROM files WHERE path = ?");
+}
+
+int
+lms_db_get_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo)
+{
+    int r, ret;
+
+    ret = lms_db_bind_blob(stmt, 1, finfo->path, finfo->path_len);
+    if (ret != 0)
+        goto done;
+
+    r = sqlite3_step(stmt);
+    if (r == SQLITE_DONE) {
+        ret = 1;
+        finfo->id = -1;
+        goto done;
+    }
+
+    if (r != SQLITE_ROW) {
+        fprintf(stderr, "ERROR: could not get file info from table: %s\n",
+                sqlite3_errmsg(sqlite3_db_handle(stmt)));
+        ret = -2;
+        goto done;
+    }
+
+    finfo->id = sqlite3_column_int64(stmt, 0);
+    finfo->mtime = sqlite3_column_int(stmt, 1);
+    finfo->dtime = sqlite3_column_int(stmt, 2);
+    finfo->size = sqlite3_column_int(stmt, 3);
+    ret = 0;
+
+  done:
+    lms_db_reset_stmt(stmt);
+
+    return ret;
+}
+
+sqlite3_stmt *
+lms_db_compile_stmt_update_file_info(sqlite3 *db)
+{
+    return lms_db_compile_stmt(db,
+        "UPDATE files SET mtime = ?, dtime = ?, size = ? WHERE id = ?");
+}
+
+int
+lms_db_update_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo)
+{
+    int r, ret;
+
+    ret = lms_db_bind_int(stmt, 1, finfo->mtime);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 2, finfo->dtime);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 3, finfo->size);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 4, finfo->id);
+    if (ret != 0)
+        goto done;
+
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not update file info: %s\n",
+                sqlite3_errmsg(sqlite3_db_handle(stmt)));
+        ret = -5;
+        goto done;
+    }
+
+    ret = 0;
+
+  done:
+    lms_db_reset_stmt(stmt);
+
+    return ret;
+}
+
+sqlite3_stmt *
+lms_db_compile_stmt_insert_file_info(sqlite3 *db)
+{
+    return lms_db_compile_stmt(db,
+        "INSERT INTO files (path, mtime, dtime, size) VALUES(?, ?, ?, ?)");
+}
+
+int
+lms_db_insert_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo)
+{
+    int r, ret;
+
+    ret = lms_db_bind_blob(stmt, 1, finfo->path, finfo->path_len);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 2, finfo->mtime);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 3, finfo->dtime);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 4, finfo->size);
+    if (ret != 0)
+        goto done;
+
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not insert file info: %s\n",
+                sqlite3_errmsg(sqlite3_db_handle(stmt)));
+        ret = -5;
+        goto done;
+    }
+
+    finfo->id = sqlite3_last_insert_rowid(sqlite3_db_handle(stmt));
+    ret = 0;
+
+  done:
+    lms_db_reset_stmt(stmt);
+
+    return ret;
+}
+
+sqlite3_stmt *
+lms_db_compile_stmt_delete_file_info(sqlite3 *db)
+{
+    return lms_db_compile_stmt(db, "DELETE FROM files WHERE id = ?");
+}
+
+int
+lms_db_delete_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo)
+{
+    int r, ret;
+
+    ret = lms_db_bind_int64(stmt, 1, finfo->id);
+    if (ret != 0)
+        goto done;
+
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not delete file info: %s\n",
+                sqlite3_errmsg(sqlite3_db_handle(stmt)));
+        ret = -2;
+        goto done;
+    }
+    ret = 0;
+
+  done:
+    lms_db_reset_stmt(stmt);
+
+    return ret;
+}
+
+sqlite3_stmt *
+lms_db_compile_stmt_set_file_dtime(sqlite3 *db)
+{
+    return lms_db_compile_stmt(db, "UPDATE files SET dtime = ? WHERE id = ?");
+}
+
+int
+lms_db_set_file_dtime(sqlite3_stmt *stmt, const struct lms_file_info *finfo)
+{
+    int r, ret;
+
+    ret = lms_db_bind_int(stmt, 1, finfo->dtime);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int64(stmt, 1, finfo->id);
+    if (ret != 0)
+        goto done;
+
+    r = sqlite3_step(stmt);
+    if (r != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not set file dtime: %s\n",
+                sqlite3_errmsg(sqlite3_db_handle(stmt)));
+        ret = -3;
+        goto done;
+    }
+
+    ret = 0;
+
+  done:
+    lms_db_reset_stmt(stmt);
+
+    return ret;
+}
+
+sqlite3_stmt *
+lms_db_compile_stmt_get_files(sqlite3 *db)
+{
+    return lms_db_compile_stmt(db,
+        "SELECT id, path, mtime, dtime, size FROM files WHERE path LIKE ?");
+}
+
+int
+lms_db_get_files(sqlite3_stmt *stmt, const char *path, int len)
+{
+    int ret;
+
+    ret = lms_db_bind_blob(stmt, 1, path, len);
+    return ret;
+}

@@ -32,6 +32,7 @@
 #endif
 
 #include "lightmediascanner.h"
+#include "lightmediascanner_plugin.h"
 #include "lightmediascanner_charset_conv.h"
 #include <sys/types.h>
 #include <poll.h>
@@ -45,7 +46,7 @@ struct fds {
     int w;
 };
 
-/* info to be carried along lms_process() */
+/* info to be carried along lms_process() and lms_check() */
 struct pinfo {
     struct fds master;
     struct fds slave;
@@ -70,19 +71,18 @@ struct lms {
     unsigned int is_processing:1;
 };
 
-struct db {
-    sqlite3 *handle;
-    sqlite3_stmt *transaction_begin;
-    sqlite3_stmt *transaction_commit;
-    sqlite3_stmt *transaction_rollback;
-    sqlite3_stmt *get_file_info;
-    sqlite3_stmt *insert_file_info;
-    sqlite3_stmt *update_file_info;
-    sqlite3_stmt *delete_file_info;
-    sqlite3_stmt *clear_file_dtime;
-};
-
 int lms_parser_del_int(lms_t *lms, int i) GNUC_NON_NULL(1);
+int lms_create_pipes(struct pinfo *pinfo) GNUC_NON_NULL(1);
+int lms_close_pipes(struct pinfo *pinfo) GNUC_NON_NULL(1);
+int lms_create_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds)) GNUC_NON_NULL(1, 2);
+int lms_restart_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds)) GNUC_NON_NULL(1, 2);
+int lms_finish_slave(struct pinfo *pinfo, int (*finish)(const struct fds *fds)) GNUC_NON_NULL(1, 2);
+
+int lms_parsers_setup(lms_t *lms, sqlite3 *db) GNUC_NON_NULL(1, 2);
+int lms_parsers_start(lms_t *lms, sqlite3 *db) GNUC_NON_NULL(1, 2);
+int lms_parsers_finish(lms_t *lms, sqlite3 *db) GNUC_NON_NULL(1, 2);
+int lms_parsers_check_using(lms_t *lms, void **parser_match, struct lms_file_info *finfo) GNUC_NON_NULL(1, 2, 3);
+int lms_parsers_run(lms_t *lms, sqlite3 *db, void **parser_match, struct lms_file_info *finfo) GNUC_NON_NULL(1, 2, 3, 4);
 
 
 #endif /* _LIGHTMEDIASCANNER_PRIVATE_H_ */

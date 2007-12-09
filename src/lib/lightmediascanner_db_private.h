@@ -33,6 +33,7 @@
 
 #include <sqlite3.h>
 #include <sys/types.h>
+#include "lightmediascanner_plugin.h"
 
 sqlite3_stmt *lms_db_compile_stmt(sqlite3 *db, const char *sql) GNUC_NON_NULL(1, 2);
 int lms_db_finalize_stmt(sqlite3_stmt *stmt, const char *name) GNUC_NON_NULL(1, 2);
@@ -66,6 +67,27 @@ struct lms_db_cache {
 int lms_db_cache_add(struct lms_db_cache *cache, const sqlite3 *db, void *data) GNUC_NON_NULL(1, 2, 3);
 int lms_db_cache_del(struct lms_db_cache *cache, const sqlite3 *db, void *data) GNUC_NON_NULL(1, 2, 3);
 int lms_db_cache_get(struct lms_db_cache *cache, const sqlite3 *db, void **pdata) GNUC_NON_NULL(1, 2, 3);
+
+int lms_db_create_core_tables_if_required(sqlite3 *db) GNUC_NON_NULL(1);
+
+sqlite3_stmt *lms_db_compile_stmt_begin_transaction(sqlite3 *db) GNUC_NON_NULL(1);
+sqlite3_stmt *lms_db_compile_stmt_end_transaction(sqlite3 *db) GNUC_NON_NULL(1);
+sqlite3_stmt *lms_db_compile_stmt_get_file_info(sqlite3 *db) GNUC_NON_NULL(1);
+sqlite3_stmt *lms_db_compile_stmt_insert_file_info(sqlite3 *db) GNUC_NON_NULL(1);
+sqlite3_stmt *lms_db_compile_stmt_update_file_info(sqlite3 *db) GNUC_NON_NULL(1);
+sqlite3_stmt *lms_db_compile_stmt_delete_file_info(sqlite3 *db) GNUC_NON_NULL(1);
+sqlite3_stmt *lms_db_compile_stmt_set_file_dtime(sqlite3 *db) GNUC_NON_NULL(1);
+sqlite3_stmt *lms_db_compile_stmt_get_files(sqlite3 *db) GNUC_NON_NULL(1);
+
+int lms_db_begin_transaction(sqlite3_stmt *stmt) GNUC_NON_NULL(1);
+int lms_db_end_transaction(sqlite3_stmt *stmt) GNUC_NON_NULL(1);
+int lms_db_update_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
+int lms_db_get_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
+int lms_db_insert_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
+int lms_db_delete_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
+int lms_db_set_file_dtime(sqlite3_stmt *stmt, const struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
+int lms_db_get_files(sqlite3_stmt *stmt, const char *path, int len) GNUC_NON_NULL(1, 2);
+
 
 
 #endif /* _LIGHTMEDIASCANNER_DB_PRIVATE_H_ */
