@@ -43,13 +43,13 @@ PKG_CHECK_MODULES(SQLITE3, [sqlite3 >= 3.3])
 AM_CONDITIONAL(HAVE_ID3LIB, false)
 define([CHECK_MODULE_ID3LIB],
 [
-        AC_LMS_CHECK_PKG(ID3LIB, id3lib)
+        AC_LMS_CHECK_PKG(ID3LIB, id3lib, [], [ID3LIB=false])
 ])
 
 AM_CONDITIONAL(HAVE_VORBIS, false)
-define([CHECK_MODULE_VORBIS],
+define([CHECK_MODULE_OGG],
 [
-        AC_LMS_CHECK_PKG(VORBIS, vorbis)
+        AC_LMS_CHECK_PKG(VORBIS, vorbis, [], [OGG=false])
 ])
 
 # plugins declarations
@@ -58,7 +58,7 @@ AC_LMS_OPTIONAL_MODULE([jpeg], true)
 AC_LMS_OPTIONAL_MODULE([id3lib], true, [CHECK_MODULE_ID3LIB])
 AC_LMS_OPTIONAL_MODULE([video-dummy], true)
 AC_LMS_OPTIONAL_MODULE([m3u], true)
-AC_LMS_OPTIONAL_MODULE([ogg], true, [CHECK_MODULE_VORBIS])
+AC_LMS_OPTIONAL_MODULE([ogg], true, [CHECK_MODULE_OGG])
 AC_LMS_OPTIONAL_MODULE([pls], true)
 
 AC_OUTPUT([
