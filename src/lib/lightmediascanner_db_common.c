@@ -269,7 +269,7 @@ lms_db_table_version_get(sqlite3 *db, const char *table)
         version = sqlite3_column_int(stmt, 1);
     else {
         version = -1;
-        fprintf(stderr, "ERROR: could not get table '%s' version: %s",
+        fprintf(stderr, "ERROR: could not get table '%s' version: %s\n",
                 table, sqlite3_errmsg(db));
     }
 
@@ -302,7 +302,7 @@ lms_db_table_version_set(sqlite3 *db, const char *table, unsigned int version)
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
         ret = -1;
-        fprintf(stderr, "ERROR: could not set table '%s' version: %s",
+        fprintf(stderr, "ERROR: could not set table '%s' version: %s\n",
                 table, sqlite3_errmsg(db));
     }
 
