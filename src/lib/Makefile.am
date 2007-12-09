@@ -17,6 +17,7 @@ liblightmediascanner_la_SOURCES = \
 	lightmediascanner_utils.c \
 	lightmediascanner_charset_conv.c \
 	lightmediascanner_process.c \
+	lightmediascanner_check.c \
 	lightmediascanner_db_common.c \
 	lightmediascanner_db_image.c \
 	lightmediascanner_db_audio.c \

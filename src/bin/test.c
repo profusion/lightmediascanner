@@ -62,15 +62,21 @@ main(int argc, char *argv[])
         return -3;
     }
 
-    if (lms_process(lms, scan_path) != 0) {
-        fprintf(stderr, "ERROR: processing \"%s\".\n", scan_path);
+    if (lms_check(lms, scan_path) != 0) {
+        fprintf(stderr, "ERROR: checking \"%s\".\n", scan_path);
         lms_free(lms);
         return -4;
     }
 
+    if (lms_process(lms, scan_path) != 0) {
+        fprintf(stderr, "ERROR: processing \"%s\".\n", scan_path);
+        lms_free(lms);
+        return -5;
+    }
+
     if (lms_free(lms) != 0) {
         fprintf(stderr, "ERROR: could not close light media scanner.\n");
-        return -5;
+        return -6;
     }
 
     return 0;
