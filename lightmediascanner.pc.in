@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: lightmediascanner
+Description: Lightweight Media Scanner
+Version: @VERSION@
+Libs: -L${libdir} -llightmediascanner -lsqlite3
+Cflags: -I${includedir}
