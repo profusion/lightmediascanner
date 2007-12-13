@@ -108,6 +108,13 @@ _parser_unload(struct parser *p)
 /***********************************************************************
  * Public API.
  ***********************************************************************/
+/**
+ * Create new Light Media Scanner instance.
+ *
+ * @param db_path path to database file.
+ * @return allocated data on success or NULL on failure.
+ * @ingroup LMS_API
+ */
 lms_t *
 lms_new(const char *db_path)
 {
@@ -138,6 +145,14 @@ lms_new(const char *db_path)
     return lms;
 }
 
+/**
+ * Free existing Light Media Scanner instance.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_API
+ */
 int
 lms_free(lms_t *lms)
 {
@@ -162,6 +177,15 @@ lms_free(lms_t *lms)
     return 0;
 }
 
+/**
+ * Add parser plugin given it's shared object path.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param so_path path to shared object (usable by dlopen(3)).
+ *
+ * @return On success the LMS handle to plugin is returned, NULL on error.
+ * @ingroup LMS_API
+ */
 lms_plugin_t *
 lms_parser_add(lms_t *lms, const char *so_path)
 {
@@ -195,6 +219,18 @@ lms_parser_add(lms_t *lms, const char *so_path)
     return parser->plugin;
 }
 
+/**
+ * Add parser plugin given it's name.
+ *
+ * This will look at default plugin path by the file named @p name (plus
+ * the required shared object extension).
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param name plugin name.
+ *
+ * @return On success the LMS handle to plugin is returned, NULL on error.
+ * @ingroup LMS_API
+ */
 lms_plugin_t *
 lms_parser_find_and_add(lms_t *lms, const char *name)
 {
@@ -241,6 +277,14 @@ lms_parser_del_int(lms_t *lms, int i)
     }
 }
 
+/**
+ * Delete previously added parser, making it unavailable for future operations.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_API
+ */
 int
 lms_parser_del(lms_t *lms, lms_plugin_t *handle)
 {
@@ -264,6 +308,15 @@ lms_parser_del(lms_t *lms, lms_plugin_t *handle)
     return -3;
 }
 
+/**
+ * Checks if Light Media Scanner is being used in a processing operation lile
+ * lms_process() or lms_check().
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ *
+ * @return 1 if it is processing, 0 if it's not, -1 on error.
+ * @ingroup LMS_API
+ */
 int
 lms_is_processing(const lms_t *lms)
 {
@@ -275,6 +328,14 @@ lms_is_processing(const lms_t *lms)
     return lms->is_processing;
 }
 
+/**
+ * Get the database path given at creation time.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ *
+ * @return path to database.
+ * @ingroup LMS_API
+ */
 const char *
 lms_get_db_path(const lms_t *lms)
 {
@@ -286,6 +347,17 @@ lms_get_db_path(const lms_t *lms)
     return lms->db_path;
 }
 
+/**
+ * Get the maximum amount of milliseconds the slave can take to serve one file.
+ *
+ * If a slave takes more than this amount of milliseconds, it will be killed
+ * and the scanner will continue with the next file.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ *
+ * @return -1 on error or time in milliseconds otherwise.
+ * @ingroup LMS_API
+ */
 int
 lms_get_slave_timeout(const lms_t *lms)
 {
@@ -297,6 +369,16 @@ lms_get_slave_timeout(const lms_t *lms)
     return lms->slave_timeout;
 }
 
+/**
+ * Set the maximum amount of milliseconds the slave can take to serve one file.
+ *
+ * If a slave takes more than this amount of milliseconds, it will be killed
+ * and the scanner will continue with the next file.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param ms time in milliseconds.
+ * @ingroup LMS_API
+ */
 void lms_set_slave_timeout(lms_t *lms, int ms)
 {
     if (!lms) {
@@ -307,6 +389,17 @@ void lms_set_slave_timeout(lms_t *lms, int ms)
     lms->slave_timeout = ms;
 }
 
+/**
+ * Get the number of files served between database transactions.
+ *
+ * This is used as an optimization to database access: doing database commits
+ * take some time and can slow things down too much, so you can choose to just
+ * commit after some number of files are processed, this is the commit_interval.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @return (unsigned int)-1 on error, value otherwise.
+ * @ingroup LMS_API
+ */
 unsigned int
 lms_get_commit_interval(const lms_t *lms)
 {
@@ -318,6 +411,18 @@ lms_get_commit_interval(const lms_t *lms)
     return lms->commit_interval;
 }
 
+/**
+ * Set the number of files served between database transactions.
+ *
+ * This is used as an optimization to database access: doing database commits
+ * take some time and can slow things down too much, so you can choose to just
+ * commit after @p transactions files are processed.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param transactions number of files (transactions) to process between
+ *        commits.
+ * @ingroup LMS_API
+ */
 void
 lms_set_commit_interval(lms_t *lms, unsigned int transactions)
 {
@@ -330,6 +435,18 @@ lms_set_commit_interval(lms_t *lms, unsigned int transactions)
     lms->commit_interval = transactions;
 }
 
+/**
+ * Register a new charset encoding to be used.
+ *
+ * All database text strings are in UTF-8, so one needs to register new
+ * encodings in order to convert to it.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param charset charset name as understood by iconv_open(3).
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_API
+ */
 int
 lms_charset_add(lms_t *lms, const char *charset)
 {
@@ -341,6 +458,18 @@ lms_charset_add(lms_t *lms, const char *charset)
     return lms_charset_conv_add(lms->cs_conv, charset);
 }
 
+/**
+ * Forget about registered charset encoding.
+ *
+ * All database text strings are in UTF-8, so one needs to register new
+ * encodings in order to convert to it.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param charset charset name as understood by iconv_open(3).
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_API
+ */
 int
 lms_charset_del(lms_t *lms, const char *charset)
 {

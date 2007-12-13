@@ -807,6 +807,16 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
     return r;
 }
 
+/**
+ * Process the given directory.
+ *
+ * This will add or update media found in the given directory or its children.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param top_path top directory to scan.
+ *
+ * @return On success 0 is returned.
+ */
 int
 lms_process(lms_t *lms, const char *top_path)
 {

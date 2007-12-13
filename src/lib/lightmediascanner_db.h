@@ -47,6 +47,15 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/**
+ * @defgroup LMS_DB DataBase-API
+ *
+ * Although Light Media Scanner uses SQLite3 and doesn't try to hide it from
+ * plugins/parsers, it does provide some utilities to make development easier
+ * and less error prone.
+ *
+ * @{
+ */
 
     /* Image Records */
     struct lms_gps_info {
@@ -120,7 +129,9 @@ extern "C" {
     API int lms_db_playlist_free(lms_db_playlist_t *ldp) GNUC_NON_NULL(1);
     API int lms_db_playlist_add(lms_db_playlist_t *ldp, struct lms_playlist_info *info) GNUC_NON_NULL(1, 2);
 
-
+/**
+ * @}
+ */
 
 #ifdef __cplusplus
 }

@@ -73,6 +73,20 @@ _db_create_table_if_required(sqlite3 *db)
          _db_table_updater_playlists);
 }
 
+/**
+ * Create playlist DB access tool.
+ *
+ * Creates or get a reference to tools to access 'playlists' table in an
+ * optimized and easy way.
+ *
+ * This is usually called from plugin's @b setup() callback with the @p db
+ * got from @c ctxt.
+ *
+ * @param db database connection.
+ *
+ * @return DB access tool handle.
+ * @ingroup LMS_Plugins
+ */
 lms_db_playlist_t *
 lms_db_playlist_new(sqlite3 *db)
 {
@@ -105,6 +119,18 @@ lms_db_playlist_new(sqlite3 *db)
     return ldp;
 }
 
+/**
+ * Start playlist DB access tool.
+ *
+ * Compile SQL statements and other initialization functions.
+ *
+ * This is usually called from plugin's @b start() callback.
+ *
+ * @param ldp handle returned by lms_db_playlist_new().
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_playlist_start(lms_db_playlist_t *ldp)
 {
@@ -123,6 +149,18 @@ lms_db_playlist_start(lms_db_playlist_t *ldp)
     return 0;
 }
 
+/**
+ * Free playlist DB access tool.
+ *
+ * Unreference and possible free resources allocated to access tool.
+ *
+ * This is usually called from plugin's @b finish() callback.
+ *
+ * @param ldp handle returned by lms_db_playlist_new().
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_playlist_free(lms_db_playlist_t *ldp)
 {
@@ -184,6 +222,17 @@ _db_insert(lms_db_playlist_t *ldp, const struct lms_playlist_info *info)
     return ret;
 }
 
+/**
+ * Add playlist file to DB.
+ *
+ * This is usually called from plugin's @b parse() callback.
+ *
+ * @param ldp handle returned by lms_db_playlist_new().
+ * @param info playlist information to store.
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_playlist_add(lms_db_playlist_t *ldp, struct lms_playlist_info *info)
 {

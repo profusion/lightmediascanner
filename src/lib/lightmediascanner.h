@@ -18,6 +18,92 @@
  * @author Gustavo Sverzut Barbieri <gustavo.barbieri@openbossa.org>
  */
 
+/**
+ * @mainpage
+ *
+ * The architecture is based on 2 processes that cooperate, the first is
+ * the driver, that controls the behavior of the worker/slave process,
+ * that does the hard work. This slave process is meant to make the
+ * software more robust since some parser libraries and even
+ * user-provided media is not reliable, so if for some reason the worker
+ * process freezes, it's killed and then restarted with the next item.
+ *
+ * User API is quite simple, with means to add new charsets to be tried
+ * and new parsers to handle media. The most important functions are (see
+ * lightmediascanner.h):
+ *
+ *   - int lms_process(lms_t *lms, const char *top_path)
+ *   - int lms_check(lms_t *lms, const char *top_path)
+ *
+ * @note The whole library follows libC standard of "0 (zero) means success",
+ * unless explicitly stated (usually boolean queries where no error is
+ * possible/interesting).
+ *
+ * The first will walk all the files and children directories of
+ * top_path, check if files are handled by some parser and if they're,
+ * they'll be parsed and registered in the data base.
+ *
+ * The second will get all already registered media in data base that is
+ * located at top_path and see if they're still up to date, deleted or
+ * changed. If they were deleted, a flag is set on data base with current
+ * time, so it can be expired at some point. If they were marked as
+ * deleted, but are not present again, check if the state is still valid
+ * (mtime, size), so we can avoid re-parse of removable media. If the
+ * file was present and is still present, just check if its properties
+ * (mtime, size) are still the same, if not trigger re-parse.
+ *
+ * Parsers are handled as shared object plugins, they can be added
+ * without modification to the core, see the plugins API later in this
+ * document. Since the core have no control over plugins, they can
+ * register data as they want, but since some utilities are provided, we
+ * expect that the given data base tables are used:
+ *
+ *   - @b files: known files.
+ *      - id: identification inside LMS/DB.
+ *      - path: file path.
+ *      - mtime: modification time, in seconds from UNIX epoch.
+ *      - dtime: modification time, in seconds from UNIX epoch.
+ *      - size: in bytes.
+ *   - @b audios: audio files.
+ *      - id: same as files.id
+ *      - title: audio title.
+ *      - album_id: same as audio_albums.id.
+ *      - genre_id: same as audio_genres.id.
+ *      - trackno: track number.
+ *      - rating: rating.
+ *      - playcnt: play count.
+ *   - @b audio_artists: audio artists.
+ *      - id: identification inside LMS/DB.
+ *      - name: artist name.
+ *   - @b audio_albums: audio albums.
+ *      - id: identification inside LMS/DB.
+ *      - artist_id: same as audio_artists.id.
+ *      - name: album name.
+ *   - @b audio_genres: audio genres.
+ *      - id: identification inside LMS/DB.
+ *      - name: genre name.
+ *   - @b playlists: playlists.
+ *      - id: identification inside LMS/DB.
+ *      - title: playlists title.
+ *      - n_entries: number of entries in this playlist.
+ *   - @b images: image files.
+ *      - id: identification inside LMS/DB.
+ *      - title: image title.
+ *      - artist: image creator or artirst or photographer or ...
+ *      - date: image taken date or creation date or ...
+ *      - width: image width.
+ *      - height: image height.
+ *      - orientation: image orientation.
+ *      - gps_lat: GPS latitude.
+ *      - gps_long: GPS longitude.
+ *      - gps_alt: GPS altitude.
+ *   - @b videos: video files.
+ *      - id: identification inside LMS/DB.
+ *      - title: video title.
+ *      - artist: video artist or creator or producer or ...
+ */
+
+
 #ifndef _LIGHTMEDIASCANNER_H_
 #define _LIGHTMEDIASCANNER_H_ 1
 
@@ -66,6 +152,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+    /**
+     * @defgroup LMS_API User-API
+     *
+     * Functions for library users.
+     */
+
     typedef struct lms lms_t;
     typedef struct lms_plugin lms_plugin_t;
 

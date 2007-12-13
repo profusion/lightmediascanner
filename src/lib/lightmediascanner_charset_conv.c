@@ -13,6 +13,15 @@ struct lms_charset_conv {
     char **names;
 };
 
+/**
+ * Create a new charset conversion tool.
+ *
+ * Conversion tool will try to convert provided strings to UTF-8, just need
+ * to register known charsets with lms_charset_conv_add() and then call
+ * lms_charset_conv().
+ *
+ * @return newly allocated conversion tool or NULL on error.
+ */
 lms_charset_conv_t *
 lms_charset_conv_new(void)
 {
@@ -49,6 +58,11 @@ lms_charset_conv_new(void)
     return NULL;
 }
 
+/**
+ * Free existing charset conversion tool.
+ *
+ * @param lcc existing Light Media Scanner charset conversion.
+ */
 void
 lms_charset_conv_free(lms_charset_conv_t *lcc)
 {
@@ -72,6 +86,14 @@ lms_charset_conv_free(lms_charset_conv_t *lcc)
     free(lcc);
 }
 
+/**
+ * Register new charset to conversion tool.
+ *
+ * @param lcc existing Light Media Scanner charset conversion.
+ * @param charset charset name as understood by iconv_open(3).
+ *
+ * @return On success 0 is returned.
+ */
 int
 lms_charset_conv_add(lms_charset_conv_t *lcc, const char *charset)
 {
@@ -130,6 +152,14 @@ _find(const lms_charset_conv_t *lcc, const char *charset)
     return -1;
 }
 
+/**
+ * Forget about previously registered charset in conversion tool.
+ *
+ * @param lcc existing Light Media Scanner charset conversion.
+ * @param charset charset name.
+ *
+ * @return On success 0 is returned.
+ */
 int
 lms_charset_conv_del(lms_charset_conv_t *lcc, const char *charset)
 {
@@ -223,6 +253,15 @@ _conv(iconv_t cd, char **p_str, unsigned int *p_len, char *ostr, unsigned int ol
     return 0;
 }
 
+/**
+ * If required, do charset conversion to UTF-8.
+ *
+ * @param lcc existing Light Media Scanner charset conversion.
+ * @param p_str string to be converted.
+ * @param p_len string size.
+ *
+ * @return On success 0 is returned.
+ */
 int
 lms_charset_conv(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_len)
 {
@@ -265,6 +304,15 @@ lms_charset_conv(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_len)
     return i;
 }
 
+/**
+ * Check if strings is not UTF-8 and conversion is required.
+ *
+ * @param lcc existing Light Media Scanner charset conversion.
+ * @param str string to be analysed.
+ * @param len string size.
+ *
+ * @return 0 if string is already UTF-8.
+ */
 int
 lms_charset_conv_check(lms_charset_conv_t *lcc, const char *str, unsigned int len)
 {

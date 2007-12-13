@@ -602,6 +602,18 @@ _check(struct pinfo *pinfo, int len, char *path)
     return ret;
 }
 
+/**
+ * Check consistency of given directory.
+ *
+ * This will update media in the given directory or its children. If files
+ * are missing, they'll be marked as deleted (dtime is set), if they were
+ * marked as deleted and are now present, they are unmarked (dtime is unset).
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param top_path top directory to scan.
+ *
+ * @return On success 0 is returned.
+ */
 int
 lms_check(lms_t *lms, const char *top_path)
 {

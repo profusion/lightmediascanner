@@ -229,6 +229,20 @@ _db_create_tables_if_required(sqlite3 *db)
 
 #undef _DB_T_UPDATE
 
+/**
+ * Create audio DB access tool.
+ *
+ * Creates or get a reference to tools to access 'audios' table in an
+ * optimized and easy way.
+ *
+ * This is usually called from plugin's @b setup() callback with the @p db
+ * got from @c ctxt.
+ *
+ * @param db database connection.
+ *
+ * @return DB access tool handle.
+ * @ingroup LMS_Plugins
+ */
 lms_db_audio_t *
 lms_db_audio_new(sqlite3 *db)
 {
@@ -261,6 +275,18 @@ lms_db_audio_new(sqlite3 *db)
     return lda;
 }
 
+/**
+ * Start audio DB access tool.
+ *
+ * Compile SQL statements and other initialization functions.
+ *
+ * This is usually called from plugin's @b start() callback.
+ *
+ * @param lda handle returned by lms_db_audio_new().
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_audio_start(lms_db_audio_t *lda)
 {
@@ -310,6 +336,18 @@ lms_db_audio_start(lms_db_audio_t *lda)
     return 0;
 }
 
+/**
+ * Free audio DB access tool.
+ *
+ * Unreference and possible free resources allocated to access tool.
+ *
+ * This is usually called from plugin's @b finish() callback.
+ *
+ * @param lda handle returned by lms_db_audio_new().
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_audio_free(lms_db_audio_t *lda)
 {
@@ -595,6 +633,17 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
     return ret;
 }
 
+/**
+ * Add audio file to DB.
+ *
+ * This is usually called from plugin's @b parse() callback.
+ *
+ * @param lda handle returned by lms_db_audio_new().
+ * @param info audio information to store.
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info)
 {

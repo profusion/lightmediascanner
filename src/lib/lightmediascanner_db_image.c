@@ -79,6 +79,20 @@ _db_create_table_if_required(sqlite3 *db)
          _db_table_updater_images);
 }
 
+/**
+ * Create image DB access tool.
+ *
+ * Creates or get a reference to tools to access 'images' table in an
+ * optimized and easy way.
+ *
+ * This is usually called from plugin's @b setup() callback with the @p db
+ * got from @c ctxt.
+ *
+ * @param db database connection.
+ *
+ * @return DB access tool handle.
+ * @ingroup LMS_Plugins
+ */
 lms_db_image_t *
 lms_db_image_new(sqlite3 *db)
 {
@@ -111,6 +125,18 @@ lms_db_image_new(sqlite3 *db)
     return ldi;
 }
 
+/**
+ * Start image DB access tool.
+ *
+ * Compile SQL statements and other initialization functions.
+ *
+ * This is usually called from plugin's @b start() callback.
+ *
+ * @param ldi handle returned by lms_db_image_new().
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_image_start(lms_db_image_t *ldi)
 {
@@ -131,6 +157,18 @@ lms_db_image_start(lms_db_image_t *ldi)
     return 0;
 }
 
+/**
+ * Free image DB access tool.
+ *
+ * Unreference and possible free resources allocated to access tool.
+ *
+ * This is usually called from plugin's @b finish() callback.
+ *
+ * @param ldi handle returned by lms_db_image_new().
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_image_free(lms_db_image_t *ldi)
 {
@@ -220,6 +258,17 @@ _db_insert(lms_db_image_t *ldi, const struct lms_image_info *info)
     return ret;
 }
 
+/**
+ * Add image file to DB.
+ *
+ * This is usually called from plugin's @b parse() callback.
+ *
+ * @param ldi handle returned by lms_db_image_new().
+ * @param info image information to store.
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_image_add(lms_db_image_t *ldi, struct lms_image_info *info)
 {

@@ -86,6 +86,20 @@ _db_create_table_if_required(sqlite3 *db)
          _db_table_updater_videos);
 }
 
+/**
+ * Create video DB access tool.
+ *
+ * Creates or get a reference to tools to access 'videos' table in an
+ * optimized and easy way.
+ *
+ * This is usually called from plugin's @b setup() callback with the @p db
+ * got from @c ctxt.
+ *
+ * @param db database connection.
+ *
+ * @return DB access tool handle.
+ * @ingroup LMS_Plugins
+ */
 lms_db_video_t *
 lms_db_video_new(sqlite3 *db)
 {
@@ -118,6 +132,18 @@ lms_db_video_new(sqlite3 *db)
     return ldv;
 }
 
+/**
+ * Start video DB access tool.
+ *
+ * Compile SQL statements and other initialization functions.
+ *
+ * This is usually called from plugin's @b start() callback.
+ *
+ * @param ldv handle returned by lms_db_video_new().
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_video_start(lms_db_video_t *ldv)
 {
@@ -135,6 +161,18 @@ lms_db_video_start(lms_db_video_t *ldv)
     return 0;
 }
 
+/**
+ * Free video DB access tool.
+ *
+ * Unreference and possible free resources allocated to access tool.
+ *
+ * This is usually called from plugin's @b finish() callback.
+ *
+ * @param ldv handle returned by lms_db_video_new().
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_video_free(lms_db_video_t *ldv)
 {
@@ -196,6 +234,17 @@ _db_insert(lms_db_video_t *ldv, const struct lms_video_info *info)
     return ret;
 }
 
+/**
+ * Add video file to DB.
+ *
+ * This is usually called from plugin's @b parse() callback.
+ *
+ * @param ldv handle returned by lms_db_video_new().
+ * @param info video information to store.
+ *
+ * @return On success 0 is returned.
+ * @ingroup LMS_Plugins
+ */
 int
 lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
 {

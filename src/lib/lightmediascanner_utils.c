@@ -2,6 +2,13 @@
 #include <ctype.h>
 #include <alloca.h>
 
+/**
+ * Strips string, in place.
+ *
+ * @param str string to be stripped.
+ * @param p_len string length to analyse, also the place where the final size
+ *        is stored.
+ */
 void
 lms_strstrip(char *str, unsigned int *p_len)
 {
@@ -48,6 +55,16 @@ lms_strstrip(char *str, unsigned int *p_len)
             *str = *p;
 }
 
+/**
+ * Find out which of the given extensions matches the given name.
+ *
+ * @param name string to analyse.
+ * @param name_len string length.
+ * @param exts array of extensions to be checked.
+ * @param exts_len number of items in array @p exts
+ *
+ * @return index in @p exts or -1 if it doesn't match none.
+ */
 int
 lms_which_extension(const char *name, unsigned int name_len, const struct lms_string_size *exts, unsigned int exts_len) {
     int i;
