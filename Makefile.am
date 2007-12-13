@@ -16,7 +16,8 @@ SUBDIRS = src m4
 EXTRA_DIST = \
 	README \
 	AUTHORS \
-	COPYING
+	COPYING \
+	Doxyfile
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lightmediascanner.pc
