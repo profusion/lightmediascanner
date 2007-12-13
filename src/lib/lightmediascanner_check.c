@@ -554,6 +554,7 @@ _check(struct pinfo *pinfo, int len, char *path)
 {
     char query[PATH_SIZE + 2];
     struct master_db *db;
+    lms_t *lms;
     int r, ret;
 
     db = _master_db_open(pinfo->lms->db_path);
@@ -572,6 +573,7 @@ _check(struct pinfo *pinfo, int len, char *path)
         goto end;
     }
     _init_sync_wait(pinfo, 1);
+    lms = pinfo->lms;
 
     do {
         r = sqlite3_step(db->get_files);
@@ -587,7 +589,7 @@ _check(struct pinfo *pinfo, int len, char *path)
             ret = -2;
             goto finish_slave;
         }
-    } while (r != SQLITE_DONE);
+    } while (r != SQLITE_DONE && !lms->stop_processing);
     ret = 0;
 
   finish_slave:
@@ -657,8 +659,10 @@ lms_check(lms_t *lms, const char *top_path)
     }
 
     lms->is_processing = 1;
+    lms->stop_processing = 0;
     r = _check(&pinfo, strlen(path), path);
     lms->is_processing = 0;
+    lms->stop_processing = 0;
 
   close_pipes:
     lms_close_pipes(&pinfo);

@@ -758,6 +758,7 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
 {
     DIR *dir;
     struct dirent *de;
+    lms_t *lms;
     int new_len, r;
 
     new_len = _strcat(base, path, name);
@@ -778,7 +779,8 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
     new_len++;
 
     r = 0;
-    while ((de = readdir(dir)) != NULL) {
+    lms = pinfo->lms;
+    while ((de = readdir(dir)) != NULL && !lms->stop_processing) {
         if (de->d_name[0] == '.')
             continue;
         if (de->d_type == DT_REG) {
@@ -876,8 +878,10 @@ lms_process(lms_t *lms, const char *top_path)
     }
 
     lms->is_processing = 1;
+    lms->stop_processing = 0;
     r = _process_dir(&pinfo, len, path, bname);
     lms->is_processing = 0;
+    lms->stop_processing = 0;
     free(bname);
 
   finish_slave:
@@ -886,4 +890,15 @@ lms_process(lms_t *lms, const char *top_path)
     lms_close_pipes(&pinfo);
   end:
     return r;
+}
+
+void
+lms_stop_processing(lms_t *lms)
+{
+    if (!lms)
+        return;
+    if (!lms->is_processing)
+        return;
+
+    lms->stop_processing = 1;
 }

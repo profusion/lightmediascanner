@@ -69,6 +69,7 @@ struct lms {
     int slave_timeout;
     unsigned int commit_interval;
     unsigned int is_processing:1;
+    unsigned int stop_processing:1;
 };
 
 int lms_parser_del_int(lms_t *lms, int i) GNUC_NON_NULL(1);
