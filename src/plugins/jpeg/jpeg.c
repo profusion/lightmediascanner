@@ -51,6 +51,10 @@ enum {
     JPEG_MARKER_EXIF = 0xe1,
     JPEG_MARKER_COMM = 0xfe,
     JPEG_MARKER_SOF0 = 0xc0,
+    JPEG_MARKER_SOF1 = 0xc1,
+    JPEG_MARKER_SOF2 = 0xc2,
+    JPEG_MARKER_SOF9 = 0xc9,
+    JPEG_MARKER_SOF10 = 0xca,
     JPEG_MARKER_SOS = 0xda
 };
 
@@ -144,7 +148,11 @@ _jpeg_info_get(int fd, int len, struct lms_image_info *info)
             return -3;
         }
 
-        if (buf[1] == JPEG_MARKER_SOF0) {
+        if (buf[1] == JPEG_MARKER_SOF0 ||
+            buf[1] == JPEG_MARKER_SOF1 ||
+            buf[1] == JPEG_MARKER_SOF2 ||
+            buf[1] == JPEG_MARKER_SOF9 ||
+            buf[1] == JPEG_MARKER_SOF10) {
             if (_jpeg_sof_process(fd, &info->width, &info->height) != 0)
                 return -4;
             found++;
