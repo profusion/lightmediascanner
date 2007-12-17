@@ -47,6 +47,7 @@
 
 enum {
     JPEG_MARKER_SOI = 0xd8,
+    JPEG_MARKER_DQT = 0xdb,
     JPEG_MARKER_JFIF = 0xe0,
     JPEG_MARKER_EXIF = 0xe1,
     JPEG_MARKER_COMM = 0xfe,
@@ -625,7 +626,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             r = -3;
             goto done;
         }
-    } else if (type == JPEG_MARKER_JFIF) {
+    } else if (type == JPEG_MARKER_JFIF || type == JPEG_MARKER_DQT) {
         if (_jfif_data_get(fd, len, &info) != 0) {
             fprintf(stderr, "ERROR: could not get JPEG size (%s).\n",
                     finfo->path);
