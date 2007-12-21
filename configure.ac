@@ -57,6 +57,7 @@ AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
 AC_LMS_OPTIONAL_MODULE([id3lib], true, [CHECK_MODULE_ID3LIB])
 AC_LMS_OPTIONAL_MODULE([video-dummy], true)
+AC_LMS_OPTIONAL_MODULE([audio-dummy], true)
 AC_LMS_OPTIONAL_MODULE([m3u], true)
 AC_LMS_OPTIONAL_MODULE([ogg], true, [CHECK_MODULE_OGG])
 AC_LMS_OPTIONAL_MODULE([pls], true)
@@ -73,6 +74,7 @@ src/plugins/dummy/Makefile
 src/plugins/jpeg/Makefile
 src/plugins/id3lib/Makefile
 src/plugins/video-dummy/Makefile
+src/plugins/audio-dummy/Makefile
 src/plugins/m3u/Makefile
 src/plugins/ogg/Makefile
 src/plugins/pls/Makefile
