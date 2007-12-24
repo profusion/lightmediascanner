@@ -18,6 +18,10 @@ if USE_MODULE_VIDEO_DUMMY
 SUBDIRS += video-dummy
 endif
 
+if USE_MODULE_AUDIO_DUMMY
+SUBDIRS += audio-dummy
+endif
+
 if USE_MODULE_M3U
 SUBDIRS += m3u
 endif
@@ -35,6 +39,7 @@ DIST_SUBDIRS = \
 	jpeg \
 	id3lib \
 	video-dummy \
+	audio-dummy \
 	m3u \
 	ogg \
 	pls
