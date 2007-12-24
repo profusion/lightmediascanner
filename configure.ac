@@ -55,6 +55,7 @@ define([CHECK_MODULE_OGG],
 # plugins declarations
 AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
+AC_LMS_OPTIONAL_MODULE([png], true)
 AC_LMS_OPTIONAL_MODULE([id3lib], true, [CHECK_MODULE_ID3LIB])
 AC_LMS_OPTIONAL_MODULE([video-dummy], true)
 AC_LMS_OPTIONAL_MODULE([audio-dummy], true)
@@ -72,6 +73,7 @@ src/lib/Makefile
 src/plugins/Makefile
 src/plugins/dummy/Makefile
 src/plugins/jpeg/Makefile
+src/plugins/png/Makefile
 src/plugins/id3lib/Makefile
 src/plugins/video-dummy/Makefile
 src/plugins/audio-dummy/Makefile

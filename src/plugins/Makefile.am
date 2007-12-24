@@ -10,6 +10,10 @@ if USE_MODULE_JPEG
 SUBDIRS += jpeg
 endif
 
+if USE_MODULE_PNG
+SUBDIRS += png
+endif
+
 if USE_MODULE_ID3LIB
 SUBDIRS += id3lib
 endif
@@ -37,6 +41,7 @@ endif
 DIST_SUBDIRS = \
 	dummy \
 	jpeg \
+	png \
 	id3lib \
 	video-dummy \
 	audio-dummy \
