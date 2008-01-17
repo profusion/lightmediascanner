@@ -118,11 +118,7 @@ _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
       }
       break;
 
-    case ID3FID_COMPOSER:
     case ID3FID_LEADARTIST:
-    case ID3FID_BAND:
-    case ID3FID_CONDUCTOR:
-    case ID3FID_MIXARTIST:
       if (!info->artist.str) {
         _id3lib_get_string(frame, ID3FN_TEXT, &info->artist);
         if (info->artist.str)
