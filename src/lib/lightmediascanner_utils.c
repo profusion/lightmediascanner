@@ -37,8 +37,13 @@ lms_strstrip(char *str, unsigned int *p_len)
 
     len = *p_len;
 
-    if (len < 2 || *str == '\0') /* just '\0'? */
+    if (len == 0)
         return;
+
+    if (*str == '\0') {
+        *p_len = 0;
+        return;
+    }
 
     p = str + len - 1;
     for (i = len - 1; i >= 0; i--) {
