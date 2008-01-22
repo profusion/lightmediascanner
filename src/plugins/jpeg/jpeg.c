@@ -395,7 +395,7 @@ _exif_ifd_process(int fd, int count, int ifd_offset, int tiff_base, int little_e
     for (i = 0; i < count; i++) {
         struct exif_ifd ifd;
 
-        lseek(fd, ifd_offset + i * 12, SEEK_SET);
+        lseek(fd, tiff_base + ifd_offset + i * 12, SEEK_SET);
         if (_exif_ifd_get(fd, little_endian, &ifd) != 0) {
             fprintf(stderr, "ERROR: could not read Exif IFD.\n");
             return -8;
@@ -538,7 +538,7 @@ _exif_data_get(int fd, int len, struct lms_image_info *info)
     }
     count = E_2BTYE(little_endian, buf);
 
-    _exif_ifd_process(fd, count, tiff_base + 8 + 2, tiff_base,
+    _exif_ifd_process(fd, count, 8 + 2, tiff_base,
                       little_endian, info);
 
     return _exif_extra_get(fd, abs_offset, len, info);
