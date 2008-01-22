@@ -104,12 +104,13 @@ _id3lib_get_string_if_need(const ID3_Frame *frame, struct lms_string_size *s)
 static int
 _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
 {
+  lms_string_size band = {NULL, 0}, lead_artist = {NULL, 0};
   ID3_Tag::ConstIterator *itr;
   const ID3_Frame *frame;
   int todo;
 
-  todo = 7; /* info fields left to parse: title, artist, album, genre,
-               trackno, rating, playcnt */
+  todo = 8; /* info fields left to parse: title, lead artist, band,
+               album, genre, trackno, rating, playcnt */
 
   itr = tag.CreateIterator();
 
@@ -125,7 +126,12 @@ _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
       break;
 
     case ID3FID_LEADARTIST:
-      if (_id3lib_get_string_if_need(frame, &info->artist))
+      if (_id3lib_get_string_if_need(frame, &lead_artist))
+          todo--;
+      break;
+
+    case ID3FID_BAND:
+      if (_id3lib_get_string_if_need(frame, &band))
           todo--;
       break;
 
@@ -164,6 +170,14 @@ _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
       break;
     }
   }
+
+  if (band.str && lead_artist.str) {
+    info->artist = band;
+    free(lead_artist.str);
+  } else if (band.str)
+    info->artist = band;
+  else if (lead_artist.str)
+    info->artist = lead_artist;
 
   delete itr;
   return 0;
