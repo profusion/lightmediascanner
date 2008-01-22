@@ -92,6 +92,15 @@ _id3lib_get_string_as_int(const ID3_Frame *frame, ID3_FieldID field_id)
   return 0;
 }
 
+inline static int
+_id3lib_get_string_if_need(const ID3_Frame *frame, struct lms_string_size *s)
+{
+  if (!s->str)
+    _id3lib_get_string(frame, ID3FN_TEXT, s);
+
+  return !!s->str;
+}
+
 static int
 _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
 {
@@ -111,35 +120,23 @@ _id3lib_get_data(const ID3_Tag &tag, struct lms_audio_info *info)
 
     switch (fid) {
     case ID3FID_TITLE:
-      if (!info->title.str) {
-        _id3lib_get_string(frame, ID3FN_TEXT, &info->title);
-        if (info->title.str)
+      if (_id3lib_get_string_if_need(frame, &info->title))
           todo--;
-      }
       break;
 
     case ID3FID_LEADARTIST:
-      if (!info->artist.str) {
-        _id3lib_get_string(frame, ID3FN_TEXT, &info->artist);
-        if (info->artist.str)
+      if (_id3lib_get_string_if_need(frame, &info->artist))
           todo--;
-      }
       break;
 
     case ID3FID_ALBUM:
-      if (!info->album.str) {
-        _id3lib_get_string(frame, ID3FN_TEXT, &info->album);
-        if (info->album.str)
+      if (_id3lib_get_string_if_need(frame, &info->album))
           todo--;
-      }
       break;
 
     case ID3FID_CONTENTTYPE:
-      if (!info->genre.str) {
-        _id3lib_get_string(frame, ID3FN_TEXT, &info->genre);
-        if (info->genre.str)
+      if (_id3lib_get_string_if_need(frame, &info->genre))
           todo--;
-      }
       break;
 
     case ID3FID_TRACKNUM:
