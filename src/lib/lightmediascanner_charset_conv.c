@@ -280,6 +280,10 @@ _conv(iconv_t cd, char **p_str, unsigned int *p_len, char *ostr, unsigned int ol
  * @param p_str string to be converted.
  * @param p_len string size.
  *
+ * @note the check for string being already UTF-8 is not reliable,
+ *       some cases might show false positives (UTF-16 is considered UTF-8).
+ * @see lms_charset_conv_check()
+ *
  * @return On success 0 is returned.
  */
 int
@@ -325,11 +329,66 @@ lms_charset_conv(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_len)
 }
 
 /**
+ * Forcefully do charset conversion to UTF-8.
+ *
+ * @param lcc existing Light Media Scanner charset conversion.
+ * @param p_str string to be converted.
+ * @param p_len string size.
+ *
+ * @note This function does not check for the string being in UTF-8 before
+ *       doing the conversion, use it if you are sure about the charset.
+ *       In this case you'll usually have just one charset added.
+ *
+ * @return On success 0 is returned.
+ */
+int
+lms_charset_conv_force(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_len)
+{
+    char *outstr;
+    int i, outlen;
+
+    if (!lcc)
+        return -1;
+    if (!p_str)
+        return -2;
+    if (!p_len)
+        return -3;
+    if (!*p_str || !*p_len)
+        return 0;
+
+    outlen = 2 * *p_len;
+    outstr = malloc(outlen + 1);
+    if (!outstr) {
+        perror("malloc");
+        return -4;
+    }
+
+    for (i = 0; i < lcc->size; i++)
+        if (_conv(lcc->convs[i], p_str, p_len, outstr, outlen) == 0)
+            return 0;
+
+    fprintf(stderr,
+            "WARNING: could not convert '%*s' to any charset, use fallback\n",
+            *p_len, *p_str);
+    i = _conv(lcc->fallback, p_str, p_len, outstr, outlen);
+    if (i < 0) {
+        memset(*p_str, '?', *p_len);
+        free(outstr);
+    }
+    return i;
+}
+
+/**
  * Check if strings is not UTF-8 and conversion is required.
  *
  * @param lcc existing Light Media Scanner charset conversion.
  * @param str string to be analysed.
  * @param len string size.
+ *
+ * @note current implementation is not reliable, it tries to convert from
+ *       UTF-8 to UTF-8. Some cases, like ISO-8859-1 will work, but some like
+ *       UTF-16 to UTF-8 will say it's already in the correct charset,
+ *       even if it's not.
  *
  * @return 0 if string is already UTF-8.
  */
