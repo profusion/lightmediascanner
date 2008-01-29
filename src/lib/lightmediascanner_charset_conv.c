@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 
 struct lms_charset_conv {
     iconv_t check;
@@ -273,6 +274,14 @@ _conv(iconv_t cd, char **p_str, unsigned int *p_len, char *ostr, unsigned int ol
     return 0;
 }
 
+static void
+_fix_non_ascii(char *s, int len)
+{
+    for (; len > 0; len--, s++)
+        if (!isprint(*s))
+            *s = '?';
+}
+
 /**
  * If required, do charset conversion to UTF-8.
  *
@@ -322,7 +331,7 @@ lms_charset_conv(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_len)
             *p_len, *p_str);
     i = _conv(lcc->fallback, p_str, p_len, outstr, outlen);
     if (i < 0) {
-        memset(*p_str, '?', *p_len);
+        _fix_non_ascii(*p_str, *p_len);
         free(outstr);
     }
     return i;
@@ -372,7 +381,7 @@ lms_charset_conv_force(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_le
             *p_len, *p_str);
     i = _conv(lcc->fallback, p_str, p_len, outstr, outlen);
     if (i < 0) {
-        memset(*p_str, '?', *p_len);
+        _fix_non_ascii(*p_str, *p_len);
         free(outstr);
     }
     return i;
