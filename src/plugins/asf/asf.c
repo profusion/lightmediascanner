@@ -193,9 +193,7 @@ _parse_content_description(lms_charset_conv_t *cs_conv, int fd, struct asf_info 
     _read_string(fd, artist_length, &info->artist.str, &info->artist.len);
     lms_charset_conv_force(cs_conv, &info->artist.str, &info->artist.len);
     /* ignore copyright, comment and rating */
-    lseek(fd, copyright_length, SEEK_CUR);
-    lseek(fd, comment_length, SEEK_CUR);
-    lseek(fd, rating_length, SEEK_CUR);
+    lseek(fd, copyright_length + comment_length + rating_length, SEEK_CUR);
 }
 
 static void
@@ -217,8 +215,7 @@ _parse_attribute_name(int fd,
     }
     /* metadata & metadata library */
     else {
-        lseek(fd, 2, SEEK_CUR); /* language */
-        lseek(fd, 2, SEEK_CUR); /* stream */
+        lseek(fd, 2 + 2, SEEK_CUR); /* language and stream */
         attr_name_length = _read_word(fd);
         *attr_type = _read_word(fd);
         *attr_size = _read_dword(fd);
