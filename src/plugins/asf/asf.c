@@ -108,9 +108,9 @@ _to_number(const char *data, unsigned int type_size, unsigned int data_size)
     long long sum = 0;
     unsigned int last, i;
 
-    last = data_size > type_size ? type_size - 1 : data_size - 1;
+    last = data_size > type_size ? type_size : data_size;
 
-    for (i = 0; i <= last; i++)
+    for (i = 0; i < last; i++)
         sum |= (unsigned char) (data[i]) << (i * 8);
 
     return sum;
@@ -120,19 +120,17 @@ static short
 _read_word(int fd)
 {
     char v[2];
-    if (read(fd, &v, 2) != 2) {
+    if (read(fd, &v, 2) != 2)
         return 0;
-    }
-    return (unsigned int) _to_number(v, sizeof(unsigned short), 2);
+    return (short) _to_number(v, sizeof(unsigned short), 2);
 }
 
 static unsigned int
 _read_dword(int fd)
 {
     char v[4];
-    if (read(fd, &v, 4) != 4) {
+    if (read(fd, &v, 4) != 4)
         return 0;
-    }
     return (unsigned int) _to_number(v, sizeof(unsigned int), 4);
 }
 
@@ -140,10 +138,9 @@ static long long
 _read_qword(int fd)
 {
     char v[8];
-    if (read(fd, &v, 8) != 8) {
+    if (read(fd, &v, 8) != 8)
         return 0;
-    }
-    return (unsigned int) _to_number(v, sizeof(unsigned long long), 8);
+    return _to_number(v, sizeof(unsigned long long), 8);
 }
 
 static int
@@ -152,7 +149,12 @@ _read_string(int fd, size_t count, char **str, size_t *len)
     char *data;
     size_t data_size, size;
 
-    data = (char *) malloc(sizeof(char) * count);
+    if (!str) {
+        lseek(fd, count, SEEK_CUR);
+        return 0;
+    }
+
+    data = malloc(sizeof(char) * count);
     data_size = read(fd, data, count);
     if (data_size == -1) {
         free(data);
@@ -161,9 +163,8 @@ _read_string(int fd, size_t count, char **str, size_t *len)
 
     size = data_size;
     while (size >= 2) {
-        if (data[size - 1] != '\0' || data[size - 2] != '\0') {
+        if (data[size - 1] != '\0' || data[size - 2] != '\0')
             break;
-        }
         size -= 2;
     }
 
@@ -188,9 +189,10 @@ _parse_content_description(lms_charset_conv_t *cs_conv, int fd, struct asf_info 
     lms_charset_conv_force(cs_conv, &info->title.str, &info->title.len);
     _read_string(fd, artist_length, &info->artist.str, &info->artist.len);
     lms_charset_conv_force(cs_conv, &info->artist.str, &info->artist.len);
-    _read_string(fd, copyright_length, &copyright, &len);
-    _read_string(fd, comment_length, &comment, &len);
-    _read_string(fd, rating_length, &rating, &len);
+    /* ignore copyright, comment and rating */
+    _read_string(fd, copyright_length, NULL, NULL);
+    _read_string(fd, comment_length, NULL, NULL);
+    _read_string(fd, rating_length, NULL, NULL);
 }
 
 static void
@@ -206,10 +208,7 @@ _parse_attribute_name(int fd,
     /* extended content descriptor */
     if (kind == 0) {
         attr_name_length = _read_word(fd);
-        if (attr_name)
-            _read_string(fd, attr_name_length, attr_name, attr_name_len);
-        else
-            lseek(fd, attr_name_length, SEEK_CUR);
+        _read_string(fd, attr_name_length, attr_name, attr_name_len);
         *attr_type = _read_word(fd);
         *attr_size = _read_word(fd);
     }
@@ -220,10 +219,7 @@ _parse_attribute_name(int fd,
         attr_name_length = _read_word(fd);
         *attr_type = _read_word(fd);
         *attr_size = _read_dword(fd);
-        if (attr_name)
-            _read_string(fd, attr_name_length, attr_name, attr_name_len);
-        else
-            lseek(fd, attr_name_length, SEEK_CUR);
+        _read_string(fd, attr_name_length, attr_name, attr_name_len);
     }
 }
 
@@ -247,12 +243,10 @@ _skip_attribute_data(int fd, int kind, int attr_type, int attr_size)
         break;
 
     case ATTR_TYPE_BOOL:
-        if (kind == 0) {
+        if (kind == 0)
             lseek(fd, 4, SEEK_CUR);
-        }
-        else {
+        else
             lseek(fd, 2, SEEK_CUR);
-        }
         break;
 
     case ATTR_TYPE_DWORD:
@@ -332,18 +326,16 @@ static void
 _skip_metadata(int fd)
 {
     int count = _read_word(fd);
-    while (count--) {
+    while (count--)
         _skip_attribute(fd, 1);
-    }
 }
 
 static void
 _skip_metadata_library(int fd)
 {
     int count = _read_word(fd);
-    while (count--) {
+    while (count--)
         _skip_attribute(fd, 2);
-    }
 }
 
 static void
@@ -358,15 +350,12 @@ _skip_header_extension(int fd)
     while (data_pos < data_size) {
         read(fd, &guid, 16);
         size = _read_qword(fd);
-        if (memcmp(guid, metadata_guid, 16) == 0) {
+        if (memcmp(guid, metadata_guid, 16) == 0)
             _skip_metadata(fd);
-        }
-        else if (memcmp(guid, metadata_library_guid, 16) == 0) {
+        else if (memcmp(guid, metadata_library_guid, 16) == 0)
             _skip_metadata_library(fd);
-        }
-        else {
+        else
             lseek(fd, size - 24, SEEK_CUR);
-        }
         data_pos += size;
     }
 }
@@ -476,8 +465,6 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
     if (!info.title.str) {
         int ext_idx;
-        if (info.title.str)
-            free(info.title.str);
         ext_idx = ((int)match) - 1;
         info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
         info.title.str = malloc((info.title.len + 1) * sizeof(char));
@@ -488,7 +475,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
 #if 0
     fprintf(stderr, "file %s info\n", finfo->path);
-    fprintf(stderr, "\ttitle='%s' len=%d\n", info.title.str, info.title.len);
+    fprintf(stderr, "\ttitle='%s'\n", info.title.str);
     fprintf(stderr, "\tartist='%s'\n", info.artist.str);
     fprintf(stderr, "\talbum='%s'\n", info.album.str);
     fprintf(stderr, "\tgenre='%s'\n", info.genre.str);
