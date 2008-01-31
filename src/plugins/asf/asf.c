@@ -102,6 +102,10 @@ static const char metadata_library_guid[16] = "\224\034#D\230\224\321I\241A\x1d\
 static const char content_encryption_object_guid[16] = "\xFB\xB3\x11\x22\x23\xBD\xD2\x11\xB4\xB7\x00\xA0\xC9\x55\xFC\x6E";
 static const char extended_content_encryption_object_guid[16] = "\x14\xE6\x8A\x29\x22\x26\x17\x4C\xB9\x35\xDA\xE0\x7E\xE9\x28\x9C";
 
+static const char attr_name_wm_album_title[26] = "\x57\x00\x4d\x00\x2f\x00\x41\x00\x6c\x00\x62\x00\x75\x00\x6d\x00\x54\x00\x69\x00\x74\x00\x6c\x00\x65\x00";
+static const char attr_name_wm_genre[16] = "\x57\x00\x4d\x00\x2f\x00\x47\x00\x65\x00\x6e\x00\x72\x00\x65\x00";
+static const char attr_name_wm_track_number[28] = "\x57\x00\x4d\x00\x2f\x00\x54\x00\x72\x00\x61\x00\x63\x00\x6b\x00\x4e\x00\x75\x00\x6d\x00\x62\x00\x65\x00\x72\x00";
+
 static long long
 _to_number(const char *data, unsigned int type_size, unsigned int data_size)
 {
@@ -190,9 +194,9 @@ _parse_content_description(lms_charset_conv_t *cs_conv, int fd, struct asf_info 
     _read_string(fd, artist_length, &info->artist.str, &info->artist.len);
     lms_charset_conv_force(cs_conv, &info->artist.str, &info->artist.len);
     /* ignore copyright, comment and rating */
-    _read_string(fd, copyright_length, NULL, NULL);
-    _read_string(fd, comment_length, NULL, NULL);
-    _read_string(fd, rating_length, NULL, NULL);
+    lseek(fd, copyright_length, SEEK_CUR);
+    lseek(fd, comment_length, SEEK_CUR);
+    lseek(fd, rating_length, SEEK_CUR);
 }
 
 static void
@@ -289,18 +293,17 @@ _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, 
                               &attr_name, &attr_name_len,
                               &attr_type, &attr_size);
         if (attr_type == ATTR_TYPE_UNICODE) {
-            lms_charset_conv_force(cs_conv, &attr_name, &attr_name_len);
-            if (strcmp(attr_name, "WM/AlbumTitle") == 0)
+            if (memcmp(attr_name, attr_name_wm_album_title, attr_name_len) == 0)
                 _parse_attribute_string_data(cs_conv,
                                              fd, attr_size,
                                              &info->album.str,
                                              &info->album.len);
-            else if (strcmp(attr_name, "WM/Genre") == 0)
+            else if (memcmp(attr_name, attr_name_wm_genre, attr_name_len) == 0)
                 _parse_attribute_string_data(cs_conv,
                                              fd, attr_size,
                                              &info->genre.str,
                                              &info->genre.len);
-            else if (strcmp(attr_name, "WM/TrackNumber") == 0) {
+            else if (memcmp(attr_name, attr_name_wm_track_number, attr_name_len) == 0) {
                 char *trackno;
                 size_t trackno_len;
                 _parse_attribute_string_data(cs_conv,
@@ -350,6 +353,8 @@ _skip_header_extension(int fd)
     while (data_pos < data_size) {
         read(fd, &guid, 16);
         size = _read_qword(fd);
+        if (size == 0)
+            break;
         if (memcmp(guid, metadata_guid, 16) == 0)
             _skip_metadata(fd);
         else if (memcmp(guid, metadata_library_guid, 16) == 0)
@@ -459,7 +464,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     }
 
     _strstrip(&info.title.str, &info.title.len);
-    _strstrip(&info.artist.str, &info.genre.len);
+    _strstrip(&info.artist.str, &info.artist.len);
     _strstrip(&info.album.str, &info.album.len);
     _strstrip(&info.genre.str, &info.genre.len);
 
