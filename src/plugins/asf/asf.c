@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 enum StreamTypes {
     STREAM_TYPE_UNKNOWN = 0,
@@ -186,8 +187,6 @@ _parse_content_description(lms_charset_conv_t *cs_conv, int fd, struct asf_info 
     int copyright_length = _read_word(fd);
     int comment_length = _read_word(fd);
     int rating_length = _read_word(fd);
-    int len;
-    char *copyright, *comment, *rating;
 
     _read_string(fd, title_length, &info->title.str, &info->title.len);
     lms_charset_conv_force(cs_conv, &info->title.str, &info->title.len);
@@ -392,7 +391,7 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct asf_info info = {0};
+    struct asf_info info = {{0}, {0}, {0}, {0}, 0};
     struct lms_audio_info audio_info = {0};
     struct lms_video_info video_info = {0};
     int r, fd, num_objects, i;
