@@ -77,6 +77,7 @@ extern "C" {
     API int lms_charset_conv_del(lms_charset_conv_t *lcc, const char *charset) GNUC_NON_NULL(1, 2);
 
     API int lms_charset_conv(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_len) GNUC_NON_NULL(1, 2, 3);
+    API int lms_charset_conv_force(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_len) GNUC_NON_NULL(1, 2, 3);
     API int lms_charset_conv_check(lms_charset_conv_t *lcc, const char *str, unsigned int len) GNUC_NON_NULL(1, 2);
 
 /**
