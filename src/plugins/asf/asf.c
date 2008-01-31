@@ -75,6 +75,20 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".asf")
 };
 
+/* ASF GUIDs
+ *
+ * Microsoft defines these 16-byte (128-bit) GUIDs as:
+ * first 8 bytes are in little-endian order
+ * next 8 bytes are in big-endian order
+ *
+ * Eg.: AaBbCcDd-EeFf-GgHh-IiJj-KkLlMmNnOoPp:
+ *
+ * to convert to byte string do as follow:
+ *
+ * $Dd $Cc $Bb $Aa $Ff $Ee $Hh $Gg $Ii $Jj $Kk $Ll $Mm $Nn $Oo $Pp
+ *
+ * See http://www.microsoft.com/windows/windowsmedia/forpros/format/asfspec.aspx
+ */
 static const char header_guid[16] = "\x30\x26\xB2\x75\x8E\x66\xCF\x11\xA6\xD9\x00\xAA\x00\x62\xCE\x6C";
 static const char file_properties_guid[16] = "\xA1\xDC\xAB\x8C\x47\xA9\xCF\x11\x8E\xE4\x00\xC0\x0C\x20\x53\x65";
 static const char stream_properties_guid[16] = "\x91\x07\xDC\xB7\xB7\xA9\xCF\x11\x8E\xE6\x00\xC0\x0C\x20\x53\x65";
