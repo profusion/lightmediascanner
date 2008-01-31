@@ -46,7 +46,6 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".ram"),
     LMS_STATIC_STRING_SIZE(".mp4"),
     LMS_STATIC_STRING_SIZE(".ogm"),
-    LMS_STATIC_STRING_SIZE(".wmv")
 };
 
 struct plugin {
