@@ -38,6 +38,10 @@ if USE_MODULE_OGG
 SUBDIRS += ogg
 endif
 
+if USE_MODULE_ASF
+SUBDIRS += asf
+endif
+
 DIST_SUBDIRS = \
 	dummy \
 	jpeg \
@@ -47,4 +51,5 @@ DIST_SUBDIRS = \
 	audio-dummy \
 	m3u \
 	ogg \
-	pls
+	pls \
+	asf
