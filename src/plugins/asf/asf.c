@@ -32,6 +32,7 @@
 #include <lightmediascanner_db.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#define _XOPEN_SOURCE 600
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
