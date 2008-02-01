@@ -63,6 +63,7 @@ AC_LMS_OPTIONAL_MODULE([m3u], true)
 AC_LMS_OPTIONAL_MODULE([ogg], true, [CHECK_MODULE_OGG])
 AC_LMS_OPTIONAL_MODULE([pls], true)
 AC_LMS_OPTIONAL_MODULE([asf], true)
+AC_LMS_OPTIONAL_MODULE([rm], true)
 
 AC_OUTPUT([
 lightmediascanner.pc
@@ -82,6 +83,7 @@ src/plugins/m3u/Makefile
 src/plugins/ogg/Makefile
 src/plugins/pls/Makefile
 src/plugins/asf/Makefile
+src/plugins/rm/Makefile
 ])
 
 

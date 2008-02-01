@@ -42,6 +42,10 @@ if USE_MODULE_ASF
 SUBDIRS += asf
 endif
 
+if USE_MODULE_RM
+SUBDIRS += rm
+endif
+
 DIST_SUBDIRS = \
 	dummy \
 	jpeg \
@@ -52,4 +56,5 @@ DIST_SUBDIRS = \
 	m3u \
 	ogg \
 	pls \
-	asf
+	asf \
+	rm

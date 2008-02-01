@@ -39,7 +39,6 @@ static const char _name[] = "audio-dummy";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".m4a"),
     LMS_STATIC_STRING_SIZE(".aac"),
-    LMS_STATIC_STRING_SIZE(".ra"),
     LMS_STATIC_STRING_SIZE(".wav")
 };
 
