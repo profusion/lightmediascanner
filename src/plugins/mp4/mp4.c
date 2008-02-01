@@ -136,7 +136,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     if (info.genre.str)
         lms_charset_conv(ctxt->cs_conv, &info.genre.str, &info.genre.len);
 
-#if 1
+#if 0
     fprintf(stderr, "file %s info\n", finfo->path);
     fprintf(stderr, "\ttitle='%s'\n", info.title.str);
     fprintf(stderr, "\tartist='%s'\n", info.artist.str);
