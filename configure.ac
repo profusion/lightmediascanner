@@ -52,6 +52,15 @@ define([CHECK_MODULE_OGG],
         AC_LMS_CHECK_PKG(VORBIS, vorbis, [], [OGG=false])
 ])
 
+AM_CONDITIONAL(HAVE_MP4V2, false)
+define([CHECK_MODULE_MP4],
+[
+        AC_CHECK_LIB(mp4v2, MP4Read, [], [MP4=false])
+        MP4V2_LIBS="-lmp4v2"
+        AC_SUBST(MP4V2_LIBS)
+])
+
+
 # plugins declarations
 AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
@@ -64,6 +73,7 @@ AC_LMS_OPTIONAL_MODULE([ogg], true, [CHECK_MODULE_OGG])
 AC_LMS_OPTIONAL_MODULE([pls], true)
 AC_LMS_OPTIONAL_MODULE([asf], true)
 AC_LMS_OPTIONAL_MODULE([rm], true)
+AC_LMS_OPTIONAL_MODULE([mp4], true, [CHECK_MODULE_MP4])
 
 AC_OUTPUT([
 lightmediascanner.pc
@@ -84,6 +94,7 @@ src/plugins/ogg/Makefile
 src/plugins/pls/Makefile
 src/plugins/asf/Makefile
 src/plugins/rm/Makefile
+src/plugins/mp4/Makefile
 ])
 
 

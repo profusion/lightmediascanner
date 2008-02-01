@@ -46,6 +46,10 @@ if USE_MODULE_RM
 SUBDIRS += rm
 endif
 
+if USE_MODULE_MP4
+SUBDIRS += mp4
+endif
+
 DIST_SUBDIRS = \
 	dummy \
 	jpeg \
@@ -57,4 +61,5 @@ DIST_SUBDIRS = \
 	ogg \
 	pls \
 	asf \
-	rm
+	rm \
+	mp4
