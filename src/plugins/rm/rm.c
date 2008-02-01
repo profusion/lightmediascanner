@@ -284,8 +284,11 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         info.title.str = malloc((info.title.len + 1) * sizeof(char));
         memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
         info.title.str[info.title.len] = '\0';
-        lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
     }
+    lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
+
+    if (info.artist.str)
+        lms_charset_conv(ctxt->cs_conv, &info.artist.str, &info.artist.len);
 
 #if 0
     fprintf(stderr, "file %s info\n", finfo->path);
