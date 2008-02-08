@@ -113,7 +113,7 @@ lms_strstrip_and_free(char **p_str, unsigned int *p_len)
 void
 lms_string_size_strip_and_free(struct lms_string_size *p)
 {
-    if (!*p->str)
+    if (!p->str)
         return;
 
     lms_strstrip(p->str, &p->len);
