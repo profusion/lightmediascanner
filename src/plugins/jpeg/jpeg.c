@@ -551,6 +551,7 @@ static int
 _jfif_data_get(int fd, int len, struct lms_image_info *info)
 {
     unsigned char buf[4];
+    int new_len;
 
     memset(info, 0, sizeof(*info));
     info->orientation = 1;
@@ -566,16 +567,22 @@ _jfif_data_get(int fd, int len, struct lms_image_info *info)
         return -2;
     }
 
-    len = ((buf[2] << 8) | buf[3]);
+    new_len = ((buf[2] << 8) | buf[3]);
     if (buf[0] != 0xff) {
         fprintf(stderr, "ERROR: expected 0xff marker, got %#x\n", buf[0]);
         return -3;
     }
 
     if (buf[1] == JPEG_MARKER_EXIF)
-        return _exif_data_get(fd, len, info);
-    else
+        return _exif_data_get(fd, new_len, info);
+    else {
+        /* rollback to avoid losing initial frame */
+        if (lseek(fd, - len - 2, SEEK_CUR) == -1) {
+            perror("lseek");
+            return -1;
+        }
         return _jpeg_info_get(fd, len, info);
+    }
 }
 
 static const char _name[] = "jpeg";
