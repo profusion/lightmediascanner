@@ -39,6 +39,17 @@
 #include <string.h>
 #include <unistd.h>
 
+#define ID3V2_GET_FRAME_INFO(frame_data, frame_size, str, len) { \
+    str = malloc(sizeof(char) * (frame_size + 1)); \
+    memcpy(str, frame_data, frame_size); \
+    str[frame_size] = '\0'; \
+    len = frame_size; \
+}
+
+#define ID3V2_HEADER_SIZE       10
+#define ID3V2_FOOTER_SIZE       10
+#define ID3V2_FRAME_HEADER_SIZE 10
+
 #define ID3V1_NUM_GENRES 126
 
 static const char *id3v1_genres[126] = {
@@ -90,16 +101,6 @@ static const char _name[] = "aac";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".aac")
 };
-
-#define ID3V2_GET_FRAME_INFO(frame_data, frame_size, str, len) { \
-    str = malloc(sizeof(char) * (frame_size + 1)); \
-    memcpy(str, frame_data, frame_size); \
-    str[frame_size] = '\0'; \
-    len = frame_size; \
-}
-
-#define ID3V2_HEADER_SIZE 10
-#define ID3V2_FOOTER_SIZE 10
 
 static int
 _is_id3v2_second_synch_byte(unsigned char byte)
@@ -300,8 +301,7 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
 static int
 _parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info)
 {
-    char header[10];
-    char *data;
+    char header_data[10], frame_header_data[10];
     unsigned int tag_size, major_version, frame_data_pos, frame_data_length, frame_header_size;
     int extended_header, footer_present;
     struct id3v2_frame_header fh;
@@ -309,63 +309,74 @@ _parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info)
     lseek(fd, id3v2_offset, SEEK_SET);
 
     /* parse header */
-    if (read(fd, header, ID3V2_HEADER_SIZE) != 10)
+    if (read(fd, header_data, ID3V2_HEADER_SIZE) != ID3V2_HEADER_SIZE)
         return -1;
 
-    tag_size = _to_uint(header + 6, 4);
+    tag_size = _to_uint(header_data + 6, 4);
     if (tag_size == 0)
         return -1;
 
     /* parse frames */
-    data = malloc(sizeof(char) * tag_size);
-    if (read(fd, data, tag_size) != tag_size) {
-        free(data);
-        return -1;
-    }
-
-    major_version = header[3];
+    major_version = header_data[3];
 
     frame_data_pos = 0;
     frame_data_length = tag_size;
 
     /* check for extended header */
-    extended_header = header[5] & 0x20; /* bit 6 */
+    extended_header = header_data[5] & 0x20; /* bit 6 */
     if (extended_header) {
         /* skip extended header */
-        unsigned int extended_header_size = _to_uint(data, 4);
+        unsigned int extended_header_size;
+        char extended_header_data[4];
+
+        if (read(fd, extended_header_data, 4) != 4)
+            return -1;
+        extended_header_size = _to_uint(extended_header_data, 4);
+        lseek(fd, extended_header_size - 4, SEEK_CUR);
         frame_data_pos += extended_header_size;
         frame_data_length -= extended_header_size;
     }
 
-    footer_present = header[5] & 0x8;   /* bit 4 */
+    footer_present = header_data[5] & 0x8;   /* bit 4 */
     if (footer_present && frame_data_length > ID3V2_FOOTER_SIZE)
         frame_data_length -= ID3V2_FOOTER_SIZE;
 
     frame_header_size = _get_id3v2_frame_header_size(major_version);
     while (frame_data_pos < frame_data_length - frame_header_size) {
-        if (data[frame_data_pos] == 0)
+        if (read(fd, frame_header_data, ID3V2_FRAME_HEADER_SIZE) != ID3V2_FRAME_HEADER_SIZE)
+            return -1;
+
+        if (frame_header_data[0] == 0)
             break;
 
-        _parse_id3v2_frame_header(data + frame_data_pos, major_version, &fh);
+        _parse_id3v2_frame_header(frame_header_data, major_version, &fh);
 
         if (!fh.compression &&
             fh.frame_id[0] == 'T' &&
             memcmp(fh.frame_id, "TXXX", 4) != 0) {
-            unsigned int offset = frame_header_size;
-            unsigned int length = fh.frame_size;
+            char *frame_data;
 
-            if (fh.data_length_indicator) {
-                length = _to_uint(data + frame_header_size, 4);
-                offset += 4;
+            if (fh.data_length_indicator)
+                lseek(fd, 4, SEEK_CUR);
+
+            frame_data = malloc(sizeof(char) * fh.frame_size);
+            if (read(fd, frame_data, fh.frame_size) != fh.frame_size) {
+                free(frame_data);
+                return -1;
             }
 
-            _parse_id3v2_frame(&fh, data + frame_data_pos + offset, info);
+            _parse_id3v2_frame(&fh, frame_data, info);
+            free(frame_data);
+        }
+        else {
+            if (fh.data_length_indicator)
+                lseek(fd, fh.frame_size + 4, SEEK_CUR);
+            else
+                lseek(fd, fh.frame_size, SEEK_CUR);
         }
 
         frame_data_pos += fh.frame_size + frame_header_size;
     }
-
-    free(data);
 
     return 0;
 }
