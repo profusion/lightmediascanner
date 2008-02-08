@@ -76,7 +76,7 @@ lms_strstrip(char *str, unsigned int *p_len)
     *p_len = len;
 
     if (str < p)
-        for (; len > 0; len--, str++, p++)
+        for (; len >= 0; len--, str++, p++)
             *str = *p;
 }
 
