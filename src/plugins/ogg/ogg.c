@@ -36,7 +36,7 @@
 #include <vorbis/vorbisfile.h>
 
 static long int
-_id3_tag_size (FILE *file)
+_id3_tag_size(FILE *file)
 {
     unsigned char tmp[4];
     long int size;
@@ -60,7 +60,7 @@ _id3_tag_size (FILE *file)
 
 
 static int
-_get_vorbis_comment (FILE *file, vorbis_comment *vc)
+_get_vorbis_comment(FILE *file, vorbis_comment *vc)
 {
     char *buffer;
     int bytes, i, chunks = 0;
@@ -142,14 +142,14 @@ _get_vorbis_comment (FILE *file, vorbis_comment *vc)
 }
 
 static int
-_parse_ogg (const char *filename, struct lms_audio_info *info)
+_parse_ogg(const char *filename, struct lms_audio_info *info)
 {
     vorbis_comment vc;
     FILE *file;
-    char *tag = NULL;
+    const char *tag;
     int size;
 
-    if( !filename )
+    if (!filename)
         return -1;
 
     file = fopen(filename, "rb");
@@ -162,7 +162,8 @@ _parse_ogg (const char *filename, struct lms_audio_info *info)
         return -1;
 
     tag = vorbis_comment_query(&vc, "TITLE", 0);
-    if (tag && (size = strlen(tag)) > 0) {
+    size = strlen(tag);
+    if (tag && size > 0) {
         info->title.len = size;
         info->title.str = malloc(size * sizeof(char));
         memcpy(info->title.str, tag, size);
@@ -170,7 +171,8 @@ _parse_ogg (const char *filename, struct lms_audio_info *info)
     }
 
     tag = vorbis_comment_query(&vc, "ARTIST", 0);
-    if (tag && (size = strlen(tag)) > 0) {
+    size = strlen(tag);
+    if (tag && size > 0) {
         info->artist.len = size;
         info->artist.str = malloc(size * sizeof(char));
         memcpy(info->artist.str, tag, size);
@@ -178,7 +180,8 @@ _parse_ogg (const char *filename, struct lms_audio_info *info)
     }
 
     tag = vorbis_comment_query(&vc, "ALBUM", 0);
-    if (tag && (size = strlen(tag)) > 0) {
+    size = strlen(tag);
+    if (tag && size > 0) {
         info->album.len = size;
         info->album.str = malloc(size * sizeof(char));
         memcpy(info->album.str, tag, size);
@@ -186,12 +189,12 @@ _parse_ogg (const char *filename, struct lms_audio_info *info)
     }
 
     tag = vorbis_comment_query(&vc, "TRACKNUMBER", 0);
-    if (tag && (size = strlen(tag)) > 0) {
+    if (tag)
         info->trackno = atoi(tag);
-    }
 
     tag = vorbis_comment_query(&vc, "GENRE", 0);
-    if (tag && (size = strlen(tag)) > 0) {
+    size = strlen(tag);
+    if (tag && size > 0) {
         info->genre.len = size;
         info->genre.str = malloc(size * sizeof(char));
         memcpy(info->genre.str, tag, size);
