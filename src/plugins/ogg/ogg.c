@@ -166,6 +166,7 @@ _parse_ogg (const char *filename, struct lms_audio_info *info)
         info->title.len = size;
         info->title.str = malloc(size * sizeof(char));
         memcpy(info->title.str, tag, size);
+        lms_string_size_strip_and_free(&info->title);
     }
 
     tag = vorbis_comment_query(&vc, "ARTIST", 0);
@@ -173,6 +174,7 @@ _parse_ogg (const char *filename, struct lms_audio_info *info)
         info->artist.len = size;
         info->artist.str = malloc(size * sizeof(char));
         memcpy(info->artist.str, tag, size);
+        lms_string_size_strip_and_free(&info->artist);
     }
 
     tag = vorbis_comment_query(&vc, "ALBUM", 0);
@@ -180,6 +182,7 @@ _parse_ogg (const char *filename, struct lms_audio_info *info)
         info->album.len = size;
         info->album.str = malloc(size * sizeof(char));
         memcpy(info->album.str, tag, size);
+        lms_string_size_strip_and_free(&info->album);
     }
 
     tag = vorbis_comment_query(&vc, "TRACKNUMBER", 0);
@@ -192,6 +195,7 @@ _parse_ogg (const char *filename, struct lms_audio_info *info)
         info->genre.len = size;
         info->genre.str = malloc(size * sizeof(char));
         memcpy(info->genre.str, tag, size);
+        lms_string_size_strip_and_free(&info->genre);
     }
 
     fclose(file);

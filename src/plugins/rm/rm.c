@@ -195,18 +195,6 @@ _parse_cont_header(int fd, struct rm_info *info)
     _read_string(fd, NULL, NULL); /* comment */
 }
 
-static void
-_strstrip(char **str, unsigned int *p_len)
-{
-    if (*str)
-        lms_strstrip(*str, p_len);
-
-    if (*p_len == 0 && *str) {
-        free(*str);
-        *str = NULL;
-    }
-}
-
 static void *
 _match(struct plugin *p, const char *path, int len, int base)
 {
@@ -274,8 +262,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             stream_type = STREAM_TYPE_VIDEO;
     }
 
-    _strstrip(&info.title.str, &info.title.len);
-    _strstrip(&info.artist.str, &info.artist.len);
+    lms_string_size_strip_and_free(&info.title);
+    lms_string_size_strip_and_free(&info.artist);
 
     if (!info.title.str) {
         int ext_idx;

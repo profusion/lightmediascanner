@@ -56,6 +56,8 @@ extern "C" {
 
 
     API void lms_strstrip(char *str, unsigned int *p_len) GNUC_NON_NULL(1, 2);
+    API void lms_strstrip_and_free(char **p_str, unsigned int *p_len) GNUC_NON_NULL(1, 2);
+    API void lms_string_size_strip_and_free(struct lms_string_size *p) GNUC_NON_NULL(1);
     API int lms_which_extension(const char *name, unsigned int name_len, const struct lms_string_size *exts, unsigned int exts_len) GNUC_NON_NULL(1, 3);
 
 

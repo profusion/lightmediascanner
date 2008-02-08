@@ -61,14 +61,7 @@ _id3lib_get_string(const ID3_Frame *frame, ID3_FieldID field_id, struct lms_stri
   size++;
   s->str = (char *)malloc(size * sizeof(char));
   s->len = field->Get(s->str, size);
-  if (s->len > 0)
-    lms_strstrip(s->str, &s->len);
-
-  if (s->len < 1) {
-    free(s->str);
-    s->str = NULL;
-    s->len = 0;
-  }
+  lms_string_size_strip_and_free(s);
 
  done:
   field->SetEncoding(enc);

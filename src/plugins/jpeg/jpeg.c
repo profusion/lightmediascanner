@@ -108,11 +108,7 @@ _jpeg_com_process(int fd, int len, struct lms_string_size *comment)
         comment->str[len] = '\0';
     comment->len = len;
 
-    lms_strstrip(comment->str, &comment->len);
-    if (comment->len == 0) {
-        free(comment->str);
-        comment->str = NULL;
-    }
+    lms_string_size_strip_and_free(comment);
 
     return 0;
 }
@@ -313,11 +309,7 @@ _exif_text_encoding_get(int fd, unsigned int count, int offset, struct lms_strin
     s->str[count] = '\0';
     s->len = count;
 
-    lms_strstrip(s->str, &s->len);
-    if (s->len == 0) {
-        free(s->str);
-        s->str = NULL;
-    }
+    lms_string_size_strip_and_free(s);
 
     return 0;
 }
@@ -348,11 +340,7 @@ _exif_text_ascii_get(int fd, unsigned int count, int offset, struct lms_string_s
     s->str[count - 1] = '\0';
     s->len = count - 1;
 
-    lms_strstrip(s->str, &s->len);
-    if (s->len == 0) {
-        free(s->str);
-        s->str = NULL;
-    }
+    lms_string_size_strip_and_free(s);
 
     return 0;
 }

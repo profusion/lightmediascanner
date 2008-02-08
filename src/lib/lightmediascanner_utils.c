@@ -20,6 +20,7 @@
 
 #include <lightmediascanner_utils.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include <alloca.h>
 
 /**
@@ -79,6 +80,49 @@ lms_strstrip(char *str, unsigned int *p_len)
         for (; len >= 0; len--, str++, p++)
             *str = *p;
 }
+
+/**
+ * If string exists, strips it, in place, free if *p_len = 0
+ *
+ * @param p_str pointer to string to be stripped.
+ * @param p_len string length to analyse, also the place where the final size
+ *        is stored.
+ *
+ * @note this will call free() on *p_str if it becomes empty.
+ */
+void
+lms_strstrip_and_free(char **p_str, unsigned int *p_len)
+{
+    if (!*p_str)
+        return;
+
+    lms_strstrip(*p_str, p_len);
+    if (*p_len == 0) {
+        free(*p_str);
+        *p_str = NULL;
+    }
+}
+
+/**
+ * lms_string_size version of lms_strstrip_and_free().
+ *
+ * @param *p pointer to lms_string_size to be stripped.
+ *
+ * @note this will call free() on lms_string_size->str if it becomes empty.
+ */
+void
+lms_string_size_strip_and_free(struct lms_string_size *p)
+{
+    if (!*p->str)
+        return;
+
+    lms_strstrip(p->str, &p->len);
+    if (p->len == 0) {
+        free(p->str);
+        p->str = NULL;
+    }
+}
+
 
 /**
  * Find out which of the given extensions matches the given name.

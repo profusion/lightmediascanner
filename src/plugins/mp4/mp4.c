@@ -56,18 +56,6 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".mp4")
 };
 
-static void
-_strstrip(char **str, unsigned int *p_len)
-{
-    if (*str)
-        lms_strstrip(*str, p_len);
-
-    if (*p_len == 0 && *str) {
-        free(*str);
-        *str = NULL;
-    }
-}
-
 static void *
 _match(struct plugin *p, const char *path, int len, int base)
 {
@@ -114,10 +102,10 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     if (num_tracks > 0)
         stream_type = STREAM_TYPE_VIDEO;
 
-    _strstrip(&info.title.str, &info.title.len);
-    _strstrip(&info.artist.str, &info.artist.len);
-    _strstrip(&info.album.str, &info.album.len);
-    _strstrip(&info.genre.str, &info.genre.len);
+    lms_string_size_strip_and_free(&info.title);
+    lms_string_size_strip_and_free(&info.artist);
+    lms_string_size_strip_and_free(&info.album);
+    lms_string_size_strip_and_free(&info.genre);
 
     if (!info.title.str) {
         int ext_idx;
