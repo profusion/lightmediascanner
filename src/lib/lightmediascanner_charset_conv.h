@@ -71,6 +71,7 @@ extern "C" {
 
     typedef struct lms_charset_conv lms_charset_conv_t;
 
+    API lms_charset_conv_t *lms_charset_conv_new_full(int use_check, int use_fallback) GNUC_MALLOC GNUC_WARN_UNUSED_RESULT;
     API lms_charset_conv_t *lms_charset_conv_new(void) GNUC_MALLOC GNUC_WARN_UNUSED_RESULT;
     API void lms_charset_conv_free(lms_charset_conv_t *lcc) GNUC_NON_NULL(1);
     API int lms_charset_conv_add(lms_charset_conv_t *lcc, const char *charset) GNUC_NON_NULL(1, 2);

@@ -35,6 +35,60 @@ struct lms_charset_conv {
 };
 
 /**
+ * Create a new charset conversion tool controlling its behavior.
+ *
+ * Conversion tool will try to convert provided strings to UTF-8, just need
+ * to register known charsets with lms_charset_conv_add() and then call
+ * lms_charset_conv().
+ *
+ * @return newly allocated conversion tool or NULL on error.
+ */
+lms_charset_conv_t *
+lms_charset_conv_new_full(int use_check, int use_fallback)
+{
+    lms_charset_conv_t *lcc;
+
+    lcc = malloc(sizeof(*lcc));
+    if (!lcc) {
+        perror("malloc");
+        return NULL;
+    }
+
+    if (!use_check)
+        lcc->check = (iconv_t)-1;
+    else {
+        lcc->check = iconv_open("UTF-8", "UTF-8");
+        if (lcc->check == (iconv_t)-1) {
+            perror("ERROR: could not create conversion checker");
+            goto error_check;
+        }
+    }
+
+    if (!use_fallback)
+        lcc->fallback = (iconv_t)-1;
+    else {
+        lcc->fallback = iconv_open("UTF-8//IGNORE", "UTF-8");
+        if (lcc->fallback == (iconv_t)-1) {
+            perror("ERROR: could not create conversion fallback");
+            goto error_fallback;
+        }
+    }
+
+    lcc->size = 0;
+    lcc->convs = NULL;
+    lcc->names = NULL;
+    return lcc;
+
+  error_fallback:
+    if (lcc->check != (iconv_t)-1)
+        iconv_close(lcc->check);
+  error_check:
+    free(lcc);
+
+    return NULL;
+}
+
+/**
  * Create a new charset conversion tool.
  *
  * Conversion tool will try to convert provided strings to UTF-8, just need
@@ -46,37 +100,7 @@ struct lms_charset_conv {
 lms_charset_conv_t *
 lms_charset_conv_new(void)
 {
-    lms_charset_conv_t *lcc;
-
-    lcc = malloc(sizeof(*lcc));
-    if (!lcc) {
-        perror("malloc");
-        return NULL;
-    }
-
-    lcc->check = iconv_open("UTF-8", "UTF-8");
-    if (lcc->check == (iconv_t)-1) {
-        perror("ERROR: could not create conversion checker");
-        goto error_check;
-    }
-
-    lcc->fallback = iconv_open("UTF-8//IGNORE", "UTF-8");
-    if (lcc->fallback == (iconv_t)-1) {
-        perror("ERROR: could not create conversion fallback");
-        goto error_fallback;
-    }
-
-    lcc->size = 0;
-    lcc->convs = NULL;
-    lcc->names = NULL;
-    return lcc;
-
-  error_fallback:
-    iconv_close(lcc->check);
-  error_check:
-    free(lcc);
-
-    return NULL;
+    return lms_charset_conv_new_full(1, 1);
 }
 
 /**
@@ -92,8 +116,10 @@ lms_charset_conv_free(lms_charset_conv_t *lcc)
     if (!lcc)
         return;
 
-    iconv_close(lcc->check);
-    iconv_close(lcc->fallback);
+    if (lcc->check != (iconv_t)-1)
+        iconv_close(lcc->check);
+    if (lcc->fallback != (iconv_t)-1)
+        iconv_close(lcc->fallback);
 
     for (i = 0; i < lcc->size; i++) {
         iconv_close(lcc->convs[i]);
@@ -230,6 +256,9 @@ _check(lms_charset_conv_t *lcc, const char *istr, unsigned int ilen, char *ostr,
     char *inbuf, *outbuf;
     size_t r, inlen, outlen;
 
+    if (lcc->check == (iconv_t)-1)
+        return -1;
+
     inbuf = (char *)istr;
     inlen = ilen;
     outbuf = ostr;
@@ -326,6 +355,9 @@ lms_charset_conv(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_len)
         if (_conv(lcc->convs[i], p_str, p_len, outstr, outlen) == 0)
             return 0;
 
+    if (lcc->fallback == (iconv_t)-1)
+        return -5;
+
     fprintf(stderr,
             "WARNING: could not convert '%*s' to any charset, use fallback\n",
             *p_len, *p_str);
@@ -375,6 +407,9 @@ lms_charset_conv_force(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_le
     for (i = 0; i < lcc->size; i++)
         if (_conv(lcc->convs[i], p_str, p_len, outstr, outlen) == 0)
             return 0;
+
+    if (lcc->fallback == (iconv_t)-1)
+        return -5;
 
     fprintf(stderr,
             "WARNING: could not convert '%*s' to any charset, use fallback\n",
