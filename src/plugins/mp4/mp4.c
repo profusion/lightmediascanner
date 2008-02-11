@@ -53,7 +53,8 @@ struct plugin {
 
 static const char _name[] = "mp4";
 static const struct lms_string_size _exts[] = {
-    LMS_STATIC_STRING_SIZE(".mp4")
+    LMS_STATIC_STRING_SIZE(".mp4"),
+    LMS_STATIC_STRING_SIZE(".m4a")
 };
 
 static void *
