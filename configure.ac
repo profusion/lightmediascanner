@@ -60,6 +60,11 @@ define([CHECK_MODULE_MP4],
         AC_SUBST(MP4V2_LIBS)
 ])
 
+AM_CONDITIONAL(HAVE_FLAC, false)
+define([CHECK_MODULE_FLAC],
+[
+        AC_LMS_CHECK_PKG(FLAC, flac, [], [FLAC=false])
+])
 
 # plugins declarations
 AC_LMS_OPTIONAL_MODULE([dummy], true)
@@ -75,6 +80,7 @@ AC_LMS_OPTIONAL_MODULE([asf], true)
 AC_LMS_OPTIONAL_MODULE([rm], true)
 AC_LMS_OPTIONAL_MODULE([mp4], true, [CHECK_MODULE_MP4])
 AC_LMS_OPTIONAL_MODULE([aac], true)
+AC_LMS_OPTIONAL_MODULE([flac], true, [CHECK_MODULE_FLAC])
 
 AC_OUTPUT([
 lightmediascanner.pc
@@ -97,6 +103,7 @@ src/plugins/asf/Makefile
 src/plugins/rm/Makefile
 src/plugins/mp4/Makefile
 src/plugins/aac/Makefile
+src/plugins/flac/Makefile
 ])
 
 
