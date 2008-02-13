@@ -14,10 +14,6 @@ if USE_MODULE_PNG
 SUBDIRS += png
 endif
 
-if USE_MODULE_ID3LIB
-SUBDIRS += id3lib
-endif
-
 if USE_MODULE_VIDEO_DUMMY
 SUBDIRS += video-dummy
 endif
@@ -50,8 +46,8 @@ if USE_MODULE_MP4
 SUBDIRS += mp4
 endif
 
-if USE_MODULE_AAC
-SUBDIRS += aac
+if USE_MODULE_ID3
+SUBDIRS += id3
 endif
 
 if USE_MODULE_FLAC
@@ -62,7 +58,6 @@ DIST_SUBDIRS = \
 	dummy \
 	jpeg \
 	png \
-	id3lib \
 	video-dummy \
 	audio-dummy \
 	m3u \
@@ -71,5 +66,5 @@ DIST_SUBDIRS = \
 	asf \
 	rm \
 	mp4 \
-	aac \
+	id3 \
 	flac
