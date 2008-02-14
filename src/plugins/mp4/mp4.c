@@ -81,7 +81,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
     mp4_fh = MP4Read(finfo->path, 0);
     if (mp4_fh == MP4_INVALID_FILE_HANDLE) {
-        fprintf(stderr, "ERROR: cannot read mp4 file\n");
+        fprintf(stderr, "ERROR: cannot read mp4 file %s\n", finfo->path);
         return -1;
     }
 
