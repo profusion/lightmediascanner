@@ -40,13 +40,6 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#define ID3V2_GET_FRAME_INFO(frame_data, frame_size, str, len) { \
-    str = malloc(sizeof(char) * (frame_size + 1)); \
-    memcpy(str, frame_data, frame_size); \
-    str[frame_size] = '\0'; \
-    len = frame_size; \
-}
-
 #define ID3V2_HEADER_SIZE       10
 #define ID3V2_FOOTER_SIZE       10
 #define ID3V2_FRAME_HEADER_SIZE 10
@@ -231,7 +224,20 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".aac")
 };
 
-static int
+static unsigned int
+_to_uint(const char *data, int data_size)
+{
+    unsigned int sum = 0;
+    int last = data_size > 4 ? 3 : data_size - 1;
+    int i;
+
+    for (i = 0; i <= last; i++)
+        sum |= (data[i] & 0x7f) << ((last - i) * 7);
+
+    return sum;
+}
+
+static inline int
 _is_id3v2_second_synch_byte(unsigned char byte)
 {
     if (byte == 0xff)
@@ -342,19 +348,6 @@ _find_id3v2(int fd)
 }
 
 static unsigned int
-_to_uint(const char *data, int data_size)
-{
-    unsigned int sum = 0;
-    int last = data_size > 4 ? 3 : data_size - 1;
-    int i;
-
-    for (i = 0; i <= last; i++)
-        sum |= (data[i] & 0x7f) << ((last - i) * 7);
-
-    return sum;
-}
-
-static unsigned int
 _get_id3v2_frame_header_size(unsigned int version)
 {
     switch (version) {
@@ -398,6 +391,15 @@ _parse_id3v2_frame_header(char *data, unsigned int version, struct id3v2_frame_h
     }
 }
 
+static inline void
+_get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lms_string_size *s)
+{
+    s->str = malloc(sizeof(char) * (frame_size + 1));
+    memcpy(s->str, frame_data, frame_size);
+    s->str[frame_size] = '\0';
+    s->len = frame_size;
+}
+
 static void
 _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct lms_audio_info *info)
 {
@@ -417,16 +419,16 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     frame_size = fh->frame_size - 1;
 
     if (memcmp(fh->frame_id, "TIT2", 4) == 0)
-        ID3V2_GET_FRAME_INFO(frame_data, frame_size, info->title.str, info->title.len)
+        _get_id3v2_frame_info(frame_data, frame_size, &info->title);
     else if (memcmp(fh->frame_id, "TPE1", 4) == 0)
-        ID3V2_GET_FRAME_INFO(frame_data, frame_size, info->artist.str, info->artist.len)
+        _get_id3v2_frame_info(frame_data, frame_size, &info->artist);
     else if (memcmp(fh->frame_id, "TALB", 4) == 0)
-        ID3V2_GET_FRAME_INFO(frame_data, frame_size, info->album.str, info->album.len)
+        _get_id3v2_frame_info(frame_data, frame_size, &info->album);
     else if (memcmp(fh->frame_id, "TCON", 4) == 0) {
         /* TODO handle multiple genres */
         int i, is_number;
 
-        ID3V2_GET_FRAME_INFO(frame_data, frame_size, info->genre.str, info->genre.len)
+        _get_id3v2_frame_info(frame_data, frame_size, &info->genre);
 
         is_number = 1;
         for (i = 0; i < info->genre.len; ++i) {
@@ -452,10 +454,10 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
         }
     }
     else if (memcmp(fh->frame_id, "TRCK", 4) == 0) {
-        char *trackno;
-        unsigned int trackno_len;
-        ID3V2_GET_FRAME_INFO(frame_data, frame_size, trackno, trackno_len);
-        info->trackno = atoi(trackno);
+        struct lms_string_size trackno;
+        _get_id3v2_frame_info(frame_data, frame_size, &trackno);
+        info->trackno = atoi(trackno.str);
+        free(trackno.str);
     }
 }
 
