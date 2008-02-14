@@ -50,6 +50,10 @@ if USE_MODULE_MP4
 SUBDIRS += mp4
 endif
 
+if USE_MODULE_AAC
+SUBDIRS += aac
+endif
+
 DIST_SUBDIRS = \
 	dummy \
 	jpeg \
@@ -62,4 +66,5 @@ DIST_SUBDIRS = \
 	pls \
 	asf \
 	rm \
-	mp4
+	mp4 \
+	aac

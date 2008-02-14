@@ -74,6 +74,7 @@ AC_LMS_OPTIONAL_MODULE([pls], true)
 AC_LMS_OPTIONAL_MODULE([asf], true)
 AC_LMS_OPTIONAL_MODULE([rm], true)
 AC_LMS_OPTIONAL_MODULE([mp4], true, [CHECK_MODULE_MP4])
+AC_LMS_OPTIONAL_MODULE([aac], true)
 
 AC_OUTPUT([
 lightmediascanner.pc
@@ -95,6 +96,7 @@ src/plugins/pls/Makefile
 src/plugins/asf/Makefile
 src/plugins/rm/Makefile
 src/plugins/mp4/Makefile
+src/plugins/aac/Makefile
 ])
 
 
