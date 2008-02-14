@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #define ID3V2_GET_FRAME_INFO(frame_data, frame_size, str, len) { \
     str = malloc(sizeof(char) * (frame_size + 1)); \
@@ -244,8 +245,7 @@ static long
 _find_id3v2(int fd)
 {
     long buffer_offset = 0;
-    char buffer[1025];
-    char *p;
+    char buffer[3], *p;
     int buffer_size = sizeof(buffer);
     const char pattern[] = "ID3";
     ssize_t nread;
@@ -259,6 +259,13 @@ _find_id3v2(int fd)
     /* Start the search at the beginning of the file. */
     lseek(fd, 0, SEEK_SET);
 
+    if ((nread = read(fd, &buffer, buffer_size)) != buffer_size)
+        return -1;
+
+    /* check if pattern is in the beggining of the file */
+    if (memcmp(buffer, pattern, 3) == 0)
+        return 0;
+
     /* This loop is the crux of the find method.  There are three cases that we
      * want to account for:
      * (1) The previously searched buffer contained a partial match of the search
@@ -270,9 +277,6 @@ _find_id3v2(int fd)
      * (3) The current buffer ends with a partial match of the pattern.  We will
      * note this for use in the next iteration, where we will check for the rest
      * of the pattern. */
-
-    if ((nread = read(fd, &buffer, sizeof(buffer))) <= 0)
-        return -1;
     while (1) {
         /* (1) previous partial match */
         if (previous_partial_synch_match && _is_id3v2_second_synch_byte(buffer[0]))
@@ -330,7 +334,7 @@ _find_id3v2(int fd)
             previous_partial_match = nread - 2;
         buffer_offset += buffer_size;
 
-        if ((nread = read(fd, &buffer, sizeof(buffer))) <= 0)
+        if ((nread = read(fd, &buffer, sizeof(buffer))) == -1)
             return -1;
     }
 
