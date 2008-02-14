@@ -54,6 +54,10 @@ if USE_MODULE_AAC
 SUBDIRS += aac
 endif
 
+if USE_MODULE_FLAC
+SUBDIRS += flac
+endif
+
 DIST_SUBDIRS = \
 	dummy \
 	jpeg \
@@ -67,4 +71,5 @@ DIST_SUBDIRS = \
 	asf \
 	rm \
 	mp4 \
-	aac
+	aac \
+	flac
