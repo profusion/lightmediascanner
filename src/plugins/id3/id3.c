@@ -21,7 +21,7 @@
 /**
  * @brief
  *
- * aac file parser.
+ * id3 file parser.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -50,30 +50,157 @@
 #define ID3V2_FOOTER_SIZE       10
 #define ID3V2_FRAME_HEADER_SIZE 10
 
-#define ID3V1_NUM_GENRES 126
+#define ID3V1_NUM_GENRES 148
 
-static const char *id3v1_genres[126] = {
-    "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk", "Grunge",
-    "Hip-Hop", "Jazz", "Metal", "New Age", "Oldies", "Other", "Pop",
-    "R&B", "Rap", "Reggae", "Rock", "Techno", "Industrial", "Alternative",
-    "Ska", "Death Metal", "Pranks", "Soundtrack", "Euro-Techno", "Ambient",
-    "Trip-Hop", "Vocal", "Jazz+Funk", "Fusion", "Trance", "Classical",
-    "Instrumental", "Acid", "House", "Game", "Sound Clip", "Gospel",
-    "Noise", "AlternRock", "Bass", "Soul", "Punk", "Space", "Meditative",
-    "Instrumental Pop", "Instrumental Rock", "Ethnic", "Gothic",
-    "Darkwave", "Techno-Industrial", "Electronic", "Pop-Folk", "Eurodance",
-    "Dream", "Southern Rock", "Comedy", "Cult", "Gangsta", "Top 40",
-    "Christian Rap", "Pop/Funk", "Jungle", "Native American", "Cabaret",
-    "New Wave", "Psychadelic", "Rave", "Showtunes", "Trailer", "Lo-Fi",
-    "Tribal", "Acid Punk", "Acid Jazz", "Polka", "Retro", "Musical", "Rock & Roll",
-    "Hard Rock", "Folk", "Folk-Rock", "National Folk", "Swing", "Fast Fusion",
-    "Bebob", "Latin", "Revival", "Celtic", "Bluegrass", "Avantgarde", "Gothic Rock",
-    "Progressive Rock", "Psychedelic Rock", "Symphonic Rock", "Slow Rock", "Big Band",
-    "Chorus", "Easy Listening", "Acoustic", "Humour", "Speech", "Chanson",
-    "Opera", "Chamber Music", "Sonata", "Symphony", "Booty Bass", "Primus",
-    "Porn Groove", "Satire", "Slow Jam", "Club", "Tango", "Samba", "Folklore",
-    "Ballad", "Power Ballad", "Rhythmic Soul", "Freestyle", "Duet", "Punk Rock",
-    "Drum Solo", "A capella", "Euro-House", "Dance Hall",
+static const char *id3v1_genres[ID3V1_NUM_GENRES] = {
+    "Blues",
+    "Classic Rock",
+    "Country",
+    "Dance",
+    "Disco",
+    "Funk",
+    "Grunge",
+    "Hip-Hop",
+    "Jazz",
+    "Metal",
+    "New Age",
+    "Oldies",
+    "Other",
+    "Pop",
+    "R&B",
+    "Rap",
+    "Reggae",
+    "Rock",
+    "Techno",
+    "Industrial",
+    "Alternative",
+    "Ska",
+    "Death Metal",
+    "Pranks",
+    "Soundtrack",
+    "Euro-Techno",
+    "Ambient",
+    "Trip-Hop",
+    "Vocal",
+    "Jazz+Funk",
+    "Fusion",
+    "Trance",
+    "Classical",
+    "Instrumental",
+    "Acid",
+    "House",
+    "Game",
+    "Sound Clip",
+    "Gospel",
+    "Noise",
+    "Alternative Rock",
+    "Bass",
+    "Soul",
+    "Punk",
+    "Space",
+    "Meditative",
+    "Instrumental Pop",
+    "Instrumental Rock",
+    "Ethnic",
+    "Gothic",
+    "Darkwave",
+    "Techno-Industrial",
+    "Electronic",
+    "Pop-Folk",
+    "Eurodance",
+    "Dream",
+    "Southern Rock",
+    "Comedy",
+    "Cult",
+    "Gangsta",
+    "Top 40",
+    "Christian Rap",
+    "Pop/Funk",
+    "Jungle",
+    "Native American",
+    "Cabaret",
+    "New Wave",
+    "Psychedelic",
+    "Rave",
+    "Showtunes",
+    "Trailer",
+    "Lo-Fi",
+    "Tribal",
+    "Acid Punk",
+    "Acid Jazz",
+    "Polka",
+    "Retro",
+    "Musical",
+    "Rock & Roll",
+    "Hard Rock",
+    "Folk",
+    "Folk/Rock",
+    "National Folk",
+    "Swing",
+    "Fusion",
+    "Bebob",
+    "Latin",
+    "Revival",
+    "Celtic",
+    "Bluegrass",
+    "Avantgarde",
+    "Gothic Rock",
+    "Progressive Rock",
+    "Psychedelic Rock",
+    "Symphonic Rock",
+    "Slow Rock",
+    "Big Band",
+    "Chorus",
+    "Easy Listening",
+    "Acoustic",
+    "Humour",
+    "Speech",
+    "Chanson",
+    "Opera",
+    "Chamber Music",
+    "Sonata",
+    "Symphony",
+    "Booty Bass",
+    "Primus",
+    "Porn Groove",
+    "Satire",
+    "Slow Jam",
+    "Club",
+    "Tango",
+    "Samba",
+    "Folklore",
+    "Ballad",
+    "Power Ballad",
+    "Rhythmic Soul",
+    "Freestyle",
+    "Duet",
+    "Punk Rock",
+    "Drum Solo",
+    "A Cappella",
+    "Euro-House",
+    "Dance Hall",
+    "Goa",
+    "Drum & Bass",
+    "Club-House",
+    "Hardcore",
+    "Terror",
+    "Indie",
+    "BritPop",
+    "Negerpunk",
+    "Polsk Punk",
+    "Beat",
+    "Christian Gangsta Rap",
+    "Heavy Metal",
+    "Black Metal",
+    "Crossover",
+    "Contemporary Christian",
+    "Christian Rock",
+    "Merengue",
+    "Salsa",
+    "Thrash Metal",
+    "Anime",
+    "Jpop",
+    "Synthpop"
 };
 
 struct id3v2_frame_header {
@@ -97,8 +224,9 @@ struct plugin {
     lms_db_audio_t *audio_db;
 };
 
-static const char _name[] = "aac";
+static const char _name[] = "id3";
 static const struct lms_string_size _exts[] = {
+    LMS_STATIC_STRING_SIZE(".mp3"),
     LMS_STATIC_STRING_SIZE(".aac")
 };
 
@@ -290,6 +418,35 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
         ID3V2_GET_FRAME_INFO(frame_data, frame_size, info->artist.str, info->artist.len)
     else if (memcmp(fh->frame_id, "TALB", 4) == 0)
         ID3V2_GET_FRAME_INFO(frame_data, frame_size, info->album.str, info->album.len)
+    else if (memcmp(fh->frame_id, "TCON", 4) == 0) {
+        /* TODO handle multiple genres */
+        int i, is_number;
+
+        ID3V2_GET_FRAME_INFO(frame_data, frame_size, info->genre.str, info->genre.len)
+
+        is_number = 1;
+        for (i = 0; i < info->genre.len; ++i) {
+            if (!isdigit(info->genre.str[i]))
+                is_number = 0;
+        }
+
+        if ((is_number) &&
+            (info->genre.str) &&
+            (info->genre.len > 0)) {
+            int genre = atoi(info->genre.str);
+            if (genre >= 0 && genre < ID3V1_NUM_GENRES) {
+                free(info->genre.str);
+                info->genre.str = strdup(id3v1_genres[(int) genre]);
+                info->genre.len = strlen(info->genre.str);
+            }
+            else {
+                /* ignore other genres */
+                free(info->genre.str);
+                info->genre.str = NULL;
+                info->genre.len = 0;
+            }
+        }
+    }
     else if (memcmp(fh->frame_id, "TRCK", 4) == 0) {
         char *trackno;
         unsigned int trackno_len;
@@ -394,10 +551,10 @@ _parse_id3v1(int fd, struct lms_audio_info *info)
     info->artist.len = strlen(info->artist.str);
     info->album.str = strdup(tag.album);
     info->album.len = strlen(info->album.str);
-    if (tag.genre >= 0 && tag.genre < ID3V1_NUM_GENRES) {
-        info->genre.str = strdup(id3v1_genres[(int) tag.genre]);
-        info->genre.len = strlen(info->genre.str);
-    }
+    info->genre.str = strdup(id3v1_genres[(int) tag.genre]);
+    info->genre.len = strlen(info->genre.str);
+    if (tag.comments[28] == 0 && tag.comments[29] != 0)
+        info->trackno = (unsigned char) tag.comments[29];
 
     return 0;
 }
@@ -429,8 +586,10 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
     id3v2_offset = _find_id3v2(fd);
     if (id3v2_offset >= 0) {
+#if 0
         fprintf(stderr, "id3v2 tag found in file %s with offset %ld\n",
                 finfo->path, id3v2_offset);
+#endif
         if (_parse_id3v2(fd, id3v2_offset, &info) != 0) {
             r = -2;
             goto done;
@@ -438,8 +597,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     }
     else {
         char tag[3];
-
+#if 0
         fprintf(stderr, "id3v2 tag not found in file %s. trying id3v1\n", finfo->path);
+#endif
         /* check for id3v1 tag */
         if (lseek(fd, -128, SEEK_END) == -1) {
             r = -3;
@@ -452,7 +612,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         }
 
         if (memcmp(tag, "TAG", 3) == 0) {
+#if 0
             fprintf(stderr, "id3v1 tag found in file %s\n", finfo->path);
+#endif
             if (_parse_id3v1(fd, &info) != 0) {
                 r = -5;
                 goto done;
@@ -488,6 +650,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     fprintf(stderr, "\tartist='%s'\n", info.artist.str);
     fprintf(stderr, "\talbum='%s'\n", info.album.str);
     fprintf(stderr, "\tgenre='%s'\n", info.genre.str);
+    fprintf(stderr, "\ttrack number='%d'\n", info.trackno);
 #endif
 
     info.id = finfo->id;

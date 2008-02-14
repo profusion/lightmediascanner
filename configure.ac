@@ -38,13 +38,6 @@ AC_CHECK_FUNCS(realpath)
 PKG_CHECK_MODULES(SQLITE3, [sqlite3 >= 3.3])
 
 # plugins checks
-# plugins checks
-
-AM_CONDITIONAL(HAVE_ID3LIB, false)
-define([CHECK_MODULE_ID3LIB],
-[
-        AC_LMS_CHECK_PKG(ID3LIB, id3lib, [], [ID3LIB=false])
-])
 
 AM_CONDITIONAL(HAVE_VORBIS, false)
 define([CHECK_MODULE_OGG],
@@ -70,7 +63,6 @@ define([CHECK_MODULE_FLAC],
 AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
 AC_LMS_OPTIONAL_MODULE([png], true)
-AC_LMS_OPTIONAL_MODULE([id3lib], true, [CHECK_MODULE_ID3LIB])
 AC_LMS_OPTIONAL_MODULE([video-dummy], true)
 AC_LMS_OPTIONAL_MODULE([audio-dummy], true)
 AC_LMS_OPTIONAL_MODULE([m3u], true)
@@ -79,7 +71,7 @@ AC_LMS_OPTIONAL_MODULE([pls], true)
 AC_LMS_OPTIONAL_MODULE([asf], true)
 AC_LMS_OPTIONAL_MODULE([rm], true)
 AC_LMS_OPTIONAL_MODULE([mp4], true, [CHECK_MODULE_MP4])
-AC_LMS_OPTIONAL_MODULE([aac], true)
+AC_LMS_OPTIONAL_MODULE([id3], true)
 AC_LMS_OPTIONAL_MODULE([flac], true, [CHECK_MODULE_FLAC])
 
 AC_OUTPUT([
@@ -93,7 +85,6 @@ src/plugins/Makefile
 src/plugins/dummy/Makefile
 src/plugins/jpeg/Makefile
 src/plugins/png/Makefile
-src/plugins/id3lib/Makefile
 src/plugins/video-dummy/Makefile
 src/plugins/audio-dummy/Makefile
 src/plugins/m3u/Makefile
@@ -102,7 +93,7 @@ src/plugins/pls/Makefile
 src/plugins/asf/Makefile
 src/plugins/rm/Makefile
 src/plugins/mp4/Makefile
-src/plugins/aac/Makefile
+src/plugins/id3/Makefile
 src/plugins/flac/Makefile
 ])
 
