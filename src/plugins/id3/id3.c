@@ -228,11 +228,12 @@ static unsigned int
 _to_uint(const char *data, int data_size)
 {
     unsigned int sum = 0;
-    int last = data_size > 4 ? 3 : data_size - 1;
-    int i;
+    unsigned int last, i;
+
+    last = data_size > 4 ? 3 : data_size - 1;
 
     for (i = 0; i <= last; i++)
-        sum |= (data[i] & 0x7f) << ((last - i) * 7);
+        sum |= ((unsigned char) data[i]) << ((last - i) * 8);
 
     return sum;
 }
