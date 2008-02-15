@@ -785,19 +785,19 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
             continue;
         if (de->d_type == DT_REG) {
             if (_process_file(pinfo, new_len, path, de->d_name) < 0) {
-                path[new_len - 1] = '\0';
                 fprintf(stderr,
                         "ERROR: unrecoverable error parsing file, "
                         "exit \"%s\".\n", path);
+                path[new_len - 1] = '\0';
                 r = -4;
                 goto end;
             }
         } else if (de->d_type == DT_DIR || de->d_type == DT_UNKNOWN) {
             if (_process_dir(pinfo, new_len, path, de->d_name) < 0) {
-                path[new_len - 1] = '\0';
                 fprintf(stderr,
                         "ERROR: unrecoverable error parsing dir, "
                         "exit \"%s\".\n", path);
+                path[new_len - 1] = '\0';
                 r = -5;
                 goto end;
             }
