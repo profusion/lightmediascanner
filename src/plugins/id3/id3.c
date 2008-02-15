@@ -567,14 +567,11 @@ _parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info, lms_charset
 }
 
 static int
-_parse_id3v1(int fd, struct lms_audio_info *info, lms_charset_conv_t **cs_convs)
+_parse_id3v1(int fd, struct lms_audio_info *info, lms_charset_conv_t *cs_conv)
 {
-    lms_charset_conv_t *cs_conv;
     struct id3v1_tag tag;
     if (read(fd, &tag, sizeof(struct id3v1_tag)) == -1)
         return -1;
-
-    cs_conv = cs_convs[ID3_ENCODING_LATIN1];
 
     info->title.str = strndup(tag.title, 30);
     info->title.len = strlen(info->title.str);
@@ -651,7 +648,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 #if 0
             fprintf(stderr, "id3v1 tag found in file %s\n", finfo->path);
 #endif
-            if (_parse_id3v1(fd, &info, plugin->cs_convs) != 0) {
+            if (_parse_id3v1(fd, &info, ctxt->cs_conv) != 0) {
                 r = -5;
                 goto done;
             }
@@ -670,15 +667,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         info.title.str = malloc((info.title.len + 1) * sizeof(char));
         memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
         info.title.str[info.title.len] = '\0';
+        lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
     }
-    lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
-
-    if (info.artist.str)
-        lms_charset_conv(ctxt->cs_conv, &info.artist.str, &info.artist.len);
-    if (info.album.str)
-        lms_charset_conv(ctxt->cs_conv, &info.album.str, &info.album.len);
-    if (info.genre.str)
-        lms_charset_conv(ctxt->cs_conv, &info.genre.str, &info.genre.len);
 
 #if 0
     fprintf(stderr, "file %s info\n", finfo->path);
