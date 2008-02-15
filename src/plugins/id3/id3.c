@@ -28,9 +28,11 @@
 #include "config.h"
 #endif
 
+#define _GNU_SOURCE
 #define _XOPEN_SOURCE 600
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_charset_conv.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -45,6 +47,16 @@
 #define ID3V2_FRAME_HEADER_SIZE 10
 
 #define ID3V1_NUM_GENRES 148
+
+#define ID3_NUM_ENCODINGS 5
+
+enum ID3Encodings {
+    ID3_ENCODING_LATIN1 = 0,
+    ID3_ENCODING_UTF16,
+    ID3_ENCODING_UTF16BE,
+    ID3_ENCODING_UTF8,
+    ID3_ENCODING_UTF16LE
+};
 
 static const char *id3v1_genres[ID3V1_NUM_GENRES] = {
     "Blues",
@@ -216,6 +228,7 @@ struct id3v1_tag {
 struct plugin {
     struct lms_plugin plugin;
     lms_db_audio_t *audio_db;
+    lms_charset_conv_t *cs_convs[ID3_NUM_ENCODINGS];
 };
 
 static const char _name[] = "id3";
@@ -393,43 +406,51 @@ _parse_id3v2_frame_header(char *data, unsigned int version, struct id3v2_frame_h
 }
 
 static inline void
-_get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lms_string_size *s)
+_get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lms_string_size *s, lms_charset_conv_t *cs_conv)
 {
     s->str = malloc(sizeof(char) * (frame_size + 1));
     memcpy(s->str, frame_data, frame_size);
     s->str[frame_size] = '\0';
     s->len = frame_size;
+    if (cs_conv)
+        lms_charset_conv(cs_conv, &s->str, &s->len);
 }
 
 static void
-_parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct lms_audio_info *info)
+_parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct lms_audio_info *info, lms_charset_conv_t **cs_convs)
 {
-    unsigned int frame_size;
+    lms_charset_conv_t *cs_conv = NULL;
+    unsigned int text_encoding, frame_size;
 
-    /* TODO proper handle text encoding
-     *
-     * Latin1  = 0
+#if 0
+    fprintf(stderr, "text encoding = %d\n", frame_data[0]);
+#endif
+
+    /* Latin1  = 0
      * UTF16   = 1
      * UTF16BE = 2
      * UTF8    = 3
      * UTF16LE = 4
      */
+    text_encoding = frame_data[0];
+    if (text_encoding >= 0 && text_encoding < ID3_NUM_ENCODINGS)
+        cs_conv = cs_convs[text_encoding];
 
     /* skip first byte - text encoding */
     frame_data += 1;
     frame_size = fh->frame_size - 1;
 
     if (memcmp(fh->frame_id, "TIT2", 4) == 0)
-        _get_id3v2_frame_info(frame_data, frame_size, &info->title);
+        _get_id3v2_frame_info(frame_data, frame_size, &info->title, cs_conv);
     else if (memcmp(fh->frame_id, "TPE1", 4) == 0)
-        _get_id3v2_frame_info(frame_data, frame_size, &info->artist);
+        _get_id3v2_frame_info(frame_data, frame_size, &info->artist, cs_conv);
     else if (memcmp(fh->frame_id, "TALB", 4) == 0)
-        _get_id3v2_frame_info(frame_data, frame_size, &info->album);
+        _get_id3v2_frame_info(frame_data, frame_size, &info->album, cs_conv);
     else if (memcmp(fh->frame_id, "TCON", 4) == 0) {
         /* TODO handle multiple genres */
         int i, is_number;
 
-        _get_id3v2_frame_info(frame_data, frame_size, &info->genre);
+        _get_id3v2_frame_info(frame_data, frame_size, &info->genre, cs_conv);
 
         is_number = 1;
         for (i = 0; i < info->genre.len; ++i) {
@@ -456,14 +477,14 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     }
     else if (memcmp(fh->frame_id, "TRCK", 4) == 0) {
         struct lms_string_size trackno;
-        _get_id3v2_frame_info(frame_data, frame_size, &trackno);
+        _get_id3v2_frame_info(frame_data, frame_size, &trackno, cs_conv);
         info->trackno = atoi(trackno.str);
         free(trackno.str);
     }
 }
 
 static int
-_parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info)
+_parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info, lms_charset_conv_t **cs_convs)
 {
     char header_data[10], frame_header_data[10];
     unsigned int tag_size, major_version, frame_data_pos, frame_data_length, frame_header_size;
@@ -529,7 +550,7 @@ _parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info)
                 return -1;
             }
 
-            _parse_id3v2_frame(&fh, frame_data, info);
+            _parse_id3v2_frame(&fh, frame_data, info, cs_convs);
             free(frame_data);
         }
         else {
@@ -546,20 +567,25 @@ _parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info)
 }
 
 static int
-_parse_id3v1(int fd, struct lms_audio_info *info)
+_parse_id3v1(int fd, struct lms_audio_info *info, lms_charset_conv_t *cs_conv)
 {
     struct id3v1_tag tag;
     if (read(fd, &tag, sizeof(struct id3v1_tag)) == -1)
         return -1;
 
-    info->title.str = strdup(tag.title);
+    info->title.str = strndup(tag.title, 30);
     info->title.len = strlen(info->title.str);
-    info->artist.str = strdup(tag.artist);
+    lms_charset_conv(cs_conv, &info->title.str, &info->title.len);
+    info->artist.str = strndup(tag.artist, 30);
     info->artist.len = strlen(info->artist.str);
-    info->album.str = strdup(tag.album);
+    lms_charset_conv(cs_conv, &info->artist.str, &info->artist.len);
+    info->album.str = strndup(tag.album, 30);
     info->album.len = strlen(info->album.str);
-    info->genre.str = strdup(id3v1_genres[(int) tag.genre]);
-    info->genre.len = strlen(info->genre.str);
+    lms_charset_conv(cs_conv, &info->album.str, &info->album.len);
+    if ((unsigned char) tag.genre < ID3V1_NUM_GENRES) {
+        info->genre.str = strdup(id3v1_genres[(unsigned char) tag.genre]);
+        info->genre.len = strlen(info->genre.str);
+    }
     if (tag.comments[28] == 0 && tag.comments[29] != 0)
         info->trackno = (unsigned char) tag.comments[29];
 
@@ -597,7 +623,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         fprintf(stderr, "id3v2 tag found in file %s with offset %ld\n",
                 finfo->path, id3v2_offset);
 #endif
-        if (_parse_id3v2(fd, id3v2_offset, &info) != 0) {
+        if (_parse_id3v2(fd, id3v2_offset, &info, plugin->cs_convs) != 0) {
             r = -2;
             goto done;
         }
@@ -622,7 +648,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 #if 0
             fprintf(stderr, "id3v1 tag found in file %s\n", finfo->path);
 #endif
-            if (_parse_id3v1(fd, &info) != 0) {
+            if (_parse_id3v1(fd, &info, ctxt->cs_conv) != 0) {
                 r = -5;
                 goto done;
             }
@@ -641,15 +667,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         info.title.str = malloc((info.title.len + 1) * sizeof(char));
         memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
         info.title.str[info.title.len] = '\0';
+        lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
     }
-    lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
-
-    if (info.artist.str)
-        lms_charset_conv(ctxt->cs_conv, &info.artist.str, &info.artist.len);
-    if (info.album.str)
-        lms_charset_conv(ctxt->cs_conv, &info.album.str, &info.album.len);
-    if (info.genre.str)
-        lms_charset_conv(ctxt->cs_conv, &info.genre.str, &info.genre.len);
 
 #if 0
     fprintf(stderr, "file %s info\n", finfo->path);
@@ -681,9 +700,31 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 static int
 _setup(struct plugin *plugin, struct lms_context *ctxt)
 {
+    int i;
+    const char *id3v2_encodings[ID3_NUM_ENCODINGS] = {
+        "Latin1",
+        "UTF-16",
+        "UTF-16BE",
+        NULL, /* UTF-8 */
+        "UTF-16LE",
+    };
+
     plugin->audio_db = lms_db_audio_new(ctxt->db);
     if (!plugin->audio_db)
         return -1;
+
+    for (i = 0; i < ID3_NUM_ENCODINGS; ++i) {
+        /* do not create charset conv for UTF-8 encoding */
+        if (i == ID3_ENCODING_UTF8) {
+            plugin->cs_convs[i] = NULL;
+            continue;
+        }
+        plugin->cs_convs[i] = lms_charset_conv_new_full(0, 0);
+        if (!plugin->cs_convs[i])
+            return -1;
+        lms_charset_conv_add(plugin->cs_convs[i], id3v2_encodings[i]);
+    }
+
     return 0;
 }
 
@@ -696,8 +737,16 @@ _start(struct plugin *plugin, struct lms_context *ctxt)
 static int
 _finish(struct plugin *plugin, struct lms_context *ctxt)
 {
+    int i;
+
     if (plugin->audio_db)
         lms_db_audio_free(plugin->audio_db);
+
+    for (i = 0; i < ID3_NUM_ENCODINGS; ++i) {
+        if (plugin->cs_convs[i])
+            lms_charset_conv_free(plugin->cs_convs[i]);
+    }
+
     return 0;
 }
 
