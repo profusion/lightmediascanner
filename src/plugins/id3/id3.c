@@ -48,12 +48,13 @@
 
 #define ID3V1_NUM_GENRES 148
 
-#define ID3_NUM_ENCODINGS 4
+#define ID3_NUM_ENCODINGS 5
 
 enum ID3Encodings {
     ID3_ENCODING_LATIN1 = 0,
     ID3_ENCODING_UTF16,
     ID3_ENCODING_UTF16BE,
+    ID3_ENCODING_UTF8,
     ID3_ENCODING_UTF16LE
 };
 
@@ -432,12 +433,8 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
      * UTF16LE = 4
      */
     text_encoding = frame_data[0];
-    if (text_encoding != 3) {
-        /* our charset conv table dos not include UTF8 */
-        if (text_encoding > 4)
-            text_encoding -= 1;
+    if (text_encoding >= 0 && text_encoding < ID3_NUM_ENCODINGS)
         cs_conv = cs_convs[text_encoding];
-    }
 
     /* skip first byte - text encoding */
     frame_data += 1;
@@ -718,6 +715,7 @@ _setup(struct plugin *plugin, struct lms_context *ctxt)
         "Latin1",
         "UTF-16",
         "UTF-16BE",
+        NULL, /* UTF-8 */
         "UTF-16LE",
     };
 
@@ -726,6 +724,11 @@ _setup(struct plugin *plugin, struct lms_context *ctxt)
         return -1;
 
     for (i = 0; i < ID3_NUM_ENCODINGS; ++i) {
+        /* do not create charset conv for UTF-8 encoding */
+        if (i == ID3_ENCODING_UTF8) {
+            plugin->cs_convs[i] = NULL;
+            continue;
+        }
         plugin->cs_convs[i] = lms_charset_conv_new_full(0, 0);
         if (!plugin->cs_convs[i])
             return -1;
