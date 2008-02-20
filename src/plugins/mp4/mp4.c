@@ -43,6 +43,7 @@ struct mp4_info {
     struct lms_string_size artist;
     struct lms_string_size album;
     struct lms_string_size genre;
+    u_int16_t trackno;
 };
 
 struct plugin {
@@ -54,7 +55,10 @@ struct plugin {
 static const char _name[] = "mp4";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".mp4"),
-    LMS_STATIC_STRING_SIZE(".m4a")
+    LMS_STATIC_STRING_SIZE(".m4a"),
+    LMS_STATIC_STRING_SIZE(".mov"),
+    LMS_STATIC_STRING_SIZE(".qt"),
+    LMS_STATIC_STRING_SIZE(".3gp")
 };
 
 static void *
@@ -85,23 +89,30 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         return -1;
     }
 
+    /* check if the file contains a video track */
+    num_tracks = MP4GetNumberOfTracks(mp4_fh, MP4_VIDEO_TRACK_TYPE, 0);
+    if (num_tracks > 0)
+        stream_type = STREAM_TYPE_VIDEO;
+
     MP4GetMetadataName(mp4_fh, &info.title.str);
     if (info.title.str)
         info.title.len = strlen(info.title.str);
     MP4GetMetadataArtist(mp4_fh, &info.artist.str);
     if (info.artist.str)
         info.artist.len = strlen(info.artist.str);
-    MP4GetMetadataAlbum(mp4_fh, &info.album.str);
-    if (info.album.str)
-        info.album.len = strlen(info.album.str);
-    MP4GetMetadataGenre(mp4_fh, &info.genre.str);
-    if (info.genre.str)
-        info.genre.len = strlen(info.genre.str);
 
-    /* check if the file contains a video track */
-    num_tracks = MP4GetNumberOfTracks(mp4_fh, MP4_VIDEO_TRACK_TYPE, 0);
-    if (num_tracks > 0)
-        stream_type = STREAM_TYPE_VIDEO;
+    if (stream_type == STREAM_TYPE_AUDIO) {
+        u_int16_t total_tracks;
+
+        MP4GetMetadataAlbum(mp4_fh, &info.album.str);
+        if (info.album.str)
+            info.album.len = strlen(info.album.str);
+        MP4GetMetadataGenre(mp4_fh, &info.genre.str);
+        if (info.genre.str)
+            info.genre.len = strlen(info.genre.str);
+
+        MP4GetMetadataTrack(mp4_fh, &info.trackno, &total_tracks);
+    }
 
     lms_string_size_strip_and_free(&info.title);
     lms_string_size_strip_and_free(&info.artist);
@@ -139,6 +150,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.artist = info.artist;
         audio_info.album = info.album;
         audio_info.genre = info.genre;
+        audio_info.trackno = info.trackno;
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     }
     else {
