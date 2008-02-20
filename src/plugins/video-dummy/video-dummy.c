@@ -40,7 +40,6 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".avi"),
     LMS_STATIC_STRING_SIZE(".mpg"),
     LMS_STATIC_STRING_SIZE(".mpeg"),
-    LMS_STATIC_STRING_SIZE(".3gp"),
     LMS_STATIC_STRING_SIZE(".ram"),
     LMS_STATIC_STRING_SIZE(".ogm"),
 };
