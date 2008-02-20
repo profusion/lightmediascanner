@@ -1,0 +1,24 @@
+ * Flag to ignore symbolic links, set by default. Using symlinks may
+   lead user to scan the same file more than once and also scan media
+   outside of his library. If one uses realpath() to always have an
+   unique instance of the file parsed, he still will suffer from media
+   outside his chosen folders. If to fix this, together with the
+   previous fix will led to the same situation as ignore symlinks, but
+   without the check overhead.
+
+ * Provide progress callback.
+
+ * Try to address need of whole path lookup using open(), stat(),
+   readdir()... by using *at() variants, like openat(), fstatat().
+
+ * Provide single-process version of lms_process() and lms_check().
+
+ * Provide threaded version of lms_process() and lms_check(), this
+   helps in multicore setups, where one will read and cache
+   filesystems while the other will parse files. Study the CPU
+   affinity implications on this, setting better defaults.
+
+ * Evaluate if there is a way to detect if a string is already in
+   UTF-8, probably it's impossible to know due the broad range of
+   possible values, but maybe there is a way to give hints for latin,
+   asian, western european charsets?
