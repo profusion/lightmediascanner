@@ -44,7 +44,6 @@
 
 #define ID3V2_HEADER_SIZE       10
 #define ID3V2_FOOTER_SIZE       10
-#define ID3V2_FRAME_HEADER_SIZE 10
 
 #define ID3V1_NUM_GENRES 148
 
@@ -440,13 +439,18 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     frame_data += 1;
     frame_size = fh->frame_size - 1;
 
-    if (memcmp(fh->frame_id, "TIT2", 4) == 0)
+    /* ID3v2.2 used 3 bytes for the frame id, so let's check it */
+    if (memcmp(fh->frame_id, "TIT2", 4) == 0 ||
+        memcmp(fh->frame_id, "TT2", 3) == 0)
         _get_id3v2_frame_info(frame_data, frame_size, &info->title, cs_conv);
-    else if (memcmp(fh->frame_id, "TPE1", 4) == 0)
+    else if (memcmp(fh->frame_id, "TPE1", 4) == 0 ||
+             memcmp(fh->frame_id, "TP1", 3) == 0)
         _get_id3v2_frame_info(frame_data, frame_size, &info->artist, cs_conv);
-    else if (memcmp(fh->frame_id, "TALB", 4) == 0)
+    /* TALB, TAL */
+    else if (memcmp(fh->frame_id, "TAL", 3) == 0)
         _get_id3v2_frame_info(frame_data, frame_size, &info->album, cs_conv);
-    else if (memcmp(fh->frame_id, "TCON", 4) == 0) {
+    /* TCON, TCO */
+    else if (memcmp(fh->frame_id, "TCO", 3) == 0) {
         /* TODO handle multiple genres */
         int i, is_number;
 
@@ -475,7 +479,8 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
             }
         }
     }
-    else if (memcmp(fh->frame_id, "TRCK", 4) == 0) {
+    else if (memcmp(fh->frame_id, "TRCK", 4) == 0 ||
+             memcmp(fh->frame_id, "TRK", 3) == 0) {
         struct lms_string_size trackno;
         _get_id3v2_frame_info(frame_data, frame_size, &trackno, cs_conv);
         info->trackno = atoi(trackno.str);
@@ -528,7 +533,7 @@ _parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info, lms_charset
 
     frame_header_size = _get_id3v2_frame_header_size(major_version);
     while (frame_data_pos < frame_data_length - frame_header_size) {
-        if (read(fd, frame_header_data, ID3V2_FRAME_HEADER_SIZE) != ID3V2_FRAME_HEADER_SIZE)
+        if (read(fd, frame_header_data, frame_header_size) != frame_header_size)
             return -1;
 
         if (frame_header_data[0] == 0)
