@@ -422,7 +422,7 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     unsigned int text_encoding, frame_size;
 
 #if 0
-    fprintf(stderr, "text encoding = %d\n", frame_data[0]);
+    fprintf(stderr, "frame id = %.4s frame size = %d text encoding = %d\n", fh->frame_id, fh->frame_size, frame_data[0]);
 #endif
 
     /* Latin1  = 0
@@ -432,12 +432,24 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
      * UTF16LE = 4
      */
     text_encoding = frame_data[0];
-    if (text_encoding >= 0 && text_encoding < ID3_NUM_ENCODINGS)
-        cs_conv = cs_convs[text_encoding];
 
     /* skip first byte - text encoding */
     frame_data += 1;
     frame_size = fh->frame_size - 1;
+
+    if (text_encoding >= 0 && text_encoding < ID3_NUM_ENCODINGS) {
+        if (text_encoding == ID3_ENCODING_UTF16) {
+            if (memcmp(frame_data, "\xfe\xff", 2) == 0) {
+                text_encoding = ID3_ENCODING_UTF16BE;
+            }
+            else {
+                text_encoding = ID3_ENCODING_UTF16LE;
+            }
+            frame_data += 2;
+            frame_size -= 2;
+        }
+        cs_conv = cs_convs[text_encoding];
+    }
 
     /* ID3v2.2 used 3 bytes for the frame id, so let's check it */
     if (memcmp(fh->frame_id, "TIT2", 4) == 0 ||
@@ -706,9 +718,9 @@ static int
 _setup(struct plugin *plugin, struct lms_context *ctxt)
 {
     int i;
-    const char *id3v2_encodings[ID3_NUM_ENCODINGS] = {
+    const char *id3_encodings[ID3_NUM_ENCODINGS] = {
         "Latin1",
-        "UTF-16",
+        NULL, /* UTF-16 */
         "UTF-16BE",
         NULL, /* UTF-8 */
         "UTF-16LE",
@@ -720,14 +732,14 @@ _setup(struct plugin *plugin, struct lms_context *ctxt)
 
     for (i = 0; i < ID3_NUM_ENCODINGS; ++i) {
         /* do not create charset conv for UTF-8 encoding */
-        if (i == ID3_ENCODING_UTF8) {
+        if (!id3_encodings[i]) {
             plugin->cs_convs[i] = NULL;
             continue;
         }
         plugin->cs_convs[i] = lms_charset_conv_new_full(0, 0);
         if (!plugin->cs_convs[i])
             return -1;
-        lms_charset_conv_add(plugin->cs_convs[i], id3v2_encodings[i]);
+        lms_charset_conv_add(plugin->cs_convs[i], id3_encodings[i]);
     }
 
     return 0;
