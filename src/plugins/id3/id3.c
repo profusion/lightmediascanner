@@ -453,12 +453,10 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
 
     if (text_encoding >= 0 && text_encoding < ID3_NUM_ENCODINGS) {
         if (text_encoding == ID3_ENCODING_UTF16) {
-            if (memcmp(frame_data, "\xfe\xff", 2) == 0) {
+            if (memcmp(frame_data, "\xfe\xff", 2) == 0)
                 text_encoding = ID3_ENCODING_UTF16BE;
-            }
-            else {
+            else
                 text_encoding = ID3_ENCODING_UTF16LE;
-            }
             frame_data += 2;
             frame_size -= 2;
         }
@@ -537,6 +535,7 @@ _parse_id3v2(int fd, long id3v2_offset, struct id3_info *info, lms_charset_conv_
     unsigned int tag_size, major_version, frame_data_pos, frame_data_length, frame_header_size;
     int extended_header, footer_present;
     struct id3v2_frame_header fh;
+    size_t nread;
 
     lseek(fd, id3v2_offset, SEEK_SET);
 
@@ -575,7 +574,11 @@ _parse_id3v2(int fd, long id3v2_offset, struct id3_info *info, lms_charset_conv_
 
     frame_header_size = _get_id3v2_frame_header_size(major_version);
     while (frame_data_pos < frame_data_length - frame_header_size) {
-        if (read(fd, frame_header_data, frame_header_size) != frame_header_size)
+        nread = read(fd, frame_header_data, frame_header_size);
+        if (nread == 0)
+            break;
+
+        if (nread != frame_header_size)
             return -1;
 
         if (frame_header_data[0] == 0)
