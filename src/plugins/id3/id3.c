@@ -208,6 +208,15 @@ static const char *id3v1_genres[ID3V1_NUM_GENRES] = {
     "Synthpop"
 };
 
+struct id3_info {
+    struct lms_string_size title;
+    struct lms_string_size artist;
+    struct lms_string_size album;
+    struct lms_string_size genre;
+    unsigned char trackno;
+    int cur_artist_priority;
+};
+
 struct id3v2_frame_header {
     char frame_id[4];
     unsigned int frame_size;
@@ -310,9 +319,13 @@ _find_id3v2(int fd)
 
         /* (2) pattern contained in current buffer */
         p = buffer;
-        while ((p = memchr(p, 'I', buffer_size))) {
+        while ((p = memchr(p, 'I', buffer_size - (p - buffer)))) {
+            if (buffer_size - (p - buffer) < 3)
+                break;
+
             if (memcmp(p, pattern, 3) == 0)
                 return buffer_offset + (p - buffer);
+
             p += 1;
         }
 
@@ -339,7 +352,7 @@ _find_id3v2(int fd)
             }
 
             /* Check in the rest of the buffer. */
-            p = memchr(p + 1, 255, buffer_size);
+            p = memchr(p + 1, 255, buffer_size - (p + 1 - buffer));
             if (p)
                 first_synch_byte = p - buffer;
             else
@@ -416,10 +429,11 @@ _get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lm
 }
 
 static void
-_parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct lms_audio_info *info, lms_charset_conv_t **cs_convs)
+_parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct id3_info *info, lms_charset_conv_t **cs_convs)
 {
     lms_charset_conv_t *cs_conv = NULL;
     unsigned int text_encoding, frame_size;
+    static const int artist_priorities[] = { 3, 4, 2, 1 };
 
 #if 0
     fprintf(stderr, "frame id = %.4s frame size = %d text encoding = %d\n", fh->frame_id, fh->frame_size, frame_data[0]);
@@ -455,9 +469,25 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     if (memcmp(fh->frame_id, "TIT2", 4) == 0 ||
         memcmp(fh->frame_id, "TT2", 3) == 0)
         _get_id3v2_frame_info(frame_data, frame_size, &info->title, cs_conv);
-    else if (memcmp(fh->frame_id, "TPE1", 4) == 0 ||
-             memcmp(fh->frame_id, "TP1", 3) == 0)
-        _get_id3v2_frame_info(frame_data, frame_size, &info->artist, cs_conv);
+    else if (memcmp(fh->frame_id, "TP", 2) == 0) {
+        int index = -1;
+        if (memcmp(fh->frame_id, "TPE", 3) == 0) {
+            /* this check shouldn't be needed, but let's make sure */
+            if (fh->frame_id[3] >= '1' && fh->frame_id[3] <= '4')
+                index = fh->frame_id[3] - '1';
+        }
+        else {
+            /* ignore TPA, TPB */
+            if (fh->frame_id[2] >= '1' && fh->frame_id[2] <= '4')
+                index = fh->frame_id[2] - '1';
+        }
+
+        if (index != -1 &&
+            artist_priorities[index] > info->cur_artist_priority) {
+            info->cur_artist_priority = artist_priorities[index];
+            _get_id3v2_frame_info(frame_data, frame_size, &info->artist, cs_conv);
+        }
+    }
     /* TALB, TAL */
     else if (memcmp(fh->frame_id, "TAL", 3) == 0)
         _get_id3v2_frame_info(frame_data, frame_size, &info->album, cs_conv);
@@ -501,7 +531,7 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
 }
 
 static int
-_parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info, lms_charset_conv_t **cs_convs)
+_parse_id3v2(int fd, long id3v2_offset, struct id3_info *info, lms_charset_conv_t **cs_convs)
 {
     char header_data[10], frame_header_data[10];
     unsigned int tag_size, major_version, frame_data_pos, frame_data_length, frame_header_size;
@@ -552,6 +582,8 @@ _parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info, lms_charset
             break;
 
         _parse_id3v2_frame_header(frame_header_data, major_version, &fh);
+        if (!fh.frame_size)
+            break;
 
         if (!fh.compression &&
             fh.frame_id[0] == 'T' &&
@@ -584,7 +616,7 @@ _parse_id3v2(int fd, long id3v2_offset, struct lms_audio_info *info, lms_charset
 }
 
 static int
-_parse_id3v1(int fd, struct lms_audio_info *info, lms_charset_conv_t *cs_conv)
+_parse_id3v1(int fd, struct id3_info *info, lms_charset_conv_t *cs_conv)
 {
     struct id3v1_tag tag;
     if (read(fd, &tag, sizeof(struct id3v1_tag)) == -1)
@@ -624,7 +656,8 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct lms_audio_info info = {0, {0}, {0}, {0}, {0}, 0, 0, 0};
+    struct id3_info info = {{0}, {0}, {0}, {0}, 0, -1};
+    struct lms_audio_info audio_info = {0, {0}, {0}, {0}, {0}, 0, 0, 0};
     int r, fd;
     long id3v2_offset;
 
@@ -696,8 +729,13 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     fprintf(stderr, "\ttrack number='%d'\n", info.trackno);
 #endif
 
-    info.id = finfo->id;
-    r = lms_db_audio_add(plugin->audio_db, &info);
+    audio_info.id = finfo->id;
+    audio_info.title = info.title;
+    audio_info.artist = info.artist;
+    audio_info.album = info.album;
+    audio_info.genre = info.genre;
+    audio_info.trackno = info.trackno;
+    r = lms_db_audio_add(plugin->audio_db, &audio_info);
 
   done:
     close(fd);
