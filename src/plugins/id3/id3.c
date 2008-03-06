@@ -420,12 +420,95 @@ _parse_id3v2_frame_header(char *data, unsigned int version, struct id3v2_frame_h
 static inline void
 _get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lms_string_size *s, lms_charset_conv_t *cs_conv)
 {
-    s->str = malloc(sizeof(char) * (frame_size + 1));
+    if (frame_size > s->len)
+        s->str = realloc(s->str, sizeof(char) * (frame_size + 1));
     memcpy(s->str, frame_data, frame_size);
     s->str[frame_size] = '\0';
     s->len = frame_size;
     if (cs_conv)
         lms_charset_conv(cs_conv, &s->str, &s->len);
+}
+
+static int
+_parse_id3v1_genre(const char *str, struct lms_string_size *out)
+{
+    int genre;
+
+    genre = atoi(str);
+    if (genre >= 0 && genre < ID3V1_NUM_GENRES) {
+        out->str = strdup(id3v1_genres[genre]);
+        out->len = strlen(out->str);
+        return 0;
+    }
+    return -1;
+}
+
+static inline void
+_get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_string_size *out, lms_charset_conv_t *cs_conv)
+{
+    int i, is_number;
+    struct lms_string_size genre = {0};
+
+    _get_id3v2_frame_info(frame_data, frame_size, &genre, cs_conv);
+
+    if (!genre.str)
+        return;
+
+    if (out->str)
+        free(out->str);
+
+    is_number = (genre.len != 0 && genre.str[0] != '(');
+    if (is_number) {
+        for (i = 0; i < genre.len; ++i) {
+            if (!isdigit(genre.str[i])) {
+                is_number = 0;
+                break;
+            }
+        }
+    }
+
+    if (is_number && _parse_id3v1_genre(genre.str, out) == 0) {
+        /* id3v1 genre found */
+        free(genre.str);
+        return;
+    }
+
+    /* ID3v2.3 "content type" can contain a ID3v1 genre number in parenthesis at
+     * the beginning of the field. If this is all that the field contains, do a
+     * translation from that number to the name and return that.  If there is a
+     * string folloing the ID3v1 genre number, that is considered to be
+     * authoritative and we return that instead. Or finally, the field may
+     * simply be free text, in which case we just return the value. */
+
+    if (genre.len > 1 && genre.str[0] == '(') {
+        char *closing = NULL;
+
+        if (genre.str[genre.len - 1] == ')') {
+            closing = strchr(genre.str, ')');
+            if (closing == genre.str + genre.len - 1) {
+                /* ) is the last character and only appears once in the string */
+                /* get the id3v1 genre enclosed by parentheses */
+                if (_parse_id3v1_genre(genre.str + 1, out) == 0) {
+                    free(genre.str);
+                    return;
+                }
+            }
+        }
+
+        /* get the string followed by the id3v1 genre */
+        if (!closing)
+            closing = strchr(genre.str, ')');
+
+        if (closing) {
+            out->str = strdup(closing + 1);
+            out->len = genre.len - (closing + 1 - genre.str);
+            free(genre.str);
+            return;
+        }
+    }
+
+    /* pure text */
+    *out = genre;
 }
 
 static void
@@ -469,6 +552,8 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
         _get_id3v2_frame_info(frame_data, frame_size, &info->title, cs_conv);
     else if (memcmp(fh->frame_id, "TP", 2) == 0) {
         int index = -1;
+        struct lms_string_size artist = {0};
+
         if (memcmp(fh->frame_id, "TPE", 3) == 0) {
             /* this check shouldn't be needed, but let's make sure */
             if (fh->frame_id[3] >= '1' && fh->frame_id[3] <= '4')
@@ -483,45 +568,24 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
         if (index != -1 &&
             artist_priorities[index] > info->cur_artist_priority) {
             info->cur_artist_priority = artist_priorities[index];
-            _get_id3v2_frame_info(frame_data, frame_size, &info->artist, cs_conv);
+            _get_id3v2_frame_info(frame_data, frame_size, &artist, cs_conv);
+            lms_string_size_strip_and_free(&artist);
+            if (artist.str) {
+                if (info->artist.str)
+                    free(info->artist.str);
+                info->artist = artist;
+            }
         }
     }
     /* TALB, TAL */
     else if (memcmp(fh->frame_id, "TAL", 3) == 0)
         _get_id3v2_frame_info(frame_data, frame_size, &info->album, cs_conv);
     /* TCON, TCO */
-    else if (memcmp(fh->frame_id, "TCO", 3) == 0) {
-        /* TODO handle multiple genres */
-        int i, is_number;
-
-        _get_id3v2_frame_info(frame_data, frame_size, &info->genre, cs_conv);
-
-        is_number = 1;
-        for (i = 0; i < info->genre.len; ++i) {
-            if (!isdigit(info->genre.str[i]))
-                is_number = 0;
-        }
-
-        if ((is_number) &&
-            (info->genre.str) &&
-            (info->genre.len > 0)) {
-            int genre = atoi(info->genre.str);
-            if (genre >= 0 && genre < ID3V1_NUM_GENRES) {
-                free(info->genre.str);
-                info->genre.str = strdup(id3v1_genres[(int) genre]);
-                info->genre.len = strlen(info->genre.str);
-            }
-            else {
-                /* ignore other genres */
-                free(info->genre.str);
-                info->genre.str = NULL;
-                info->genre.len = 0;
-            }
-        }
-    }
+    else if (memcmp(fh->frame_id, "TCO", 3) == 0)
+        _get_id3v2_genre(frame_data, frame_size, &info->genre, cs_conv);
     else if (memcmp(fh->frame_id, "TRCK", 4) == 0 ||
              memcmp(fh->frame_id, "TRK", 3) == 0) {
-        struct lms_string_size trackno;
+        struct lms_string_size trackno = {0};
         _get_id3v2_frame_info(frame_data, frame_size, &trackno, cs_conv);
         info->trackno = atoi(trackno.str);
         free(trackno.str);
