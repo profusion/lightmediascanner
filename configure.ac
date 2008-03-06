@@ -48,7 +48,7 @@ define([CHECK_MODULE_OGG],
 AM_CONDITIONAL(HAVE_MP4V2, false)
 define([CHECK_MODULE_MP4],
 [
-        AC_CHECK_LIB(mp4v2, MP4Read, [], [MP4=false])
+        AC_CHECK_LIB(mp4v2, MP4Read, [MP4=true], [MP4=false])
         MP4V2_LIBS="-lmp4v2"
         AC_SUBST(MP4V2_LIBS)
 ])
