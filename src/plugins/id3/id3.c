@@ -45,19 +45,18 @@
 #define ID3V2_HEADER_SIZE       10
 #define ID3V2_FOOTER_SIZE       10
 
-#define ID3V1_NUM_GENRES 148
-
-#define ID3_NUM_ENCODINGS 5
-
 enum ID3Encodings {
     ID3_ENCODING_LATIN1 = 0,
     ID3_ENCODING_UTF16,
     ID3_ENCODING_UTF16BE,
     ID3_ENCODING_UTF8,
-    ID3_ENCODING_UTF16LE
+    ID3_ENCODING_UTF16LE,
+    ID3_ENCODING_LAST
 };
+#define ID3_NUM_ENCODINGS ID3_ENCODING_LAST
 
-static const char *id3v1_genres[ID3V1_NUM_GENRES] = {
+
+static const char *id3v1_genres[] = {
     "Blues",
     "Classic Rock",
     "Country",
@@ -207,6 +206,7 @@ static const char *id3v1_genres[ID3V1_NUM_GENRES] = {
     "Jpop",
     "Synthpop"
 };
+#define ID3V1_NUM_GENRES (sizeof(id3v1_genres) / sizeof(char *))
 
 struct id3_info {
     struct lms_string_size title;
