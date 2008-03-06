@@ -430,17 +430,20 @@ _get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lm
 }
 
 static int
-_parse_id3v1_genre(const char *str, struct lms_string_size *out)
+_get_id3v1_genre(int genre, struct lms_string_size *out)
 {
-    int genre;
-
-    genre = atoi(str);
     if (genre >= 0 && genre < ID3V1_NUM_GENRES) {
         out->str = strdup(id3v1_genres[genre]);
         out->len = strlen(out->str);
         return 0;
     }
     return -1;
+}
+
+static inline int
+_parse_id3v1_genre(const char *str_genre, struct lms_string_size *out)
+{
+    return _get_id3v1_genre(atoi(str_genre), out);
 }
 
 static inline void
@@ -698,10 +701,7 @@ _parse_id3v1(int fd, struct id3_info *info, lms_charset_conv_t *cs_conv)
     info->album.str = strndup(tag.album, 30);
     info->album.len = strlen(info->album.str);
     lms_charset_conv(cs_conv, &info->album.str, &info->album.len);
-    if ((unsigned char) tag.genre < ID3V1_NUM_GENRES) {
-        info->genre.str = strdup(id3v1_genres[(unsigned char) tag.genre]);
-        info->genre.len = strlen(info->genre.str);
-    }
+    _get_id3v1_genre(tag.genre, &info->genre);
     if (tag.comments[28] == 0 && tag.comments[29] != 0)
         info->trackno = (unsigned char) tag.comments[29];
 
