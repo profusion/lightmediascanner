@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * @author Andre Moreira Magalhaes <andre.magalhaes@openbossa.org>
+ * @author Gustavo Sverzut Barbieri <gustavo.barbieri@openbossa.org>
  */
 
 /**
