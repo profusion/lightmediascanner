@@ -122,26 +122,15 @@ _is_id3v2_second_synch_byte(unsigned char byte)
 static long
 _find_id3v2(int fd)
 {
-    long buffer_offset = 0;
-    char buffer[3], *p;
-    int buffer_size = sizeof(buffer);
-    const char pattern[] = "ID3";
-    ssize_t nread;
+    static const char pattern[3] = "ID3";
+    char buffer[3];
+    unsigned int prev_part_match, prev_part_match_sync = 0;
+    long buffer_offset;
 
-    /* These variables are used to keep track of a partial match that happens at
-     * the end of a buffer. */
-    int previous_partial_match = -1;
-    int previous_partial_synch_match = 0;
-    int first_synch_byte;
-
-    /* Start the search at the beginning of the file. */
-    lseek(fd, 0, SEEK_SET);
-
-    if ((nread = read(fd, &buffer, buffer_size)) != buffer_size)
+    if (read(fd, buffer, sizeof(buffer)) != sizeof(buffer))
         return -1;
 
-    /* check if pattern is in the beggining of the file */
-    if (memcmp(buffer, pattern, 3) == 0)
+    if (memcmp(buffer, pattern, sizeof(pattern)) == 0)
         return 0;
 
     /* This loop is the crux of the find method.  There are three cases that we
@@ -156,74 +145,66 @@ _find_id3v2(int fd)
      * note this for use in the next iteration, where we will check for the rest
      * of the pattern.
      */
+    buffer_offset = 0;
+    prev_part_match_sync = 0;
+    prev_part_match = 0;
     while (1) {
+        const char *p, *p_end;
+
         /* (1) previous partial match */
-        if (previous_partial_synch_match &&
-            _is_id3v2_second_synch_byte(buffer[0]))
-            return -1;
-
-        if (previous_partial_match >= 0 &&
-            previous_partial_match < buffer_size) {
-            const int pat_offset = buffer_size - previous_partial_match;
-
-            if (memcmp(buffer, pattern + pat_offset, 3 - pat_offset) == 0)
-                return buffer_offset - buffer_size + previous_partial_match;
+        if (prev_part_match_sync) {
+            if (_is_id3v2_second_synch_byte(buffer[0]))
+                return -1;
+            prev_part_match_sync = 0;
         }
 
-        /* (2) pattern contained in current buffer */
-        p = buffer;
-        while ((p = memchr(p, 'I', buffer_size - (p - buffer)))) {
-            if (buffer_size - (p - buffer) < 3)
-                break;
+        if (prev_part_match) {
+            const int size = sizeof(buffer) - prev_part_match;
+            const char *part_pattern = pattern + prev_part_match;
 
-            if (memcmp(p, pattern, 3) == 0)
-                return buffer_offset + (p - buffer);
+            if (memcmp(buffer, part_pattern, size) == 0)
+                return buffer_offset - prev_part_match;
 
-            p += 1;
+            prev_part_match = 0;
         }
 
-        p = memchr(buffer, 255, buffer_size);
-        if (p)
-            first_synch_byte = p - buffer;
-        else
-            first_synch_byte = -1;
+        p_end = buffer + sizeof(buffer);
+        for (p = buffer; p < p_end; p++) {
+            if (*p == pattern[0]) {
+                /* Try to match pattern, possible partial contents */
+                const char *q;
+                int todo;
 
-        /* Here we have to loop because there could be several of the first
-         * (11111111) byte, and we want to check all such instances until we
-         * find a full match (11111111 111) or hit the end of the buffer.
-         */
-        while (first_synch_byte >= 0) {
-            /* if this *is not* at the end of the buffer */
-            if (first_synch_byte < buffer_size - 1) {
-                if(_is_id3v2_second_synch_byte(buffer[first_synch_byte + 1]))
-                    /* We've found the frame synch pattern. */
-                    return -1;
-                else
-                    /* We found 11111111 at the end of the current buffer
-                     * indicating a partial match of the synch pattern.
-                     * The find() below should return -1 and break out of
-                     * the loop.
-                     */
-                    previous_partial_synch_match = 1;
+                q = p + 1;
+                todo = p_end - q;
+                if (todo == 0 || memcmp(q, pattern + 1, todo) == 0) {
+                    todo++;
+                    if (todo == sizeof(buffer))
+                        /* (2) pattern contained in current buffer */
+                        return buffer_offset;
+
+                    /* (3) partial match */
+                    prev_part_match = todo;
+                    break;
+                }
+            } else if ((unsigned char)*p == 0xff) {
+                /* Try to match synch pattern, possible partial contents */
+                const char *q;
+
+                q = p + 1;
+                if (q < p_end) {
+                    if (_is_id3v2_second_synch_byte(*q))
+                        /* (2) synch pattern contained in current buffer */
+                        return -1;
+                } else
+                    /* (3) partial match */
+                    prev_part_match_sync = 1;
             }
-
-            /* Check in the rest of the buffer. */
-            p = memchr(p + 1, 255, buffer_size - (p + 1 - buffer));
-            if (p)
-                first_synch_byte = p - buffer;
-            else
-                first_synch_byte = -1;
         }
 
-        /* (3) partial match */
-        if (buffer[nread - 1] == pattern[1])
-            previous_partial_match = nread - 1;
-        else if (memcmp(&buffer[nread - 2], pattern, 2) == 0)
-            previous_partial_match = nread - 2;
-        buffer_offset += buffer_size;
-
-        if ((nread = read(fd, &buffer, sizeof(buffer))) == -1)
+        if (read(fd, buffer, sizeof(buffer)) != sizeof(buffer))
             return -1;
+        buffer_offset += sizeof(buffer);
     }
 
     return -1;
