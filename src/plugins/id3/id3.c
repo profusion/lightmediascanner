@@ -419,7 +419,6 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
         _get_id3v2_frame_info(frame_data, frame_size, &info->title, cs_conv);
     else if (memcmp(fh->frame_id, "TP", 2) == 0) {
         int index = -1;
-        struct lms_string_size artist = {0};
 
         if (memcmp(fh->frame_id, "TPE", 3) == 0) {
             /* this check shouldn't be needed, but let's make sure */
@@ -434,13 +433,15 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
 
         if (index != -1 &&
             artist_priorities[index] > info->cur_artist_priority) {
-            info->cur_artist_priority = artist_priorities[index];
+            struct lms_string_size artist = {0};
+
             _get_id3v2_frame_info(frame_data, frame_size, &artist, cs_conv);
             lms_string_size_strip_and_free(&artist);
             if (artist.str) {
                 if (info->artist.str)
                     free(info->artist.str);
                 info->artist = artist;
+                info->cur_artist_priority = artist_priorities[index];
             }
         }
     }
