@@ -146,24 +146,27 @@ _find_id3v2(int fd)
 
     /* This loop is the crux of the find method.  There are three cases that we
      * want to account for:
-     * (1) The previously searched buffer contained a partial match of the search
-     * pattern and we want to see if the next one starts with the remainder of
-     * that pattern.
+     * (1) The previously searched buffer contained a partial match of the
+     * search pattern and we want to see if the next one starts with the
+     * remainder of that pattern.
      *
      * (2) The search pattern is wholly contained within the current buffer.
      *
      * (3) The current buffer ends with a partial match of the pattern.  We will
      * note this for use in the next iteration, where we will check for the rest
-     * of the pattern. */
+     * of the pattern.
+     */
     while (1) {
         /* (1) previous partial match */
-        if (previous_partial_synch_match && _is_id3v2_second_synch_byte(buffer[0]))
+        if (previous_partial_synch_match &&
+            _is_id3v2_second_synch_byte(buffer[0]))
             return -1;
 
-        if (previous_partial_match >= 0 && previous_partial_match < buffer_size) {
-            const int pattern_offset = buffer_size - previous_partial_match;
+        if (previous_partial_match >= 0 &&
+            previous_partial_match < buffer_size) {
+            const int pat_offset = buffer_size - previous_partial_match;
 
-            if (memcmp(buffer, pattern + pattern_offset, 3 - pattern_offset) == 0)
+            if (memcmp(buffer, pattern + pat_offset, 3 - pat_offset) == 0)
                 return buffer_offset - buffer_size + previous_partial_match;
         }
 
@@ -186,8 +189,9 @@ _find_id3v2(int fd)
             first_synch_byte = -1;
 
         /* Here we have to loop because there could be several of the first
-         * (11111111) byte, and we want to check all such instances until we find
-         * a full match (11111111 111) or hit the end of the buffer. */
+         * (11111111) byte, and we want to check all such instances until we
+         * find a full match (11111111 111) or hit the end of the buffer.
+         */
         while (first_synch_byte >= 0) {
             /* if this *is not* at the end of the buffer */
             if (first_synch_byte < buffer_size - 1) {
@@ -195,9 +199,11 @@ _find_id3v2(int fd)
                     /* We've found the frame synch pattern. */
                     return -1;
                 else
-                    /* We found 11111111 at the end of the current buffer indicating a
-                     * partial match of the synch pattern.  The find() below should
-                     * return -1 and break out of the loop. */
+                    /* We found 11111111 at the end of the current buffer
+                     * indicating a partial match of the synch pattern.
+                     * The find() below should return -1 and break out of
+                     * the loop.
+                     */
                     previous_partial_synch_match = 1;
             }
 
@@ -345,8 +351,9 @@ _get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_str
         if (genre.str[genre.len - 1] == ')') {
             closing = strchr(genre.str, ')');
             if (closing == genre.str + genre.len - 1) {
-                /* ) is the last character and only appears once in the string */
-                /* get the id3v1 genre enclosed by parentheses */
+                /* ) is the last character and only appears once in the
+                 * string get the id3v1 genre enclosed by parentheses
+                 */
                 if (_parse_id3v1_genre(genre.str + 1, out) == 0) {
                     free(genre.str);
                     return;
@@ -378,7 +385,8 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     static const int artist_priorities[] = { 3, 4, 2, 1 };
 
 #if 0
-    fprintf(stderr, "frame id = %.4s frame size = %d text encoding = %d\n", fh->frame_id, fh->frame_size, frame_data[0]);
+    fprintf(stderr, "frame id = %.4s frame size = %d text encoding = %d\n",
+            fh->frame_id, fh->frame_size, frame_data[0]);
 #endif
 
     /* Latin1  = 0
@@ -604,7 +612,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     else {
         char tag[3];
 #if 0
-        fprintf(stderr, "id3v2 tag not found in file %s. trying id3v1\n", finfo->path);
+        fprintf(stderr, "id3v2 tag not found in file %s. trying id3v1\n",
+                finfo->path);
 #endif
         /* check for id3v1 tag */
         if (lseek(fd, -128, SEEK_END) == -1) {
