@@ -274,7 +274,7 @@ _parse_id3v2_frame_header(char *data, unsigned int version, struct id3v2_frame_h
 }
 
 static inline void
-_get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lms_string_size *s, lms_charset_conv_t *cs_conv)
+_get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lms_string_size *s, lms_charset_conv_t *cs_conv, int strip)
 {
     if (frame_size > s->len)
         s->str = realloc(s->str, sizeof(char) * (frame_size + 1));
@@ -283,18 +283,28 @@ _get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lm
     s->len = frame_size;
     if (cs_conv)
         lms_charset_conv(cs_conv, &s->str, &s->len);
+    if (strip)
+        lms_string_size_strip_and_free(s);
 }
 
 static int
 _get_id3v1_genre(unsigned int genre, struct lms_string_size *out)
 {
     if (genre < ID3V1_NUM_GENRES) {
-        unsigned int size, base;
+        unsigned int size, base, len;
 
         base = id3v1_genres_offsets[genre];
         size = id3v1_genres_offsets[genre + 1] - base;
-        out->str = malloc(size);
-        out->len = size - 1;
+        len = size - 1;
+
+        if (len > out->len) {
+            char *p = realloc(out->str, size);
+            if (!p)
+                return -2;
+            out->str = p;
+        }
+
+        out->len = len;
         memcpy(out->str, id3v1_genres_mem + base, size);
 
         return 0;
@@ -314,13 +324,10 @@ _get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_str
     int i, is_number;
     struct lms_string_size genre = {0};
 
-    _get_id3v2_frame_info(frame_data, frame_size, &genre, cs_conv);
+    _get_id3v2_frame_info(frame_data, frame_size, &genre, cs_conv, 1);
 
     if (!genre.str)
         return;
-
-    if (out->str)
-        free(out->str);
 
     is_number = (genre.len != 0 && genre.str[0] != '(');
     if (is_number) {
@@ -366,9 +373,11 @@ _get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_str
             closing = strchr(genre.str, ')');
 
         if (closing) {
-            out->str = strdup(closing + 1);
-            out->len = genre.len - (closing + 1 - genre.str);
-            free(genre.str);
+            closing++;
+            out->len = genre.len - (closing - genre.str);
+            out->str = genre.str;
+            memmove(out->str, closing, out->len + 1); /* includes '\0' */
+            lms_string_size_strip_and_free(out);
             return;
         }
     }
@@ -416,7 +425,7 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     /* ID3v2.2 used 3 bytes for the frame id, so let's check it */
     if (memcmp(fh->frame_id, "TIT2", 4) == 0 ||
         memcmp(fh->frame_id, "TT2", 3) == 0)
-        _get_id3v2_frame_info(frame_data, frame_size, &info->title, cs_conv);
+        _get_id3v2_frame_info(frame_data, frame_size, &info->title, cs_conv, 1);
     else if (memcmp(fh->frame_id, "TP", 2) == 0) {
         int index = -1;
 
@@ -435,8 +444,7 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
             artist_priorities[index] > info->cur_artist_priority) {
             struct lms_string_size artist = {0};
 
-            _get_id3v2_frame_info(frame_data, frame_size, &artist, cs_conv);
-            lms_string_size_strip_and_free(&artist);
+            _get_id3v2_frame_info(frame_data, frame_size, &artist, cs_conv, 1);
             if (artist.str) {
                 if (info->artist.str)
                     free(info->artist.str);
@@ -447,14 +455,14 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     }
     /* TALB, TAL */
     else if (memcmp(fh->frame_id, "TAL", 3) == 0)
-        _get_id3v2_frame_info(frame_data, frame_size, &info->album, cs_conv);
+        _get_id3v2_frame_info(frame_data, frame_size, &info->album, cs_conv, 1);
     /* TCON, TCO */
     else if (memcmp(fh->frame_id, "TCO", 3) == 0)
         _get_id3v2_genre(frame_data, frame_size, &info->genre, cs_conv);
     else if (memcmp(fh->frame_id, "TRCK", 4) == 0 ||
              memcmp(fh->frame_id, "TRK", 3) == 0) {
         struct lms_string_size trackno = {0};
-        _get_id3v2_frame_info(frame_data, frame_size, &trackno, cs_conv);
+        _get_id3v2_frame_info(frame_data, frame_size, &trackno, cs_conv, 0);
         info->trackno = atoi(trackno.str);
         free(trackno.str);
     }
@@ -637,11 +645,6 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             }
         }
     }
-
-    lms_string_size_strip_and_free(&info.title);
-    lms_string_size_strip_and_free(&info.artist);
-    lms_string_size_strip_and_free(&info.album);
-    lms_string_size_strip_and_free(&info.genre);
 
     if (!info.title.str) {
         int ext_idx;
