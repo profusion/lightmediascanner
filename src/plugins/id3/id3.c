@@ -288,6 +288,29 @@ _get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lm
 }
 
 static int
+_get_id3v2_artist(unsigned int index, const char *frame_data, unsigned int frame_size, struct id3_info *info, lms_charset_conv_t *cs_conv)
+{
+    static const unsigned char artist_priorities[] = {3, 4, 2, 1};
+    const unsigned int index_max = sizeof(artist_priorities) / sizeof(*artist_priorities);
+
+    if (index >= index_max)
+        return 1;
+
+    if (artist_priorities[index] > info->cur_artist_priority) {
+        struct lms_string_size artist = {0};
+
+        _get_id3v2_frame_info(frame_data, frame_size, &artist, cs_conv, 1);
+        if (artist.str) {
+            if (info->artist.str)
+                free(info->artist.str);
+            info->artist = artist;
+            info->cur_artist_priority = artist_priorities[index];
+        }
+    }
+    return 0;
+}
+
+static int
 _get_id3v1_genre(unsigned int genre, struct lms_string_size *out)
 {
     if (genre < ID3V1_NUM_GENRES) {
@@ -318,7 +341,7 @@ _parse_id3v1_genre(const char *str_genre, struct lms_string_size *out)
     return _get_id3v1_genre(atoi(str_genre), out);
 }
 
-static inline void
+static void
 _get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_string_size *out, lms_charset_conv_t *cs_conv)
 {
     int i, is_number;
@@ -387,11 +410,20 @@ _get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_str
 }
 
 static void
+_get_id3v2_trackno(const char *frame_data, unsigned int frame_size, struct id3_info *info, lms_charset_conv_t *cs_conv)
+{
+    struct lms_string_size trackno = {0};
+
+    _get_id3v2_frame_info(frame_data, frame_size, &trackno, cs_conv, 0);
+    info->trackno = atoi(trackno.str);
+    free(trackno.str);
+}
+
+static void
 _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct id3_info *info, lms_charset_conv_t **cs_convs)
 {
     lms_charset_conv_t *cs_conv = NULL;
     unsigned int text_encoding, frame_size;
-    static const int artist_priorities[] = { 3, 4, 2, 1 };
 
 #if 0
     fprintf(stderr, "frame id = %.4s frame size = %d text encoding = %d\n",
@@ -427,31 +459,14 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
         memcmp(fh->frame_id, "TT2", 3) == 0)
         _get_id3v2_frame_info(frame_data, frame_size, &info->title, cs_conv, 1);
     else if (memcmp(fh->frame_id, "TP", 2) == 0) {
-        int index = -1;
+        unsigned int index;
 
-        if (memcmp(fh->frame_id, "TPE", 3) == 0) {
-            /* this check shouldn't be needed, but let's make sure */
-            if (fh->frame_id[3] >= '1' && fh->frame_id[3] <= '4')
-                index = fh->frame_id[3] - '1';
-        }
-        else {
-            /* ignore TPA, TPB */
-            if (fh->frame_id[2] >= '1' && fh->frame_id[2] <= '4')
-                index = fh->frame_id[2] - '1';
-        }
+        if (fh->frame_id[2] == 'E')
+            index = fh->frame_id[3] - '1';
+        else
+            index = fh->frame_id[2] - '1';
 
-        if (index != -1 &&
-            artist_priorities[index] > info->cur_artist_priority) {
-            struct lms_string_size artist = {0};
-
-            _get_id3v2_frame_info(frame_data, frame_size, &artist, cs_conv, 1);
-            if (artist.str) {
-                if (info->artist.str)
-                    free(info->artist.str);
-                info->artist = artist;
-                info->cur_artist_priority = artist_priorities[index];
-            }
-        }
+        _get_id3v2_artist(index, frame_data, frame_size, info, cs_conv);
     }
     /* TALB, TAL */
     else if (memcmp(fh->frame_id, "TAL", 3) == 0)
@@ -460,12 +475,8 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     else if (memcmp(fh->frame_id, "TCO", 3) == 0)
         _get_id3v2_genre(frame_data, frame_size, &info->genre, cs_conv);
     else if (memcmp(fh->frame_id, "TRCK", 4) == 0 ||
-             memcmp(fh->frame_id, "TRK", 3) == 0) {
-        struct lms_string_size trackno = {0};
-        _get_id3v2_frame_info(frame_data, frame_size, &trackno, cs_conv, 0);
-        info->trackno = atoi(trackno.str);
-        free(trackno.str);
-    }
+             memcmp(fh->frame_id, "TRK", 3) == 0)
+        _get_id3v2_trackno(frame_data, frame_size, info, cs_conv);
 }
 
 static int
