@@ -527,10 +527,9 @@ _parse_id3v2(int fd, long id3v2_offset, struct id3_info *info, lms_charset_conv_
             break;
 
         _parse_id3v2_frame_header(frame_header_data, major_version, &fh);
-        if (!fh.frame_size)
-            break;
 
-        if (!fh.compression &&
+        if (fh.frame_size > 0 &&
+            !fh.compression &&
             fh.frame_id[0] == 'T' &&
             memcmp(fh.frame_id, "TXXX", 4) != 0) {
             char *frame_data;
@@ -615,12 +614,11 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         fprintf(stderr, "id3v2 tag found in file %s with offset %ld\n",
                 finfo->path, id3v2_offset);
 #endif
-        if (_parse_id3v2(fd, id3v2_offset, &info, plugin->cs_convs) != 0) {
-            r = -2;
-            goto done;
-        }
+        if (_parse_id3v2(fd, id3v2_offset, &info, plugin->cs_convs) != 0)
+            id3v2_offset = -1;
     }
-    else {
+
+    if (id3v2_offset < 0) {
         char tag[3];
 #if 0
         fprintf(stderr, "id3v2 tag not found in file %s. trying id3v1\n",
