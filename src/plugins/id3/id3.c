@@ -412,6 +412,10 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     unsigned int text_encoding, frame_size;
     const char *fid;
 
+    /* ignore frames which contains just the encoding */
+    if (fh->frame_size <= 1)
+        return;
+
 #if 0
     fprintf(stderr, "frame id = %.4s frame size = %d text encoding = %d\n",
             fh->frame_id, fh->frame_size, frame_data[0]);
@@ -436,6 +440,10 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
 
     if (text_encoding < ID3_NUM_ENCODINGS) {
         if (text_encoding == ID3_ENCODING_UTF16) {
+            /* ignore frames which contains just the encoding */
+            if (frame_size <= 2)
+                return;
+
             if (memcmp(frame_data, "\xfe\xff", 2) == 0)
                 text_encoding = ID3_ENCODING_UTF16BE;
             else
