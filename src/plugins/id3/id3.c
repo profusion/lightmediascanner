@@ -567,6 +567,46 @@ _parse_id3v2(int fd, long id3v2_offset, struct id3_info *info, lms_charset_conv_
     return 0;
 }
 
+static inline void
+_id3v1_str_get(struct lms_string_size *s, const char *buf, int maxlen, lms_charset_conv_t *cs_conv)
+{
+    int start, len;
+    const char *p, *p_end, *p_last;
+
+    start = 0;
+    p_last = NULL;
+    p_end = buf + maxlen;
+    for (p = buf; *p != '\0' && p < p_end; p++) {
+        if (!isspace(*p))
+            p_last = p;
+        else if (!p_last)
+            start++;
+    }
+
+    if (!p_last)
+        return;
+
+    len = (p_last - buf) - start;
+    if (len < 1)
+        return;
+
+    if (len > s->len) {
+        char *tmp;
+
+        tmp = realloc(s->str, sizeof(char) * (len + 1));
+        if (!tmp)
+            return;
+        s->str = tmp;
+    }
+
+    s->len = len;
+    memcpy(s->str, buf + start, len);
+    s->str[len] = '\0';
+
+    if (cs_conv)
+        lms_charset_conv(cs_conv, &s->str, &s->len);
+}
+
 static int
 _parse_id3v1(int fd, struct id3_info *info, lms_charset_conv_t *cs_conv)
 {
@@ -574,15 +614,9 @@ _parse_id3v1(int fd, struct id3_info *info, lms_charset_conv_t *cs_conv)
     if (read(fd, &tag, sizeof(struct id3v1_tag)) == -1)
         return -1;
 
-    info->title.str = strndup(tag.title, 30);
-    info->title.len = strlen(info->title.str);
-    lms_charset_conv(cs_conv, &info->title.str, &info->title.len);
-    info->artist.str = strndup(tag.artist, 30);
-    info->artist.len = strlen(info->artist.str);
-    lms_charset_conv(cs_conv, &info->artist.str, &info->artist.len);
-    info->album.str = strndup(tag.album, 30);
-    info->album.len = strlen(info->album.str);
-    lms_charset_conv(cs_conv, &info->album.str, &info->album.len);
+    _id3v1_str_get(&info->title, tag.title, sizeof(tag.title), cs_conv);
+    _id3v1_str_get(&info->artist, tag.artist, sizeof(tag.artist), cs_conv);
+    _id3v1_str_get(&info->album, tag.album, sizeof(tag.album), cs_conv);
     _get_id3v1_genre(tag.genre, &info->genre);
     if (tag.comments[28] == 0 && tag.comments[29] != 0)
         info->trackno = (unsigned char) tag.comments[29];
