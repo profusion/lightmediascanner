@@ -258,6 +258,8 @@ _parse_id3v2_frame_header(char *data, unsigned int version, struct id3v2_frame_h
 static inline void
 _get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lms_string_size *s, lms_charset_conv_t *cs_conv, int strip)
 {
+    if (frame_size == 0 || frame_size == 0)
+        return;
     if (frame_size > s->len)
         s->str = realloc(s->str, sizeof(char) * (frame_size + 1));
     memcpy(s->str, frame_data, frame_size);
@@ -397,6 +399,8 @@ _get_id3v2_trackno(const char *frame_data, unsigned int frame_size, struct id3_i
     struct lms_string_size trackno = {0};
 
     _get_id3v2_frame_info(frame_data, frame_size, &trackno, cs_conv, 0);
+    if (!trackno.str)
+        return;
     info->trackno = atoi(trackno.str);
     free(trackno.str);
 }
