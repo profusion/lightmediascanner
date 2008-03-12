@@ -260,8 +260,14 @@ _get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lm
 {
     if (frame_size == 0 || frame_size == 0)
         return;
-    if (frame_size > s->len)
-        s->str = realloc(s->str, sizeof(char) * (frame_size + 1));
+    if (frame_size > s->len) {
+        char *tmp;
+
+        tmp = realloc(s->str, sizeof(char) * (frame_size + 1));
+        if (!tmp)
+            return;
+        s->str = tmp;
+    }
     memcpy(s->str, frame_data, frame_size);
     s->str[frame_size] = '\0';
     s->len = frame_size;
