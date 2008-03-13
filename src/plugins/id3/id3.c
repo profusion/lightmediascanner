@@ -596,6 +596,7 @@ _id3v1_str_get(struct lms_string_size *s, const char *buf, int maxlen, lms_chars
     if (len < 1)
         return;
 
+    len++; /* p_last is not included yet */
     if (len > s->len) {
         char *tmp;
 
