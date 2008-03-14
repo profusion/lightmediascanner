@@ -258,7 +258,7 @@ _parse_id3v2_frame_header(char *data, unsigned int version, struct id3v2_frame_h
 static inline void
 _get_id3v2_frame_info(const char *frame_data, unsigned int frame_size, struct lms_string_size *s, lms_charset_conv_t *cs_conv, int strip)
 {
-    if (frame_size == 0 || frame_size == 0)
+    if (frame_size == 0)
         return;
     if (frame_size > s->len) {
         char *tmp;
@@ -338,7 +338,6 @@ _get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_str
     struct lms_string_size genre = {0};
 
     _get_id3v2_frame_info(frame_data, frame_size, &genre, cs_conv, 1);
-
     if (!genre.str)
         return;
 
