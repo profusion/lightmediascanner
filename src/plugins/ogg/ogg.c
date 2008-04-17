@@ -34,8 +34,8 @@
 #include <lightmediascanner_db.h>
 #include <stdlib.h>
 #include <string.h>
-#include <vorbis/codec.h>
-#include <vorbis/vorbisfile.h>
+
+#include "lms_ogg_private.h"
 
 static long int
 _id3_tag_size(FILE *file)
@@ -64,62 +64,67 @@ _id3_tag_size(FILE *file)
 static int
 _get_vorbis_comment(FILE *file, vorbis_comment *vc)
 {
-    char *buffer;
-    int bytes, i, chunks = 0;
+    lms_ogg_buffer_t buffer = NULL;
+    int bytes = 0, i = 0, chunks = 0;
     ogg_packet header;
 
     ogg_page og;
-    ogg_sync_state osync;
-    ogg_stream_state os;
+    ogg_sync_state *osync = NULL;
+    ogg_stream_state *os = NULL;
     vorbis_info vi;
 
-    int serial;
+    int serial = 0;
+#ifndef CHUNKSIZE
     int CHUNKSIZE = 4096;
+#endif
     int nheaders = 0;
+    int ret = -1;
 
-    ogg_sync_init(&osync);
+    /* Initialize stuff */
+    memset(&header, 0, sizeof(ogg_packet));
+    memset(&og, 0, sizeof(ogg_page));
+    vorbis_info_init(&vi);
+
+    osync = lms_create_ogg_sync();
 
     while (1) {
-        buffer = ogg_sync_buffer(&osync, CHUNKSIZE);
+        buffer = lms_get_ogg_sync_buffer(osync, CHUNKSIZE);
         bytes = fread(buffer, 1, CHUNKSIZE, file);
 
-        ogg_sync_wrote(&osync, bytes);
+        ogg_sync_wrote(osync, bytes);
 
-        if (ogg_sync_pageout(&osync, &og) == 1)
+        if (ogg_sync_pageout(osync, &og) == 1)
             break;
 
         if (chunks++ >= 10)
-            return -1;
+            goto end;
     }
 
     serial = ogg_page_serialno(&og);
+    os = lms_create_ogg_stream(serial);
 
-    ogg_stream_init(&os, serial);
-    vorbis_info_init(&vi);
     vorbis_comment_init(vc);
 
-    if (ogg_stream_pagein(&os, &og) < 0)
-        return -1;
-    if (ogg_stream_packetout(&os, &header) != 1)
-        return -1;
-    if (vorbis_synthesis_headerin(&vi, vc, &header) != 0)
-        return -1;
+    if (ogg_stream_pagein(os, &og) < 0 ||
+        ogg_stream_packetout(os, &header) != 1 ||
+        vorbis_synthesis_headerin(&vi, vc, &header) != 0)
+        goto end;
 
     i = 1;
     nheaders = 3;
     while (i < nheaders) {
         while (i < nheaders) {
-            int result = ogg_sync_pageout(&osync, &og);
+            int result = ogg_sync_pageout(osync, &og);
             if (result == 0)
                 break;
             else if (result == 1) {
-                ogg_stream_pagein(&os, &og);
+                ogg_stream_pagein(os, &og);
                 while (i < nheaders) {
-                    result = ogg_stream_packetout(&os, &header);
+                    result = ogg_stream_packetout(os, &header);
                     if (result == 0)
                         break;
                     if (result == -1)
-                        return -1;
+                        goto end;
 
                     vorbis_synthesis_headerin(&vi, vc, &header);
                     i++;
@@ -127,20 +132,27 @@ _get_vorbis_comment(FILE *file, vorbis_comment *vc)
             }
         }
 
-        buffer = ogg_sync_buffer(&osync, CHUNKSIZE);
+        buffer = lms_get_ogg_sync_buffer(osync, CHUNKSIZE);
         bytes = fread(buffer, 1, CHUNKSIZE, file);
 
         if (bytes == 0 && i < 2)
-            return -1;
+            goto end;
 
-        ogg_sync_wrote(&osync, bytes);
+        ogg_sync_wrote(osync, bytes);
     }
 
-    ogg_stream_clear(&os);
-    ogg_sync_clear(&osync);
+    ret = 0;
+
+end:
     vorbis_info_clear(&vi);
 
-    return 0;
+    if (os)
+        lms_destroy_ogg_stream(os);
+
+    if (osync)
+        lms_destroy_ogg_sync(osync);
+
+    return ret;
 }
 
 static int
