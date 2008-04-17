@@ -29,6 +29,9 @@
 void
 usage(const char *prgname)
 {
+    /*
+     * EXAMPLE: rm -f test.db && ./test 1000 1000 test.db id3 UTF-8 ~/music
+     */
     fprintf(stderr,
             "Usage:\n"
             "\t%s <commit-interval> <slave-timeout> <db-path> <parser> "
