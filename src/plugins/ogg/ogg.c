@@ -32,6 +32,7 @@
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_utils.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -155,6 +156,25 @@ end:
     return ret;
 }
 
+static void
+_set_lms_info(struct lms_string_size *info, const char *tag)
+{
+    int size;
+
+    if (!info || !tag)
+        return;
+
+    size = strlen(tag);
+
+    if (!size)
+        return;
+
+    info->len = size;
+    info->str = malloc(size * sizeof(char));
+    memcpy(info->str, tag, size);
+    lms_string_size_strip_and_free(info);
+}
+
 static int
 _parse_ogg(const char *filename, struct lms_audio_info *info)
 {
@@ -176,44 +196,20 @@ _parse_ogg(const char *filename, struct lms_audio_info *info)
         return -1;
 
     tag = vorbis_comment_query(&vc, "TITLE", 0);
-    size = strlen(tag);
-    if (tag && size > 0) {
-        info->title.len = size;
-        info->title.str = malloc(size * sizeof(char));
-        memcpy(info->title.str, tag, size);
-        lms_string_size_strip_and_free(&info->title);
-    }
+    _set_lms_info(&info->title, tag);
 
     tag = vorbis_comment_query(&vc, "ARTIST", 0);
-    size = strlen(tag);
-    if (tag && size > 0) {
-        info->artist.len = size;
-        info->artist.str = malloc(size * sizeof(char));
-        memcpy(info->artist.str, tag, size);
-        lms_string_size_strip_and_free(&info->artist);
-    }
+    _set_lms_info(&info->artist, tag);
 
     tag = vorbis_comment_query(&vc, "ALBUM", 0);
-    size = strlen(tag);
-    if (tag && size > 0) {
-        info->album.len = size;
-        info->album.str = malloc(size * sizeof(char));
-        memcpy(info->album.str, tag, size);
-        lms_string_size_strip_and_free(&info->album);
-    }
+    _set_lms_info(&info->album, tag);
 
     tag = vorbis_comment_query(&vc, "TRACKNUMBER", 0);
     if (tag)
         info->trackno = atoi(tag);
 
     tag = vorbis_comment_query(&vc, "GENRE", 0);
-    size = strlen(tag);
-    if (tag && size > 0) {
-        info->genre.len = size;
-        info->genre.str = malloc(size * sizeof(char));
-        memcpy(info->genre.str, tag, size);
-        lms_string_size_strip_and_free(&info->genre);
-    }
+    _set_lms_info(&info->genre, tag);
 
     fclose(file);
     vorbis_comment_clear(&vc);
