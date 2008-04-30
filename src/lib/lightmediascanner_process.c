@@ -753,6 +753,34 @@ _process_file(struct pinfo *pinfo, int base, char *path, const char *name)
     }
 }
 
+static int _process_dir(struct pinfo *pinfo, int base, char *path, const char *name);
+
+static int
+_process_unknown(struct pinfo *pinfo, int base, char *path, const char *name)
+{
+    int new_len, reply, r;
+    struct stat st;
+
+    new_len = _strcat(base, path, name);
+    if (new_len < 0)
+        return -1;
+
+    if (stat(path, &st) != 0) {
+        perror("stat");
+        return -2;
+    }
+
+    if (S_ISREG(st.st_mode))
+        return _process_file(pinfo, base, path, name);
+    else if (S_ISDIR(st.st_mode))
+        return _process_dir(pinfo, base, path, name);
+    else {
+        fprintf(stderr,
+                "INFO: %s is neither a directory nor a regular file.\n", path);
+        return -3;
+    }
+}
+
 static int
 _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
 {
@@ -792,13 +820,22 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
                 r = -4;
                 goto end;
             }
-        } else if (de->d_type == DT_DIR || de->d_type == DT_UNKNOWN) {
+        } else if (de->d_type == DT_DIR) {
             if (_process_dir(pinfo, new_len, path, de->d_name) < 0) {
                 fprintf(stderr,
                         "ERROR: unrecoverable error parsing dir, "
                         "exit \"%s\".\n", path);
                 path[new_len - 1] = '\0';
                 r = -5;
+                goto end;
+            }
+        } else if (de->d_type == DT_UNKNOWN) {
+            if (_process_unknown(pinfo, new_len, path, de->d_name) < 0) {
+                fprintf(stderr,
+                        "ERROR: unrecoverable error parsing DT_UNKNOWN, "
+                        "exit \"%s\".\n", path);
+                path[new_len - 1] = '\0';
+                r = -6;
                 goto end;
             }
         }
