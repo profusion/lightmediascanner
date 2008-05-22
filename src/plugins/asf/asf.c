@@ -104,6 +104,7 @@ static const char metadata_library_guid[16] = "\224\034#D\230\224\321I\241A\x1d\
 static const char content_encryption_object_guid[16] = "\xFB\xB3\x11\x22\x23\xBD\xD2\x11\xB4\xB7\x00\xA0\xC9\x55\xFC\x6E";
 static const char extended_content_encryption_object_guid[16] = "\x14\xE6\x8A\x29\x22\x26\x17\x4C\xB9\x35\xDA\xE0\x7E\xE9\x28\x9C";
 
+static const char attr_name_wm_album_artist[28] = "\x57\x00\x4d\x00\x2f\x00\x41\x00\x6c\x00\x62\x00\x75\x00\x6d\x00\x41\x00\x72\x00\x74\x00\x69\x00\x73\x00\x74\x00";
 static const char attr_name_wm_album_title[26] = "\x57\x00\x4d\x00\x2f\x00\x41\x00\x6c\x00\x62\x00\x75\x00\x6d\x00\x54\x00\x69\x00\x74\x00\x6c\x00\x65\x00";
 static const char attr_name_wm_genre[16] = "\x57\x00\x4d\x00\x2f\x00\x47\x00\x65\x00\x6e\x00\x72\x00\x65\x00";
 static const char attr_name_wm_track_number[28] = "\x57\x00\x4d\x00\x2f\x00\x54\x00\x72\x00\x61\x00\x63\x00\x6b\x00\x4e\x00\x75\x00\x6d\x00\x62\x00\x65\x00\x72\x00";
@@ -300,6 +301,11 @@ _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, 
                                              fd, attr_size,
                                              &info->genre.str,
                                              &info->genre.len);
+            else if (memcmp(attr_name, attr_name_wm_album_artist, attr_name_len) == 0)
+                _parse_attribute_string_data(cs_conv,
+                                             fd, attr_size,
+                                             &info->artist.str,
+                                             &info->artist.len);
             else if (memcmp(attr_name, attr_name_wm_track_number, attr_name_len) == 0) {
                 char *trackno;
                 size_t trackno_len;
