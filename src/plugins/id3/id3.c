@@ -64,7 +64,7 @@ struct id3_info {
     struct lms_string_size artist;
     struct lms_string_size album;
     struct lms_string_size genre;
-    unsigned char trackno;
+    int trackno;
     int cur_artist_priority;
 };
 
@@ -620,11 +620,16 @@ _parse_id3v1(int fd, struct id3_info *info, lms_charset_conv_t *cs_conv)
     if (read(fd, &tag, sizeof(struct id3v1_tag)) == -1)
         return -1;
 
-    _id3v1_str_get(&info->title, tag.title, sizeof(tag.title), cs_conv);
-    _id3v1_str_get(&info->artist, tag.artist, sizeof(tag.artist), cs_conv);
-    _id3v1_str_get(&info->album, tag.album, sizeof(tag.album), cs_conv);
-    _get_id3v1_genre(tag.genre, &info->genre);
-    if (tag.comments[28] == 0 && tag.comments[29] != 0)
+    if (!info->title.str)
+        _id3v1_str_get(&info->title, tag.title, sizeof(tag.title), cs_conv);
+    if (!info->artist.str)
+        _id3v1_str_get(&info->artist, tag.artist, sizeof(tag.artist), cs_conv);
+    if (!info->album.str)
+        _id3v1_str_get(&info->album, tag.album, sizeof(tag.album), cs_conv);
+    if (!info->genre.str)
+        _get_id3v1_genre(tag.genre, &info->genre);
+    if (info->trackno == -1 &&
+        tag.comments[28] == 0 && tag.comments[29] != 0)
         info->trackno = (unsigned char) tag.comments[29];
 
     return 0;
@@ -645,7 +650,7 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct id3_info info = {{0}, {0}, {0}, {0}, 0, -1};
+    struct id3_info info = {{0}, {0}, {0}, {0}, -1, -1};
     struct lms_audio_info audio_info = {0, {0}, {0}, {0}, {0}, 0, 0, 0};
     int r, fd;
     long id3v2_offset;
@@ -662,8 +667,15 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         fprintf(stderr, "id3v2 tag found in file %s with offset %ld\n",
                 finfo->path, id3v2_offset);
 #endif
-        if (_parse_id3v2(fd, id3v2_offset, &info, plugin->cs_convs) != 0)
+        if (_parse_id3v2(fd, id3v2_offset, &info, plugin->cs_convs) != 0 ||
+            !info.title.str || !info.artist.str ||
+            !info.album.str || !info.genre.str ||
+            info.trackno == -1) {
+#if 0
+            fprintf(stderr, "id3v2 invalid in file %s\n", finfo->path);
+#endif
             id3v2_offset = -1;
+        }
     }
 
     if (id3v2_offset < 0) {
@@ -703,6 +715,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         info.title.str[info.title.len] = '\0';
         lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
     }
+
+    if (info.trackno == -1)
+        info.trackno = 0;
 
 #if 0
     fprintf(stderr, "file %s info\n", finfo->path);
