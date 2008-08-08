@@ -720,6 +720,19 @@ _strcat(int base, char *path, const char *name)
     return new_len;
 }
 
+static inline void
+_report_progress(struct pinfo *pinfo, const char *path, int path_len, lms_progress_status_t status)
+{
+    lms_progress_callback_t cb;
+    lms_t *lms = pinfo->lms;
+
+    cb = lms->progress.cb;
+    if (!cb)
+        return;
+
+    cb(lms, path, path_len, status, lms->progress.data);
+}
+
 static int
 _process_file(struct pinfo *pinfo, int base, char *path, const char *name)
 {
@@ -734,22 +747,28 @@ _process_file(struct pinfo *pinfo, int base, char *path, const char *name)
 
     r = _master_recv_reply(&pinfo->master, &pinfo->poll, &reply,
                            pinfo->lms->slave_timeout);
-    if (r < 0)
+    if (r < 0) {
+        _report_progress(pinfo, path, new_len, LMS_PROGRESS_STATUS_ERROR_COMM);
         return -3;
-    else if (r == 1) {
+    } else if (r == 1) {
         fprintf(stderr, "ERROR: slave took too long, restart %d\n",
                 pinfo->child);
+        _report_progress(pinfo, path, new_len, LMS_PROGRESS_STATUS_KILLED);
         if (lms_restart_slave(pinfo, _slave_work) != 0)
             return -4;
         return 1;
     } else {
         if (reply < 0) {
-            /* XXX callback library users to inform error. */
             fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
                     getpid(), path);
+            _report_progress(pinfo, path, new_len,
+                             LMS_PROGRESS_STATUS_ERROR_PARSE);
             return (-reply) << 8;
-        } else
+        } else {
+            _report_progress(pinfo, path, new_len,
+                             LMS_PROGRESS_STATUS_PROCESSED);
             return reply;
+        }
     }
 }
 

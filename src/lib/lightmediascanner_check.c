@@ -468,6 +468,19 @@ _update_finfo_from_stat(struct lms_file_info *finfo, const struct stat *st)
     finfo->dtime = 0;
 }
 
+static inline void
+_report_progress(struct pinfo *pinfo, const struct lms_file_info *finfo, lms_progress_status_t status)
+{
+    lms_progress_callback_t cb;
+    lms_t *lms = pinfo->lms;
+
+    cb = lms->progress.cb;
+    if (!cb)
+        return;
+
+    cb(lms, finfo->path, finfo->path_len, status, lms->progress.data);
+}
+
 static int
 _check_row(struct master_db *db, struct pinfo *pinfo)
 {
@@ -481,9 +494,10 @@ _check_row(struct master_db *db, struct pinfo *pinfo)
     flags = 0;
     if (stat(finfo.path, &st) == 0) {
         if (st.st_mtime == finfo.mtime && st.st_size == finfo.size) {
-            if (finfo.dtime == 0)
+            if (finfo.dtime == 0) {
+                _report_progress(pinfo, &finfo, LMS_PROGRESS_STATUS_UP_TO_DATE);
                 return 0;
-            else
+            } else
                 finfo.dtime = 0;
         } else {
             _update_finfo_from_stat(&finfo, &st);
@@ -503,22 +517,29 @@ _check_row(struct master_db *db, struct pinfo *pinfo)
 
     r = _master_recv_reply(&pinfo->master, &pinfo->poll, &reply,
                            pinfo->lms->slave_timeout);
-    if (r < 0)
+    if (r < 0) {
+        _report_progress(pinfo, &finfo, LMS_PROGRESS_STATUS_ERROR_COMM);
         return -2;
-    else if (r == 1) {
+    } else if (r == 1) {
         fprintf(stderr, "ERROR: slave took too long, restart %d\n",
                 pinfo->child);
+        _report_progress(pinfo, &finfo, LMS_PROGRESS_STATUS_KILLED);
         if (lms_restart_slave(pinfo, _slave_work) != 0)
             return -3;
         return 1;
     } else {
         if (reply < 0) {
-            /* XXX callback library users to inform error. */
             fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
                     getpid(), finfo.path);
+            _report_progress(pinfo, &finfo, LMS_PROGRESS_STATUS_ERROR_PARSE);
             return (-reply) << 8;
-        } else
+        } else {
+            if (!finfo.dtime)
+                _report_progress(pinfo, &finfo, LMS_PROGRESS_STATUS_PROCESSED);
+            else
+                _report_progress(pinfo, &finfo, LMS_PROGRESS_STATUS_DELETED);
             return reply;
+        }
     }
 }
 

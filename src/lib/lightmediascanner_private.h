@@ -67,6 +67,11 @@ struct lms {
     lms_charset_conv_t *cs_conv;
     char *db_path;
     int slave_timeout;
+    struct {
+        lms_progress_callback_t cb;
+        void *data;
+        lms_free_callback_t free_data;
+    } progress;
     unsigned int commit_interval;
     unsigned int is_processing:1;
     unsigned int stop_processing:1;

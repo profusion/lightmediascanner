@@ -1,4 +1,5 @@
 /**
+ * Copyright (C) 2008 by ProFUSION embedded systems
  * Copyright (C) 2007 by INdT
  *
  * This program is free software; you can redistribute it and/or
@@ -15,6 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
+ * @author Gustavo Sverzut Barbieri <barbieri@profusion.mobi>
  * @author Gustavo Sverzut Barbieri <gustavo.barbieri@openbossa.org>
  */
 
@@ -161,6 +163,18 @@ extern "C" {
     typedef struct lms lms_t;
     typedef struct lms_plugin lms_plugin_t;
 
+    typedef enum {
+        LMS_PROGRESS_STATUS_UP_TO_DATE,
+        LMS_PROGRESS_STATUS_PROCESSED,
+        LMS_PROGRESS_STATUS_DELETED,
+        LMS_PROGRESS_STATUS_KILLED,
+        LMS_PROGRESS_STATUS_ERROR_PARSE,
+        LMS_PROGRESS_STATUS_ERROR_COMM,
+    } lms_progress_status_t;
+
+    typedef void (*lms_free_callback_t)(void *data);
+    typedef void (*lms_progress_callback_t)(lms_t *lms, const char *path, int path_len, lms_progress_status_t status, void *data);
+
     API lms_t *lms_new(const char *db_path) GNUC_MALLOC GNUC_WARN_UNUSED_RESULT;
     API int lms_free(lms_t *lms) GNUC_NON_NULL(1);
     API int lms_process(lms_t *lms, const char *top_path) GNUC_NON_NULL(1, 2);
@@ -172,6 +186,7 @@ extern "C" {
     API void lms_set_slave_timeout(lms_t *lms, int ms) GNUC_NON_NULL(1);
     API unsigned int lms_get_commit_interval(const lms_t *lms) GNUC_NON_NULL(1);
     API void lms_set_commit_interval(lms_t *lms, unsigned int transactions) GNUC_NON_NULL(1);
+    API void lms_set_progress_callback(lms_t *lms, lms_progress_callback_t cb, const void *data, lms_free_callback_t free_data) GNUC_NON_NULL(1);
 
     API lms_plugin_t *lms_parser_add(lms_t *lms, const char *so_path) GNUC_NON_NULL(1, 2);
     API lms_plugin_t *lms_parser_find_and_add(lms_t *lms, const char *name) GNUC_NON_NULL(1, 2);

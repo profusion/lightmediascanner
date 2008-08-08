@@ -171,10 +171,39 @@ lms_free(lms_t *lms)
         free(lms->parsers);
     }
 
+    if (lms->progress.data && lms->progress.free_data)
+        lms->progress.free_data(lms->progress.data);
+
     free(lms->db_path);
     lms_charset_conv_free(lms->cs_conv);
     free(lms);
     return 0;
+}
+
+/**
+ * Set callback to be used to report progress (check and process).
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param cb function to call when files are processed or NULL to unset.
+ * @param data data to give to cb when it's called, may be NULL.
+ * @param free_data function to call to free @a data when lms is freed or
+ *        new progress data is set.
+ */
+void
+lms_set_progress_callback(lms_t *lms, lms_progress_callback_t cb, const void *data, lms_free_callback_t free_data)
+{
+    if (!lms) {
+        if (data && free_data)
+            free_data(data);
+        return;
+    }
+
+    if (lms->progress.data && lms->progress.free_data)
+        lms->progress.free_data(lms->progress.data);
+
+    lms->progress.cb = cb;
+    lms->progress.data = (void *)data;
+    lms->progress.free_data = free_data;
 }
 
 /**

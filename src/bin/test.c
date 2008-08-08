@@ -1,4 +1,5 @@
 /**
+ * Copyright (C) 2008 by ProFUSION embedded systems
  * Copyright (C) 2007 by INdT
  *
  * This program is free software; you can redistribute it and/or
@@ -15,6 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
+ * @author Gustavo Sverzut Barbieri <barbieri@profusion.mobi>
  * @author Gustavo Sverzut Barbieri <gustavo.barbieri@openbossa.org>
  */
 
@@ -38,6 +40,20 @@ usage(const char *prgname)
             "<charset> <scan-path>\n"
             "\n",
             prgname);
+}
+
+void
+progress(lms_t *lms, const char *path, int path_len, lms_progress_status_t status, void *data)
+{
+    const char *s[] = {
+        "UP_TO_DATE",
+        "PROCESSED",
+        "DELETED",
+        "KILLED",
+        "ERROR_PARSE",
+        "ERROR_COMM",
+    };
+    printf("%s => %d [%s]\n", path, status, s[status]);
 }
 
 int
@@ -70,6 +86,7 @@ main(int argc, char *argv[])
 
     lms_set_commit_interval(lms, commit_interval);
     lms_set_slave_timeout(lms, slave_timeout);
+    lms_set_progress_callback(lms, progress, NULL, NULL);
 
     parser = lms_parser_find_and_add(lms, parser_name);
     if (!parser) {
@@ -85,12 +102,14 @@ main(int argc, char *argv[])
         return -3;
     }
 
+    printf("checking: %s\n", scan_path);
     if (lms_check(lms, scan_path) != 0) {
         fprintf(stderr, "ERROR: checking \"%s\".\n", scan_path);
         lms_free(lms);
         return -4;
     }
 
+    printf("process: %s\n", scan_path);
     if (lms_process(lms, scan_path) != 0) {
         fprintf(stderr, "ERROR: processing \"%s\".\n", scan_path);
         lms_free(lms);
