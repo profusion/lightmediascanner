@@ -48,11 +48,11 @@ struct fds {
 
 /* info to be carried along lms_process() and lms_check() */
 struct pinfo {
+    lms_t *lms;
+    pid_t child;
     struct fds master;
     struct fds slave;
     struct pollfd poll;
-    lms_t *lms;
-    pid_t child;
 };
 
 struct parser {

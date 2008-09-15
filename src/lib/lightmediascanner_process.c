@@ -895,6 +895,61 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
     return r;
 }
 
+static int
+_lms_process_check_valid(lms_t *lms, const char *path)
+{
+    if (!lms)
+        return -1;
+
+    if (!path)
+        return -2;
+
+    if (lms->is_processing) {
+        fprintf(stderr, "ERROR: is already processing.\n");
+        return -3;
+    }
+
+    if (!lms->parsers) {
+        fprintf(stderr, "ERROR: no plugins registered.\n");
+        return -4;
+    }
+
+    return 0;
+}
+
+static int
+_process_trigger(struct pinfo *pinfo, const char *top_path)
+{
+    char path[PATH_SIZE], *bname;
+    lms_t *lms = pinfo->lms;
+    int len;
+    int r;
+
+    if (realpath(top_path, path) == NULL) {
+        perror("realpath");
+        return -1;
+    }
+
+    /* search '/' backwards, split dirname and basename, note realpath usage */
+    len = strlen(path);
+    for (; len >= 0 && path[len] != '/'; len--);
+    len++;
+    bname = strdup(path + len);
+    if (bname == NULL) {
+        perror("strdup");
+        return -2;
+    }
+
+    lms->is_processing = 1;
+    lms->stop_processing = 0;
+    r = _process_dir(pinfo, len, path, bname);
+    lms->is_processing = 0;
+    lms->stop_processing = 0;
+    free(bname);
+
+    return r;
+}
+
 /**
  * Process the given directory.
  *
@@ -910,67 +965,25 @@ lms_process(lms_t *lms, const char *top_path)
 {
     struct pinfo pinfo;
     int r, len;
-    char path[PATH_SIZE], *bname;
 
-    if (!lms) {
-        r = -1;
-        goto end;
-    }
-
-    if (!top_path) {
-        r = -2;
-        goto end;
-    }
-
-    if (lms->is_processing) {
-        fprintf(stderr, "ERROR: is already processing.\n");
-        r = -3;
-        goto end;
-    }
-
-    if (!lms->parsers) {
-        fprintf(stderr, "ERROR: no plugins registered.\n");
-        r = -4;
-        goto end;
-    }
+    r = _lms_process_check_valid(lms, top_path);
+    if (r < 0)
+        return r;
 
     pinfo.lms = lms;
 
     if (lms_create_pipes(&pinfo) != 0) {
-        r = -5;
+        r = -1;
         goto end;
     }
 
     if (lms_create_slave(&pinfo, _slave_work) != 0) {
-        r = -6;
+        r = -2;
         goto close_pipes;
     }
 
-    if (realpath(top_path, path) == NULL) {
-        perror("realpath");
-        r = -7;
-        goto finish_slave;
-    }
+    r = _process_trigger(&pinfo, top_path);
 
-    /* search '/' backwards, split dirname and basename, note realpath usage */
-    len = strlen(path);
-    for (; len >= 0 && path[len] != '/'; len--);
-    len++;
-    bname = strdup(path + len);
-    if (bname == NULL) {
-        perror("strdup");
-        r = -8;
-        goto finish_slave;
-    }
-
-    lms->is_processing = 1;
-    lms->stop_processing = 0;
-    r = _process_dir(&pinfo, len, path, bname);
-    lms->is_processing = 0;
-    lms->stop_processing = 0;
-    free(bname);
-
-  finish_slave:
     lms_finish_slave(&pinfo, _master_send_finish);
   close_pipes:
     lms_close_pipes(&pinfo);
