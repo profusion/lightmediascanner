@@ -472,7 +472,7 @@ static inline void
 _report_progress(struct pinfo *pinfo, const struct lms_file_info *finfo, lms_progress_status_t status)
 {
     lms_progress_callback_t cb;
-    lms_t *lms = pinfo->lms;
+    lms_t *lms = pinfo->common.lms;
 
     cb = lms->progress.cb;
     if (!cb)
@@ -516,7 +516,7 @@ _check_row(struct master_db *db, struct pinfo *pinfo)
         return -1;
 
     r = _master_recv_reply(&pinfo->master, &pinfo->poll, &reply,
-                           pinfo->lms->slave_timeout);
+                           pinfo->common.lms->slave_timeout);
     if (r < 0) {
         _report_progress(pinfo, &finfo, LMS_PROGRESS_STATUS_ERROR_COMM);
         return -2;
@@ -550,7 +550,7 @@ _init_sync_wait(struct pinfo *pinfo, int restart)
 
     do {
         r = _master_recv_reply(&pinfo->master, &pinfo->poll, &reply,
-                               pinfo->lms->slave_timeout);
+                               pinfo->common.lms->slave_timeout);
         if (r < 0)
             return -1;
         else if (r == 1 && restart) {
@@ -578,7 +578,7 @@ _check(struct pinfo *pinfo, int len, char *path)
     lms_t *lms;
     int r, ret;
 
-    db = _master_db_open(pinfo->lms->db_path);
+    db = _master_db_open(pinfo->common.lms->db_path);
     if (!db)
         return -1;
 
@@ -594,7 +594,7 @@ _check(struct pinfo *pinfo, int len, char *path)
         goto end;
     }
     _init_sync_wait(pinfo, 1);
-    lms = pinfo->lms;
+    lms = pinfo->common.lms;
 
     do {
         r = sqlite3_step(db->get_files);
@@ -666,7 +666,7 @@ lms_check(lms_t *lms, const char *top_path)
         goto end;
     }
 
-    pinfo.lms = lms;
+    pinfo.common.lms = lms;
 
     if (lms_create_pipes(&pinfo) != 0) {
         r = -5;

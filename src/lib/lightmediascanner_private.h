@@ -46,9 +46,13 @@ struct fds {
     int w;
 };
 
+struct cinfo {
+    lms_t *lms;
+};
+
 /* info to be carried along lms_process() and lms_check() */
 struct pinfo {
-    lms_t *lms;
+    struct cinfo common;
     pid_t child;
     struct fds master;
     struct fds slave;
@@ -76,6 +80,8 @@ struct lms {
     unsigned int is_processing:1;
     unsigned int stop_processing:1;
 };
+
+typedef int (*process_file_callback_t)(struct cinfo *info, int base, char *path, const char *name);
 
 int lms_parser_del_int(lms_t *lms, int i) GNUC_NON_NULL(1);
 int lms_create_pipes(struct pinfo *pinfo) GNUC_NON_NULL(1);

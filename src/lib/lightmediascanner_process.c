@@ -646,8 +646,8 @@ lms_create_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds))
 
     _close_fds(&pinfo->master);
     nice(19);
-    r = work(pinfo->lms, &pinfo->slave);
-    lms_free(pinfo->lms);
+    r = work(pinfo->common.lms, &pinfo->slave);
+    lms_free(pinfo->common.lms);
     _exit(r);
     return r; /* shouldn't reach anyway... */
 }
@@ -754,7 +754,7 @@ static inline void
 _report_progress(struct pinfo *pinfo, const char *path, int path_len, lms_progress_status_t status)
 {
     lms_progress_callback_t cb;
-    lms_t *lms = pinfo->lms;
+    lms_t *lms = pinfo->common.lms;
 
     cb = lms->progress.cb;
     if (!cb)
@@ -764,8 +764,9 @@ _report_progress(struct pinfo *pinfo, const char *path, int path_len, lms_progre
 }
 
 static int
-_process_file(struct pinfo *pinfo, int base, char *path, const char *name)
+_process_file(struct cinfo *info, int base, char *path, const char *name)
 {
+    struct pinfo *pinfo = info;
     int new_len, reply, r;
 
     new_len = _strcat(base, path, name);
@@ -776,7 +777,7 @@ _process_file(struct pinfo *pinfo, int base, char *path, const char *name)
         return -2;
 
     r = _master_recv_reply(&pinfo->master, &pinfo->poll, &reply,
-                           pinfo->lms->slave_timeout);
+                           pinfo->common.lms->slave_timeout);
     if (r < 0) {
         _report_progress(pinfo, path, new_len, LMS_PROGRESS_STATUS_ERROR_COMM);
         return -3;
@@ -802,10 +803,10 @@ _process_file(struct pinfo *pinfo, int base, char *path, const char *name)
     }
 }
 
-static int _process_dir(struct pinfo *pinfo, int base, char *path, const char *name);
+static int _process_dir(struct cinfo *info, int base, char *path, const char *name, process_file_callback_t process_file);
 
 static int
-_process_unknown(struct pinfo *pinfo, int base, char *path, const char *name)
+_process_unknown(struct cinfo *info, int base, char *path, const char *name, process_file_callback_t process_file)
 {
     int new_len, reply, r;
     struct stat st;
@@ -820,9 +821,9 @@ _process_unknown(struct pinfo *pinfo, int base, char *path, const char *name)
     }
 
     if (S_ISREG(st.st_mode))
-        return _process_file(pinfo, base, path, name);
+        return process_file(info, base, path, name);
     else if (S_ISDIR(st.st_mode))
-        return _process_dir(pinfo, base, path, name);
+        return _process_dir(info, base, path, name, process_file);
     else {
         fprintf(stderr,
                 "INFO: %s is neither a directory nor a regular file.\n", path);
@@ -831,12 +832,12 @@ _process_unknown(struct pinfo *pinfo, int base, char *path, const char *name)
 }
 
 static int
-_process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
+_process_dir(struct cinfo *info, int base, char *path, const char *name, process_file_callback_t process_file)
 {
-    DIR *dir;
+    lms_t *lms = info->lms;
     struct dirent *de;
-    lms_t *lms;
     int new_len, r;
+    DIR *dir;
 
     new_len = _strcat(base, path, name);
     if (new_len < 0)
@@ -856,12 +857,11 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
     new_len++;
 
     r = 0;
-    lms = pinfo->lms;
     while ((de = readdir(dir)) != NULL && !lms->stop_processing) {
         if (de->d_name[0] == '.')
             continue;
         if (de->d_type == DT_REG) {
-            if (_process_file(pinfo, new_len, path, de->d_name) < 0) {
+            if (process_file(info, new_len, path, de->d_name) < 0) {
                 fprintf(stderr,
                         "ERROR: unrecoverable error parsing file, "
                         "exit \"%s\".\n", path);
@@ -870,7 +870,8 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
                 goto end;
             }
         } else if (de->d_type == DT_DIR) {
-            if (_process_dir(pinfo, new_len, path, de->d_name) < 0) {
+            if (_process_dir(
+                    info, new_len, path, de->d_name, process_file) < 0) {
                 fprintf(stderr,
                         "ERROR: unrecoverable error parsing dir, "
                         "exit \"%s\".\n", path);
@@ -879,7 +880,8 @@ _process_dir(struct pinfo *pinfo, int base, char *path, const char *name)
                 goto end;
             }
         } else if (de->d_type == DT_UNKNOWN) {
-            if (_process_unknown(pinfo, new_len, path, de->d_name) < 0) {
+            if (_process_unknown(
+                    info, new_len, path, de->d_name, process_file) < 0) {
                 fprintf(stderr,
                         "ERROR: unrecoverable error parsing DT_UNKNOWN, "
                         "exit \"%s\".\n", path);
@@ -918,10 +920,10 @@ _lms_process_check_valid(lms_t *lms, const char *path)
 }
 
 static int
-_process_trigger(struct pinfo *pinfo, const char *top_path)
+_process_trigger(struct cinfo *info, const char *top_path, int (*process_file)(void *info, int base, char *path, const char *name))
 {
     char path[PATH_SIZE], *bname;
-    lms_t *lms = pinfo->lms;
+    lms_t *lms = info->lms;
     int len;
     int r;
 
@@ -942,7 +944,7 @@ _process_trigger(struct pinfo *pinfo, const char *top_path)
 
     lms->is_processing = 1;
     lms->stop_processing = 0;
-    r = _process_dir(pinfo, len, path, bname);
+    r = _process_dir(info, len, path, bname, process_file);
     lms->is_processing = 0;
     lms->stop_processing = 0;
     free(bname);
@@ -970,7 +972,7 @@ lms_process(lms_t *lms, const char *top_path)
     if (r < 0)
         return r;
 
-    pinfo.lms = lms;
+    pinfo.common.lms = lms;
 
     if (lms_create_pipes(&pinfo) != 0) {
         r = -1;
@@ -982,7 +984,8 @@ lms_process(lms_t *lms, const char *top_path)
         goto close_pipes;
     }
 
-    r = _process_trigger(&pinfo, top_path);
+    r = _process_trigger(
+        &pinfo, top_path, _process_file);
 
     lms_finish_slave(&pinfo, _master_send_finish);
   close_pipes:
