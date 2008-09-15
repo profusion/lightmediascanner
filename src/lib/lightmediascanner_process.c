@@ -416,6 +416,105 @@ lms_parsers_run(lms_t *lms, sqlite3 *db, void **parser_match, struct lms_file_in
 }
 
 static int
+_db_and_parsers_setup(lms_t *lms, struct db **db_ret, void ***parser_match_ret)
+{
+    void **parser_match;
+    struct db *db;
+    int r = 0;
+
+    db = _db_open(lms->db_path);
+    if (!db) {
+        r = -1;
+        return r;
+    }
+
+    if (lms_parsers_setup(lms, db->handle) != 0) {
+        fprintf(stderr, "ERROR: could not setup parsers.\n");
+        r = -2;
+        goto err;
+    }
+
+    if (_db_compile_all_stmts(db) != 0) {
+        fprintf(stderr, "ERROR: could not compile statements.\n");
+        r = -3;
+        goto err;
+    }
+
+    if (lms_parsers_start(lms, db->handle) != 0) {
+        fprintf(stderr, "ERROR: could not start parsers.\n");
+        r = -4;
+        goto err;
+    }
+    if (lms->n_parsers < 1) {
+        fprintf(stderr, "ERROR: no parser could be started, exit.\n");
+        r = -5;
+        goto err;
+    }
+
+    parser_match = malloc(lms->n_parsers * sizeof(*parser_match));
+    if (!parser_match) {
+        perror("malloc");
+        r = -6;
+        goto err;
+    }
+
+    *parser_match_ret = parser_match;
+    *db_ret = db;
+    return r;
+
+  err:
+    lms_parsers_finish(lms, db->handle);
+    _db_close(db);
+    return r;
+}
+
+static int
+_db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, char *path, int path_len, int path_base)
+{
+    struct lms_file_info finfo;
+    int used, r;
+
+    finfo.path = path;
+    finfo.path_len = path_len;
+    finfo.base = path_base;
+
+    r = _retrieve_file_status(db, &finfo);
+    if (r == 0) {
+        if (finfo.dtime) {
+            finfo.dtime = 0;
+            lms_db_set_file_dtime(db->set_file_dtime, &finfo);
+        }
+        return r;
+    } else if (r < 0) {
+        fprintf(stderr, "ERROR: could not detect file status.\n");
+        return r;
+    }
+
+    used = lms_parsers_check_using(lms, parser_match, &finfo);
+    if (!used)
+        return r;
+
+    finfo.dtime = 0;
+    if (finfo.id > 0)
+        r = lms_db_update_file_info(db->update_file_info, &finfo);
+    else
+        r = lms_db_insert_file_info(db->insert_file_info, &finfo);
+    if (r < 0) {
+        fprintf(stderr, "ERROR: could not register path in DB\n");
+        return r;
+    }
+
+    r = lms_parsers_run(lms, db->handle, parser_match, &finfo);
+    if (r < 0) {
+        fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
+                getpid(), finfo.path);
+        lms_db_delete_file_info(db->delete_file_info, &finfo);
+    }
+
+    return r;
+}
+
+static int
 _slave_work(lms_t *lms, struct fds *fds)
 {
     int r, len, base, counter;
@@ -423,85 +522,17 @@ _slave_work(lms_t *lms, struct fds *fds)
     void **parser_match;
     struct db *db;
 
-    db = _db_open(lms->db_path);
-    if (!db)
-        return -1;
-
-    if (lms_parsers_setup(lms, db->handle) != 0) {
-        fprintf(stderr, "ERROR: could not setup parsers.\n");
-        r = -2;
-        goto end;
-    }
-
-    if (_db_compile_all_stmts(db) != 0) {
-        fprintf(stderr, "ERROR: could not compile statements.\n");
-        r = -3;
-        goto end;
-    }
-
-    if (lms_parsers_start(lms, db->handle) != 0) {
-        fprintf(stderr, "ERROR: could not start parsers.\n");
-        r = -4;
-        goto end;
-    }
-    if (lms->n_parsers < 1) {
-        fprintf(stderr, "ERROR: no parser could be started, exit.\n");
-        r = -5;
-        goto end;
-    }
-
-    parser_match = malloc(lms->n_parsers * sizeof(*parser_match));
-    if (!parser_match) {
-        perror("malloc");
-        r = -6;
-        goto end;
-    }
+    r = _db_and_parsers_setup(lms, &db, &parser_match);
+    if (r < 0)
+        return r;
 
     counter = 0;
     lms_db_begin_transaction(db->transaction_begin);
 
     while (((r = _slave_recv_path(fds, &len, &base, path)) == 0) && len > 0) {
-        struct lms_file_info finfo;
-        int used, r;
+        r = _db_and_parsers_process_file(
+            lms, db, parser_match, path, len, base);
 
-        finfo.path = path;
-        finfo.path_len = len;
-        finfo.base = base;
-
-        r = _retrieve_file_status(db, &finfo);
-        if (r == 0) {
-            if (finfo.dtime) {
-                finfo.dtime = 0;
-                lms_db_set_file_dtime(db->set_file_dtime, &finfo);
-            }
-            goto inform_end;
-        } else if (r < 0) {
-            fprintf(stderr, "ERROR: could not detect file status.\n");
-            goto inform_end;
-        }
-
-        used = lms_parsers_check_using(lms, parser_match, &finfo);
-        if (!used)
-            goto inform_end;
-
-        finfo.dtime = 0;
-        if (finfo.id > 0)
-            r = lms_db_update_file_info(db->update_file_info, &finfo);
-        else
-            r = lms_db_insert_file_info(db->insert_file_info, &finfo);
-        if (r < 0) {
-            fprintf(stderr, "ERROR: could not register path in DB\n");
-            goto inform_end;
-        }
-
-        r = lms_parsers_run(lms, db->handle, parser_match, &finfo);
-        if (r < 0) {
-            fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
-                    getpid(), finfo.path);
-            lms_db_delete_file_info(db->delete_file_info, &finfo);
-        }
-
-      inform_end:
         _slave_send_reply(fds, r);
         counter++;
         if (counter > lms->commit_interval) {
@@ -513,7 +544,6 @@ _slave_work(lms_t *lms, struct fds *fds)
 
     free(parser_match);
     lms_db_end_transaction(db->transaction_commit);
-  end:
     lms_parsers_finish(lms, db->handle);
     _db_close(db);
 
