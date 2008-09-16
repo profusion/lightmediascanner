@@ -59,6 +59,14 @@ struct pinfo {
     struct pollfd poll;
 };
 
+/* same as struct pinfo for single process versions */
+struct sinfo {
+    struct cinfo common;
+    struct db *db;
+    void **parser_match;
+    int commit_counter;
+};
+
 struct parser {
     lms_plugin_t *plugin;
     void *dl_handle;

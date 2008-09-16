@@ -36,9 +36,11 @@ usage(const char *prgname)
      */
     fprintf(stderr,
             "Usage:\n"
-            "\t%s <commit-interval> <slave-timeout> <db-path> <parser> "
-            "<charset> <scan-path>\n"
-            "\n",
+            "\t%s <api-select> <commit-interval> <slave-timeout> <db-path>"
+            " <parser> <charset> <scan-path>,\n\n"
+            "where api-select may be:\n"
+            "\t0,  for dual process lms (main API)\n"
+            "\t1,  for single process lms (secondary API)\n",
             prgname);
 }
 
@@ -60,21 +62,29 @@ int
 main(int argc, char *argv[])
 {
     char *db_path, *parser_name, *charset, *scan_path;
-    lms_t *lms;
-    lms_plugin_t *parser;
+    int (*process)(lms_t *lms, const char *top_path);
     int commit_interval, slave_timeout;
+    lms_plugin_t *parser;
+    lms_t *lms;
+    int type;
 
-    if (argc < 6) {
+    if (argc < 7) {
         usage(argv[0]);
         return 1;
     }
 
-    commit_interval = atoi(argv[1]);
-    slave_timeout = atoi(argv[2]);
-    db_path = argv[3];
-    parser_name = argv[4];
-    charset = argv[5];
-    scan_path = argv[6];
+    type = atoi(argv[1]);
+    commit_interval = atoi(argv[2]);
+    slave_timeout = atoi(argv[3]);
+    db_path = argv[4];
+    parser_name = argv[5];
+    charset = argv[6];
+    scan_path = argv[7];
+
+    if (type == 0)
+        process = lms_process;
+    else
+        process = lms_process_single_process;
 
     lms = lms_new(db_path);
     if (!lms) {
@@ -110,7 +120,7 @@ main(int argc, char *argv[])
     }
 
     printf("process: %s\n", scan_path);
-    if (lms_process(lms, scan_path) != 0) {
+    if (process(lms, scan_path) != 0) {
         fprintf(stderr, "ERROR: processing \"%s\".\n", scan_path);
         lms_free(lms);
         return -5;

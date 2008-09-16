@@ -751,10 +751,10 @@ _strcat(int base, char *path, const char *name)
 }
 
 static inline void
-_report_progress(struct pinfo *pinfo, const char *path, int path_len, lms_progress_status_t status)
+_report_progress(struct cinfo *info, const char *path, int path_len, lms_progress_status_t status)
 {
     lms_progress_callback_t cb;
-    lms_t *lms = pinfo->common.lms;
+    lms_t *lms = info->lms;
 
     cb = lms->progress.cb;
     if (!cb)
@@ -766,7 +766,7 @@ _report_progress(struct pinfo *pinfo, const char *path, int path_len, lms_progre
 static int
 _process_file(struct cinfo *info, int base, char *path, const char *name)
 {
-    struct pinfo *pinfo = info;
+    struct pinfo *pinfo = (struct pinfo *)info;
     int new_len, reply, r;
 
     new_len = _strcat(base, path, name);
@@ -779,12 +779,12 @@ _process_file(struct cinfo *info, int base, char *path, const char *name)
     r = _master_recv_reply(&pinfo->master, &pinfo->poll, &reply,
                            pinfo->common.lms->slave_timeout);
     if (r < 0) {
-        _report_progress(pinfo, path, new_len, LMS_PROGRESS_STATUS_ERROR_COMM);
+        _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_ERROR_COMM);
         return -3;
     } else if (r == 1) {
         fprintf(stderr, "ERROR: slave took too long, restart %d\n",
                 pinfo->child);
-        _report_progress(pinfo, path, new_len, LMS_PROGRESS_STATUS_KILLED);
+        _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_KILLED);
         if (lms_restart_slave(pinfo, _slave_work) != 0)
             return -4;
         return 1;
@@ -792,15 +792,51 @@ _process_file(struct cinfo *info, int base, char *path, const char *name)
         if (reply < 0) {
             fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
                     getpid(), path);
-            _report_progress(pinfo, path, new_len,
-                             LMS_PROGRESS_STATUS_ERROR_PARSE);
+            _report_progress(
+                info, path, new_len, LMS_PROGRESS_STATUS_ERROR_PARSE);
             return (-reply) << 8;
         } else {
-            _report_progress(pinfo, path, new_len,
-                             LMS_PROGRESS_STATUS_PROCESSED);
+            _report_progress(
+                info, path, new_len, LMS_PROGRESS_STATUS_PROCESSED);
             return reply;
         }
     }
+}
+
+static int
+_process_file_single_process(struct cinfo *info, int base, char *path, const char *name)
+{
+    struct sinfo *sinfo = (struct sinfo *)info;
+    int new_len, r;
+
+    void **parser_match = sinfo->parser_match;
+    struct db *db = sinfo->db;
+    lms_t *lms = sinfo->common.lms;
+
+    new_len = _strcat(base, path, name);
+    if (new_len < 0)
+        return -1;
+
+    r = _db_and_parsers_process_file(
+        lms, db, parser_match, path, new_len, base);
+    if (r < 0) {
+        fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
+                getpid(), path);
+        _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_ERROR_PARSE);
+        return (-r) << 8;
+    } else {
+        sinfo->commit_counter++;
+        if (sinfo->commit_counter > lms->commit_interval) {
+            lms_db_end_transaction(db->transaction_commit);
+            lms_db_begin_transaction(db->transaction_begin);
+            sinfo->commit_counter = 0;
+        }
+
+        _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_PROCESSED);
+        return r;
+    }
+
+    return r;
 }
 
 static int _process_dir(struct cinfo *info, int base, char *path, const char *name, process_file_callback_t process_file);
@@ -808,8 +844,8 @@ static int _process_dir(struct cinfo *info, int base, char *path, const char *na
 static int
 _process_unknown(struct cinfo *info, int base, char *path, const char *name, process_file_callback_t process_file)
 {
-    int new_len, reply, r;
     struct stat st;
+    int new_len;
 
     new_len = _strcat(base, path, name);
     if (new_len < 0)
@@ -920,7 +956,7 @@ _lms_process_check_valid(lms_t *lms, const char *path)
 }
 
 static int
-_process_trigger(struct cinfo *info, const char *top_path, int (*process_file)(void *info, int base, char *path, const char *name))
+_process_trigger(struct cinfo *info, const char *top_path, process_file_callback_t process_file)
 {
     char path[PATH_SIZE], *bname;
     lms_t *lms = info->lms;
@@ -966,7 +1002,7 @@ int
 lms_process(lms_t *lms, const char *top_path)
 {
     struct pinfo pinfo;
-    int r, len;
+    int r;
 
     r = _lms_process_check_valid(lms, top_path);
     if (r < 0)
@@ -984,13 +1020,58 @@ lms_process(lms_t *lms, const char *top_path)
         goto close_pipes;
     }
 
-    r = _process_trigger(
-        &pinfo, top_path, _process_file);
+    r = _process_trigger((struct cinfo *)&pinfo, top_path, _process_file);
 
     lms_finish_slave(&pinfo, _master_send_finish);
   close_pipes:
     lms_close_pipes(&pinfo);
   end:
+    return r;
+}
+
+/**
+ * Process the given directory *without fork()-ing* into child process.
+ *
+ * This will add or update media found in the given directory or its children.
+ * Note that if a parser hangs during the process, this call will also hang.
+ *
+ * @param lms previously allocated Light Media Scanner instance.
+ * @param top_path top directory to scan.
+ *
+ * @return On success 0 is returned.
+ */
+int
+lms_process_single_process(lms_t *lms, const char *top_path)
+{
+    struct sinfo sinfo;
+    int r;
+
+    r = _lms_process_check_valid(lms, top_path);
+    if (r < 0)
+        return r;
+
+    sinfo.common.lms = lms;
+    sinfo.commit_counter = 0;
+
+    r = _db_and_parsers_setup(sinfo.common.lms, &sinfo.db, &sinfo.parser_match);
+    if (r < 0) {
+        if (r == -1)
+            return r;
+        else
+            goto finish;
+    }
+
+    lms_db_begin_transaction(sinfo.db->transaction_begin);
+
+    r = _process_trigger(
+        (struct cinfo *)&sinfo, top_path, _process_file_single_process);
+
+    free(sinfo.parser_match);
+    lms_db_end_transaction(sinfo.db->transaction_commit);
+
+  finish:
+    lms_parsers_finish(lms, sinfo.db->handle);
+    _db_close(sinfo.db);
     return r;
 }
 
