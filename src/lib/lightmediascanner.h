@@ -180,6 +180,7 @@ extern "C" {
     API int lms_process(lms_t *lms, const char *top_path) GNUC_NON_NULL(1, 2);
     API int lms_process_single_process(lms_t *lms, const char *top_path) GNUC_NON_NULL(1, 2);
     API int lms_check(lms_t *lms, const char *top_path) GNUC_NON_NULL(1, 2);
+    API int lms_check_single_process(lms_t *lms, const char *top_path) GNUC_NON_NULL(1, 2);
     API void lms_stop_processing(lms_t *lms) GNUC_NON_NULL(1);
     API const char *lms_get_db_path(const lms_t *lms) GNUC_NON_NULL(1);
     API int lms_is_processing(const lms_t *lms) GNUC_PURE GNUC_NON_NULL(1);

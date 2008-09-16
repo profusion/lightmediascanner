@@ -63,6 +63,7 @@ main(int argc, char *argv[])
 {
     char *db_path, *parser_name, *charset, *scan_path;
     int (*process)(lms_t *lms, const char *top_path);
+    int (*check)(lms_t *lms, const char *top_path);
     int commit_interval, slave_timeout;
     lms_plugin_t *parser;
     lms_t *lms;
@@ -81,10 +82,14 @@ main(int argc, char *argv[])
     charset = argv[6];
     scan_path = argv[7];
 
-    if (type == 0)
+    if (type == 0) {
         process = lms_process;
-    else
+        check = lms_check;
+    }
+    else {
         process = lms_process_single_process;
+        check = lms_check_single_process;
+    }
 
     lms = lms_new(db_path);
     if (!lms) {
@@ -113,7 +118,7 @@ main(int argc, char *argv[])
     }
 
     printf("checking: %s\n", scan_path);
-    if (lms_check(lms, scan_path) != 0) {
+    if (check(lms, scan_path) != 0) {
         fprintf(stderr, "ERROR: checking \"%s\".\n", scan_path);
         lms_free(lms);
         return -4;
