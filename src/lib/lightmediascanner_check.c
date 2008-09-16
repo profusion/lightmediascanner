@@ -482,35 +482,46 @@ _report_progress(struct pinfo *pinfo, const struct lms_file_info *finfo, lms_pro
 }
 
 static int
+_finfo_update(struct master_db *db, struct pinfo *pinfo, struct lms_file_info *finfo, unsigned int *flags)
+{
+    struct stat st;
+
+    _update_finfo_from_stmt(finfo, db->get_files);
+
+    *flags = 0;
+    if (stat(finfo->path, &st) == 0) {
+        if (st.st_mtime == finfo->mtime && st.st_size == finfo->size) {
+            if (finfo->dtime == 0) {
+                _report_progress(pinfo, finfo, LMS_PROGRESS_STATUS_UP_TO_DATE);
+                return 0;
+            } else
+                finfo->dtime = 0;
+        } else {
+            _update_finfo_from_stat(finfo, &st);
+            *flags |= COMM_FINFO_FLAG_OUTDATED;
+        }
+    } else {
+        if (finfo->dtime)
+            return 0;
+        else
+            finfo->dtime = time(NULL);
+    }
+
+    _calc_base(finfo);
+
+    return 1;
+}
+
+static int
 _check_row(struct master_db *db, struct pinfo *pinfo)
 {
     struct lms_file_info finfo;
-    struct stat st;
     unsigned int flags;
     int r, reply;
 
-    _update_finfo_from_stmt(&finfo, db->get_files);
-
-    flags = 0;
-    if (stat(finfo.path, &st) == 0) {
-        if (st.st_mtime == finfo.mtime && st.st_size == finfo.size) {
-            if (finfo.dtime == 0) {
-                _report_progress(pinfo, &finfo, LMS_PROGRESS_STATUS_UP_TO_DATE);
-                return 0;
-            } else
-                finfo.dtime = 0;
-        } else {
-            _update_finfo_from_stat(&finfo, &st);
-            flags |= COMM_FINFO_FLAG_OUTDATED;
-        }
-    } else {
-        if (finfo.dtime)
-            return 0;
-        else
-            finfo.dtime = time(NULL);
-    }
-
-    _calc_base(&finfo);
+    r = _finfo_update(db, pinfo, &finfo, &flags);
+    if (r == 0)
+        return r;
 
     if (_master_send_file(&pinfo->master, finfo, flags) != 0)
         return -1;
@@ -571,11 +582,33 @@ _master_dummy_send_finish(const struct fds *master)
 }
 
 static int
+_db_files_loop(struct master_db *db, struct pinfo *pinfo, int (*check_row)(struct master_db *db, struct pinfo *pinfo))
+{
+    lms_t *lms = pinfo->common.lms;
+    int r;
+
+    do {
+        r = sqlite3_step(db->get_files);
+        if (r == SQLITE_ROW) {
+            if (check_row(db, pinfo) < 0) {
+                fprintf(stderr, "ERROR: could not check row.\n");
+                return -1;
+            }
+        } else if (r != SQLITE_DONE) {
+            fprintf(stderr, "ERROR: could not begin transaction: %s\n",
+                    sqlite3_errmsg(db->handle));
+            return -2;
+        }
+    } while (r != SQLITE_DONE && !lms->stop_processing);
+
+    return 0;
+}
+
+static int
 _check(struct pinfo *pinfo, int len, char *path)
 {
     char query[PATH_SIZE + 2];
     struct master_db *db;
-    lms_t *lms;
     int r, ret;
 
     db = _master_db_open(pinfo->common.lms->db_path);
@@ -593,36 +626,41 @@ _check(struct pinfo *pinfo, int len, char *path)
         ret = -2;
         goto end;
     }
+
     _init_sync_wait(pinfo, 1);
-    lms = pinfo->common.lms;
 
-    do {
-        r = sqlite3_step(db->get_files);
-        if (r == SQLITE_ROW) {
-            if (_check_row(db, pinfo) < 0) {
-                fprintf(stderr, "ERROR: could not check row.\n");
-                ret = -1;
-                goto finish_slave;
-            }
-        } else if (r != SQLITE_DONE) {
-            fprintf(stderr, "ERROR: could not begin transaction: %s\n",
-                    sqlite3_errmsg(db->handle));
-            ret = -2;
-            goto finish_slave;
-        }
-    } while (r != SQLITE_DONE && !lms->stop_processing);
-    ret = 0;
+    ret = _db_files_loop(db, pinfo, _check_row);
 
-  finish_slave:
     _master_send_finish(&pinfo->master);
     _init_sync_wait(pinfo, 0);
     lms_finish_slave(pinfo, _master_dummy_send_finish);
-
   end:
     lms_db_reset_stmt(db->get_files);
     _master_db_close(db);
 
     return ret;
+}
+
+static int
+_lms_check_check_valid(lms_t *lms, const char *path)
+{
+    if (!lms)
+        return -1;
+
+    if (!path)
+        return -2;
+
+    if (lms->is_processing) {
+        fprintf(stderr, "ERROR: is already processing.\n");
+        return -3;
+    }
+
+    if (!lms->parsers) {
+        fprintf(stderr, "ERROR: no plugins registered.\n");
+        return -4;
+    }
+
+    return 0;
 }
 
 /**
@@ -640,31 +678,13 @@ _check(struct pinfo *pinfo, int len, char *path)
 int
 lms_check(lms_t *lms, const char *top_path)
 {
+    char path[PATH_SIZE];
     struct pinfo pinfo;
     int r;
-    char path[PATH_SIZE];
 
-    if (!lms) {
-        r = -1;
-        goto end;
-    }
-
-    if (!top_path) {
-        r = -2;
-        goto end;
-    }
-
-    if (lms->is_processing) {
-        fprintf(stderr, "ERROR: is already processing.\n");
-        r = -3;
-        goto end;
-    }
-
-    if (!lms->parsers) {
-        fprintf(stderr, "ERROR: no plugins registered.\n");
-        r = -4;
-        goto end;
-    }
+    r = _lms_check_check_valid(lms, top_path);
+    if (r < 0)
+        return r;
 
     pinfo.common.lms = lms;
 
