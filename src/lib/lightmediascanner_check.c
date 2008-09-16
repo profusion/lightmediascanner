@@ -51,7 +51,6 @@ struct slave_db {
     sqlite3_stmt *update_file_info;
 };
 
-
 /***********************************************************************
  * Master-Slave communication.
  ***********************************************************************/
@@ -469,10 +468,10 @@ _update_finfo_from_stat(struct lms_file_info *finfo, const struct stat *st)
 }
 
 static inline void
-_report_progress(struct pinfo *pinfo, const struct lms_file_info *finfo, lms_progress_status_t status)
+_report_progress(struct cinfo *info, const struct lms_file_info *finfo, lms_progress_status_t status)
 {
     lms_progress_callback_t cb;
-    lms_t *lms = pinfo->common.lms;
+    lms_t *lms = info->lms;
 
     cb = lms->progress.cb;
     if (!cb)
@@ -482,8 +481,9 @@ _report_progress(struct pinfo *pinfo, const struct lms_file_info *finfo, lms_pro
 }
 
 static int
-_finfo_update(struct master_db *db, struct pinfo *pinfo, struct lms_file_info *finfo, unsigned int *flags)
+_finfo_update(void *db_ptr, struct cinfo *info, struct lms_file_info *finfo, unsigned int *flags)
 {
+    struct master_db *db = db_ptr;
     struct stat st;
 
     _update_finfo_from_stmt(finfo, db->get_files);
@@ -492,7 +492,7 @@ _finfo_update(struct master_db *db, struct pinfo *pinfo, struct lms_file_info *f
     if (stat(finfo->path, &st) == 0) {
         if (st.st_mtime == finfo->mtime && st.st_size == finfo->size) {
             if (finfo->dtime == 0) {
-                _report_progress(pinfo, finfo, LMS_PROGRESS_STATUS_UP_TO_DATE);
+                _report_progress(info, finfo, LMS_PROGRESS_STATUS_UP_TO_DATE);
                 return 0;
             } else
                 finfo->dtime = 0;
@@ -513,8 +513,10 @@ _finfo_update(struct master_db *db, struct pinfo *pinfo, struct lms_file_info *f
 }
 
 static int
-_check_row(struct master_db *db, struct pinfo *pinfo)
+_check_row(void *db_ptr, struct cinfo *info)
 {
+    struct pinfo *pinfo = (struct pinfo *)info;
+    struct master_db *db = db_ptr;
     struct lms_file_info finfo;
     unsigned int flags;
     int r, reply;
@@ -582,15 +584,16 @@ _master_dummy_send_finish(const struct fds *master)
 }
 
 static int
-_db_files_loop(struct master_db *db, struct pinfo *pinfo, int (*check_row)(struct master_db *db, struct pinfo *pinfo))
+_db_files_loop(void *db_ptr, struct cinfo *info, check_row_callback_t check_row)
 {
-    lms_t *lms = pinfo->common.lms;
+    struct master_db *db = db_ptr;
+    lms_t *lms = info->lms;
     int r;
 
     do {
         r = sqlite3_step(db->get_files);
         if (r == SQLITE_ROW) {
-            if (check_row(db, pinfo) < 0) {
+            if (check_row(db_ptr, info) < 0) {
                 fprintf(stderr, "ERROR: could not check row.\n");
                 return -1;
             }
