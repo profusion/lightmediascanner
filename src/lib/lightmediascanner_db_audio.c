@@ -1,5 +1,6 @@
 /**
  * Copyright (C) 2007 by INdT
+ * Copyright (C) 2008 by ProFUSION
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -54,14 +55,37 @@ _db_create(sqlite3 *db, const char *name, const char *sql)
 }
 
 static int
-_db_table_updater_audios_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
+_db_table_updater_audios_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run)
+{
+    return 0;
+}
+
+static int
+_db_table_updater_audios_1(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run)
+{
+    char *err;
     int ret;
+
+    ret = sqlite3_exec(db, "DELETE FROM files", NULL, NULL, &err);
+    if (ret != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not delete \"files\": %s\n", err);
+        sqlite3_free(err);
+        goto done;
+    }
+
+    ret = sqlite3_exec(db, "DROP TABLE IF EXISTS audios", NULL, NULL, &err);
+    if (ret != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not drop \"audios\": %s\n", err);
+        sqlite3_free(err);
+        goto done;
+    }
 
     ret = _db_create(db, "audios",
         "CREATE TABLE IF NOT EXISTS audios ("
         "id INTEGER PRIMARY KEY, "
         "title TEXT, "
         "album_id INTEGER, "
+        "artist_id INTEGER, "
         "genre_id INTEGER, "
         "trackno INTEGER, "
         "rating INTEGER, "
@@ -79,6 +103,12 @@ _db_table_updater_audios_0(sqlite3 *db, const char *table, unsigned int current_
     ret = _db_create(db, "audios_album_idx",
         "CREATE INDEX IF NOT EXISTS "
         "audios_album_idx ON audios (album_id)");
+    if (ret != 0)
+        goto done;
+
+    ret = _db_create(db, "audios_artist_idx",
+        "CREATE INDEX IF NOT EXISTS "
+        "audios_artist_idx ON audios (artist_id)");
     if (ret != 0)
         goto done;
 
@@ -117,7 +147,8 @@ _db_table_updater_audios_0(sqlite3 *db, const char *table, unsigned int current_
 }
 
 static lms_db_table_updater_t _db_table_updater_audios[] = {
-    _db_table_updater_audios_0
+    _db_table_updater_audios_0,
+    _db_table_updater_audios_1
 };
 
 static int
@@ -316,8 +347,8 @@ lms_db_audio_start(lms_db_audio_t *lda)
 
     lda->insert_audio = lms_db_compile_stmt(lda->db,
         "INSERT OR REPLACE INTO audios "
-        "(id, title, album_id, genre_id, trackno, rating, playcnt) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)");
+        "(id, title, album_id, artist_id, genre_id, trackno, rating, playcnt) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     if (!lda->insert_audio)
         return -2;
 
@@ -530,30 +561,22 @@ _db_get_album(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t *a
 }
 
 static int
-_db_insert_album(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t *album_id)
+_db_insert_album(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t *album_id, int64_t *artist_id)
 {
     int r, ret, ret_artist;
-    int64_t artist_id;
     sqlite3_stmt *stmt;
 
     if (!info->album.str) /* fast path for unknown album */
         return 1;
 
-    ret_artist = _db_insert_artist(lda, info, &artist_id);
-    if (ret_artist < 0)
-        return -1;
-
-    r =_db_get_album(lda, info,
-                     (ret_artist == 0) ? &artist_id : NULL,
-                     album_id);
+    r =_db_get_album(lda, info, artist_id, album_id);
     if (r == 0)
         return 0;
     else if (r < 0)
         return -1;
 
     stmt = lda->insert_album;
-    ret = lms_db_bind_int64_or_null(stmt, 1,
-                                    (ret_artist == 0) ? &artist_id : NULL);
+    ret = lms_db_bind_int64_or_null(stmt, 1, artist_id);
     if (ret != 0)
         goto done;
 
@@ -602,7 +625,7 @@ _db_insert_genre(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
 }
 
 static int
-_db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t *album_id, int64_t *genre_id)
+_db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t *album_id, int64_t *artist_id, int64_t *genre_id)
 {
     sqlite3_stmt *stmt;
     int r, ret;
@@ -620,19 +643,23 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int64_or_null(stmt, 4, genre_id);
+    ret = lms_db_bind_int64_or_null(stmt, 4, artist_id);
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 5, info->trackno);
+    ret = lms_db_bind_int64_or_null(stmt, 5, genre_id);
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 6, info->rating);
+    ret = lms_db_bind_int(stmt, 6, info->trackno);
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 7, info->playcnt);
+    ret = lms_db_bind_int(stmt, 7, info->rating);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 8, info->playcnt);
     if (ret != 0)
         goto done;
 
@@ -640,7 +667,7 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
     if (r != SQLITE_DONE) {
         fprintf(stderr, "ERROR: could not insert audio info: %s\n",
                 sqlite3_errmsg(lda->db));
-        ret = -8;
+        ret = -9;
         goto done;
     }
 
@@ -666,8 +693,8 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
 int
 lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info)
 {
-    int64_t album_id, genre_id;
-    int ret_album, ret_genre;
+    int64_t album_id, genre_id, artist_id;
+    int ret_album, ret_genre, ret_artist;
 
     if (!lda)
         return -1;
@@ -676,15 +703,21 @@ lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info)
     if (info->id < 1)
         return -3;
 
-    ret_album = _db_insert_album(lda, info, &album_id);
-    if (ret_album < 0)
+    ret_artist = _db_insert_artist(lda, info, &artist_id);
+    if (ret_artist < 0)
         return -4;
+
+    ret_album = _db_insert_album(lda, info, &album_id,
+                                 (ret_artist == 0) ? &artist_id : NULL);
+    if (ret_album < 0)
+        return -5;
 
     ret_genre = _db_insert_genre(lda, info, &genre_id);
     if (ret_genre < 0)
-        return -5;
+        return -6;
 
     return _db_insert_audio(lda, info,
                             (ret_album == 0) ? &album_id : NULL,
+                            (ret_artist == 0) ? &artist_id : NULL,
                             (ret_genre == 0) ? &genre_id : NULL);
 }

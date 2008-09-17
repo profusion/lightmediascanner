@@ -70,6 +70,7 @@
  *      - id: same as files.id
  *      - title: audio title.
  *      - album_id: same as audio_albums.id.
+ *      - artist_id: same as audio_artists.id.
  *      - genre_id: same as audio_genres.id.
  *      - trackno: track number.
  *      - rating: rating.
