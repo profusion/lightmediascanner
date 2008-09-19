@@ -286,7 +286,7 @@ lms_db_table_version_get(sqlite3 *db, const char *table)
     if (r == SQLITE_DONE)
         version = 0;
     else if (r == SQLITE_ROW)
-        version = sqlite3_column_int(stmt, 1);
+        version = sqlite3_column_int(stmt, 0);
     else {
         version = -1;
         fprintf(stderr, "ERROR: could not get table '%s' version: %s\n",
