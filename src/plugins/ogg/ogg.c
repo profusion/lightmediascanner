@@ -181,7 +181,6 @@ _parse_ogg(const char *filename, struct lms_audio_info *info)
     vorbis_comment vc;
     FILE *file;
     const char *tag;
-    int size;
 
     if (!filename)
         return -1;

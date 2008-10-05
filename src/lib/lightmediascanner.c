@@ -194,7 +194,7 @@ lms_set_progress_callback(lms_t *lms, lms_progress_callback_t cb, const void *da
 {
     if (!lms) {
         if (data && free_data)
-            free_data(data);
+            free_data((void *)data);
         return;
     }
 

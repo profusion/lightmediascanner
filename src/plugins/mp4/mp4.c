@@ -31,6 +31,8 @@
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <mp4.h>
+#include <string.h>
+#include <stdlib.h>
 
 enum StreamTypes {
     STREAM_TYPE_UNKNOWN = 0,

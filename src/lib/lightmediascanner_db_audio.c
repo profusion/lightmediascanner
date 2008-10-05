@@ -563,7 +563,7 @@ _db_get_album(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t *a
 static int
 _db_insert_album(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t *album_id, int64_t *artist_id)
 {
-    int r, ret, ret_artist;
+    int r, ret;
     sqlite3_stmt *stmt;
 
     if (!info->album.str) /* fast path for unknown album */
