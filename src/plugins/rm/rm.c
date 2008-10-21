@@ -77,6 +77,16 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".rmj"),
     LMS_STATIC_STRING_SIZE(".rmvb")
 };
+static const char *_cats[] = {
+    "multimedia",
+    "audio",
+    "video",
+    NULL
+};
+static const char *_authors[] = {
+    "Andre Moreira Magalhaes",
+    NULL
+};
 
 /*
  * A real media file header has the following format:
@@ -364,4 +374,19 @@ lms_plugin_open(void)
     plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 
     return (struct lms_plugin *)plugin;
+}
+
+API struct lms_plugin_info *
+lms_plugin_info(void)
+{
+    static struct lms_plugin_info info = {
+        _name,
+        _cats,
+        "Real Networks audio and video files (RA, RV, RM, RMJ, RMVB)",
+        PACKAGE_VERSION,
+        _authors,
+        "http://lms.garage.maemo.org"
+    };
+
+    return &info;
 }

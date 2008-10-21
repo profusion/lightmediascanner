@@ -270,6 +270,16 @@ static const char _name[] = "pls";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".pls")
 };
+static const char *_cats[] = {
+    "multimedia",
+    "audio",
+    "playlist",
+    NULL
+};
+static const char *_authors[] = {
+    "Gustavo Sverzut Barbieri",
+    NULL
+};
 
 struct plugin {
     struct lms_plugin plugin;
@@ -372,4 +382,19 @@ lms_plugin_open(void)
     plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 
     return (struct lms_plugin *)plugin;
+}
+
+API struct lms_plugin_info *
+lms_plugin_info(void)
+{
+    static struct lms_plugin_info info = {
+        _name,
+        _cats,
+        "Playlists (INI-style)",
+        PACKAGE_VERSION,
+        _authors,
+        "http://lms.garage.maemo.org"
+    };
+
+    return &info;
 }

@@ -95,6 +95,16 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".mp3"),
     LMS_STATIC_STRING_SIZE(".aac")
 };
+static const char *_cats[] = {
+    "multimedia",
+    "audio",
+    NULL
+};
+static const char *_authors[] = {
+    "Andre Moreira Magalhaes",
+    "Gustavo Sverzut Barbieri",
+    NULL
+};
 
 static unsigned int
 _to_uint(const char *data, int data_size)
@@ -827,4 +837,19 @@ lms_plugin_open(void)
     plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 
     return (struct lms_plugin *)plugin;
+}
+
+API struct lms_plugin_info *
+lms_plugin_info(void)
+{
+    static struct lms_plugin_info info = {
+        _name,
+        _cats,
+        "ID3 v1 and v2 for mp3 files",
+        PACKAGE_VERSION,
+        _authors,
+        "http://lms.garage.maemo.org"
+    };
+
+    return &info;
 }

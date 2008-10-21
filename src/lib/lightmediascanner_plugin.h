@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2007 by INdT
+ * Copyright (C) 2008 by ProFUSION
+ *               2007 by INdT
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * @author Gustavo Sverzut Barbieri <gustavo.barbieri@openbossa.org>
+ * @author Gustavo Sverzut Barbieri <barbieri@profusion.mobi>
  */
 
 /**
@@ -27,6 +28,7 @@
  *
  * @code
  *    struct lms_plugin *lms_plugin_open(void)
+ *    const struct lms_plugin_info *lms_plugin_info(void)
  * @endcode
  *
  * where:
@@ -40,6 +42,16 @@
  *       lms_plugin_setup_fn_t setup;
  *       lms_plugin_start_fn_t start;
  *       lms_plugin_finish_fn_t finish;
+ *    };
+ *
+ *
+ *    struct lms_plugin_info {
+ *        const char *name;
+ *        const char *category;
+ *        const char *description;
+ *        const char *version;
+ *        const char *author;
+ *        const char *uri;
  *    };
  * @endcode
  *
@@ -161,6 +173,16 @@ extern "C" {
         lms_plugin_start_fn_t start; /**< start (2nd phase init) */
         lms_plugin_finish_fn_t finish; /**< finish plugin */
     };
+
+    struct lms_plugin_info {
+        const char *name; /**< plugin name, should be same as lms_plugin */
+        const char * const *categories; /**< NULL-terminated categories array */
+        const char *description; /**< free text description */
+        const char *version; /**< version string */
+        const char * const *authors; /**< NULL-terminated author array */
+        const char *uri; /**< how to find who wrote it (bug reports, etc) */
+    };
+
 
 #ifdef __cplusplus
 }

@@ -40,6 +40,17 @@
 #include <stdio.h>
 
 static const char _name[] = "dummy";
+static const char *_cats[] = {
+    "all",
+    "audio",
+    "video",
+    "picture",
+    NULL
+};
+static const char *_authors[] = {
+    "Gustavo Sverzut Barbieri",
+    NULL
+};
 
 struct plugin {
     struct lms_plugin plugin;
@@ -114,4 +125,19 @@ lms_plugin_open(void)
     plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 
     return (struct lms_plugin *)plugin;
+}
+
+API struct lms_plugin_info *
+lms_plugin_info(void)
+{
+    static struct lms_plugin_info info = {
+        _name,
+        _cats,
+        "Accept everything and print out to /tmp/dummy-$UID.log",
+        PACKAGE_VERSION,
+        _authors,
+        "http://lms.garage.maemo.org"
+    };
+
+    return &info;
 }

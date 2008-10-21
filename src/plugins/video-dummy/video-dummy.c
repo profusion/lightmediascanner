@@ -44,6 +44,15 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".ogm"),
     LMS_STATIC_STRING_SIZE(".flv"),
 };
+static const char *_cats[] = {
+    "multimedia",
+    "video",
+    NULL
+};
+static const char *_authors[] = {
+    "Gustavo Sverzut Barbieri",
+    NULL
+};
 
 struct plugin {
     struct lms_plugin plugin;
@@ -131,4 +140,20 @@ lms_plugin_open(void)
     plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 
     return (struct lms_plugin *)plugin;
+}
+
+API struct lms_plugin_info *
+lms_plugin_info(void)
+{
+    static struct lms_plugin_info info = {
+        _name,
+        _cats,
+        "Accept all video extensions (AVI, MPG, MPEG, RAM, OGM, FLV), "
+        "but no metadata is processed.",
+        PACKAGE_VERSION,
+        _authors,
+        "http://lms.garage.maemo.org"
+    };
+
+    return &info;
 }

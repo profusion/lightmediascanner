@@ -44,6 +44,15 @@ static const char _name[] = "flac";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".flac")
 };
+static const char *_cats[] = {
+    "multimedia",
+    "audio",
+    NULL
+};
+static const char *_authors[] = {
+    "Andre Moreira Magalhaes",
+    NULL
+};
 
 static void *
 _match(struct plugin *p, const char *path, int len, int base)
@@ -177,4 +186,19 @@ lms_plugin_open(void)
     plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 
     return (struct lms_plugin *)plugin;
+}
+
+API struct lms_plugin_info *
+lms_plugin_info(void)
+{
+    static struct lms_plugin_info info = {
+        _name,
+        _cats,
+        "FLAC parser",
+        PACKAGE_VERSION,
+        _authors,
+        "http://lms.garage.maemo.org"
+    };
+
+    return &info;
 }

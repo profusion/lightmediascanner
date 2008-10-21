@@ -28,6 +28,8 @@
 #include "config.h"
 #endif
 
+static const char PV[] = PACKAGE_VERSION; /* mp4.h screws PACKAGE_VERSION */
+
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <mp4.h>
@@ -61,6 +63,16 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".mov"),
     LMS_STATIC_STRING_SIZE(".qt"),
     LMS_STATIC_STRING_SIZE(".3gp")
+};
+static const char *_cats[] = {
+    "multimedia",
+    "audio",
+    "video",
+    NULL
+};
+static const char *_authors[] = {
+    "Andre Moreira Magalhaes",
+    NULL
 };
 
 static void *
@@ -231,4 +243,19 @@ lms_plugin_open(void)
     plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 
     return (struct lms_plugin *)plugin;
+}
+
+API struct lms_plugin_info *
+lms_plugin_info(void)
+{
+    static struct lms_plugin_info info = {
+        _name,
+        _cats,
+        "MP4 files (MP4, M4A, MOV, QT, 3GP)",
+        PV,
+        _authors,
+        "http://lms.garage.maemo.org"
+    };
+
+    return &info;
 }

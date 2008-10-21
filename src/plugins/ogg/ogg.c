@@ -221,6 +221,16 @@ static const char _name[] = "ogg";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".ogg")
 };
+static const char *_cats[] = {
+    "multimedia",
+    "audio",
+    NULL
+};
+static const char *_authors[] = {
+    "Renato Chencarek",
+    "Eduardo Lima (Etrunko)",
+    NULL
+};
 
 struct plugin {
     struct lms_plugin plugin;
@@ -331,4 +341,19 @@ lms_plugin_open(void)
     plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
 
     return (struct lms_plugin *)plugin;
+}
+
+API struct lms_plugin_info *
+lms_plugin_info(void)
+{
+    static struct lms_plugin_info info = {
+        _name,
+        _cats,
+        "OGG files",
+        PACKAGE_VERSION,
+        _authors,
+        "http://lms.garage.maemo.org"
+    };
+
+    return &info;
 }

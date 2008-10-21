@@ -191,6 +191,24 @@ extern "C" {
     API void lms_set_commit_interval(lms_t *lms, unsigned int transactions) GNUC_NON_NULL(1);
     API void lms_set_progress_callback(lms_t *lms, lms_progress_callback_t cb, const void *data, lms_free_callback_t free_data) GNUC_NON_NULL(1);
 
+
+    API void lms_parsers_list(int (*cb)(void *data, const char *path), const void *data);
+
+    struct lms_parser_info {
+        const char *name;
+        const char * const *categories;
+        const char *description;
+        const char *version;
+        const char *const *authors;
+        const char *uri;
+    };
+
+    API struct lms_parser_info *lms_parser_info(const char *so_path);
+    API struct lms_parser_info *lms_parser_info_find(const char *name);
+    API void lms_parser_info_free(struct lms_parser_info *info);
+
+    API void lms_parsers_list_by_category(const char *category, int (*cb)(void *data, const char *path, const struct lms_parser_info *info), const void *data);
+
     API lms_plugin_t *lms_parser_add(lms_t *lms, const char *so_path) GNUC_NON_NULL(1, 2);
     API lms_plugin_t *lms_parser_find_and_add(lms_t *lms, const char *name) GNUC_NON_NULL(1, 2);
     API int lms_parser_del(lms_t *lms, lms_plugin_t *handle) GNUC_NON_NULL(1, 2);
