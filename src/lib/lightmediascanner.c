@@ -703,7 +703,7 @@ lms_parser_info(const char *so_path)
     struct lms_parser_info *ret;
     const char *errmsg;
     void *dl_handle;
-    int len, name_len, desc_len, ver_len, uri_len;
+    int len, path_len, name_len, desc_len, ver_len, uri_len;
     int cats_count, cats_size, authors_count, authors_size;
 
     if (!so_path)
@@ -736,6 +736,7 @@ lms_parser_info(const char *so_path)
         goto close_and_exit;
     }
 
+    path_len = strlen(so_path) + 1;
     name_len = pinfo->name ? strlen(pinfo->name) + 1 : 0;
     desc_len = pinfo->description ? strlen(pinfo->description) + 1 : 0;
     ver_len = pinfo->version ? strlen(pinfo->version) + 1 : 0;
@@ -744,7 +745,8 @@ lms_parser_info(const char *so_path)
     cats_count = _lms_string_array_count(pinfo->categories, &cats_size);
     authors_count = _lms_string_array_count(pinfo->authors, &authors_size);
 
-    len = name_len + desc_len + ver_len + uri_len + cats_size + authors_size;
+    len = path_len + name_len + desc_len + ver_len + uri_len + cats_size +
+        authors_size;
     ret = malloc(sizeof(*ret) + len);
     if (!ret) {
       fprintf(stderr, "ERROR: could not alloc %d bytes: %s",
@@ -771,6 +773,10 @@ lms_parser_info(const char *so_path)
         len += authors_size;
     } else
         ret->authors = NULL;
+
+    ret->path = (char *)ret + sizeof(*ret) + len;
+    memcpy((char *)ret->path, so_path, path_len);
+    len += path_len;
 
     if (pinfo->name) {
         ret->name = (char *)ret + sizeof(*ret) + len;

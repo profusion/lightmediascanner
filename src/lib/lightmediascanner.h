@@ -195,6 +195,7 @@ extern "C" {
     API void lms_parsers_list(int (*cb)(void *data, const char *path), const void *data);
 
     struct lms_parser_info {
+        const char *path;
         const char *name;
         const char * const *categories;
         const char *description;
