@@ -83,20 +83,24 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         str = (char *) tags->data.vorbis_comment.comments[i].entry;
         len = tags->data.vorbis_comment.comments[i].length;
         if (strncmp(str, "TITLE=", 6) == 0) {
-            info.title.str = str + 6;
-            info.title.len = len;
+            info.title.str = malloc((len - 6 + 1) * sizeof(char));
+            strcpy(info.title.str, str + 6);
+            info.title.len = len - 6;
         }
         else if (strncmp(str, "ARTIST=", 7) == 0) {
-            info.artist.str = str + 7;
-            info.artist.len = len;
+            info.artist.str = malloc((len - 7 + 1) * sizeof(char));
+            strcpy(info.artist.str, str + 7);
+            info.artist.len = len - 7;
         }
         else if (strncmp(str, "ALBUM=", 6) == 0) {
-            info.album.str = str + 6;
-            info.album.len = len;
+            info.album.str = malloc((len - 6 + 1) * sizeof(char));
+            strcpy(info.album.str, str + 6);
+            info.album.len = len - 6;
         }
         else if (strncmp(str, "GENRE=", 6) == 0) {
-            info.genre.str = str + 6;
-            info.genre.len = len;
+            info.genre.str = malloc((len - 6 + 1) * sizeof(char));
+            strcpy(info.genre.str, str + 6);
+            info.genre.len = len - 6;
         }
         else if (strncmp(str, "TRACKNUMBER=", 12) == 0)
             info.trackno = atoi(str + 12);
@@ -135,6 +139,11 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
     info.id = finfo->id;
     r = lms_db_audio_add(plugin->audio_db, &info);
+
+    free(info.title.str);
+    free(info.artist.str);
+    free(info.album.str);
+    free(info.genre.str);
 
     FLAC__metadata_object_delete(tags);
 
