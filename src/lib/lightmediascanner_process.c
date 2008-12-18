@@ -492,7 +492,7 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
 
     used = lms_parsers_check_using(lms, parser_match, &finfo);
     if (!used)
-        return r;
+        return 2;
 
     finfo.dtime = 0;
     if (finfo.id > 0)
@@ -795,11 +795,12 @@ _process_file(struct cinfo *info, int base, char *path, const char *name)
             _report_progress(
                 info, path, new_len, LMS_PROGRESS_STATUS_ERROR_PARSE);
             return (-reply) << 8;
-        } else {
+        } else if (reply == 2)
+            _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_SKIPPED);
+        else
             _report_progress(
                 info, path, new_len, LMS_PROGRESS_STATUS_PROCESSED);
-            return reply;
-        }
+        return reply;
     }
 }
 
@@ -832,11 +833,13 @@ _process_file_single_process(struct cinfo *info, int base, char *path, const cha
             sinfo->commit_counter = 0;
         }
 
-        _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_PROCESSED);
+        if (r == 2)
+            _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_SKIPPED);
+        else
+            _report_progress(
+                info, path, new_len, LMS_PROGRESS_STATUS_PROCESSED);
         return r;
     }
-
-    return r;
 }
 
 static int _process_dir(struct cinfo *info, int base, char *path, const char *name, process_file_callback_t process_file);

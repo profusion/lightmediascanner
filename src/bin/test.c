@@ -285,6 +285,7 @@ progress(lms_t *lms, const char *path, int path_len, lms_progress_status_t statu
         cend = "\033[0m";
         switch (status) {
         case LMS_PROGRESS_STATUS_UP_TO_DATE:
+        case LMS_PROGRESS_STATUS_SKIPPED:
             break;
         case LMS_PROGRESS_STATUS_PROCESSED:
             cstart = "\033[32m";
