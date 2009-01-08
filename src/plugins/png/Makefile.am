@@ -1,6 +1,7 @@
 MAINTAINERCLEANFILES = Makefile.in
 
-AM_CPPFLAGS = -I$(top_srcdir)/src/lib -I$(top_srcdir)/src/plugins/png
+AM_CPPFLAGS = -I$(top_srcdir)/src/lib -I$(top_srcdir)/src/plugins/png \
+	@SQLITE3_CFLAGS@
 
 pkgdir = $(pluginsdir)
 pkg_LTLIBRARIES = png.la

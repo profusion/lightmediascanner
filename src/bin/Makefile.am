@@ -1,7 +1,8 @@
 MAINTAINERCLEANFILES = Makefile.in
 
 AM_CPPFLAGS = \
-	-I$(top_srcdir)/src/lib
+	-I$(top_srcdir)/src/lib \
+	@SQLITE3_CFLAGS@
 
 noinst_PROGRAMS = \
 	test \

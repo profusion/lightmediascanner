@@ -5,6 +5,7 @@ includedir=@includedir@
 
 Name: lightmediascanner
 Description: Lightweight Media Scanner
+Requires: sqlite3
 Version: @VERSION@
-Libs: -L${libdir} -llightmediascanner -lsqlite3
+Libs: -L${libdir} -llightmediascanner
 Cflags: -I${includedir}

@@ -1,6 +1,7 @@
 MAINTAINERCLEANFILES = Makefile.in
 
-AM_CPPFLAGS = -I$(top_srcdir)/src/lib -I$(top_srcdir)/src/plugins/m3u
+AM_CPPFLAGS = -I$(top_srcdir)/src/lib -I$(top_srcdir)/src/plugins/m3u \
+	@SQLITE3_CFLAGS@
 
 pkgdir = $(pluginsdir)
 pkg_LTLIBRARIES = m3u.la
