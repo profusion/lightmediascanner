@@ -485,8 +485,8 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
     /* TALB, TAL */
     else if (fid[1] == 'A' && fid[2] == 'L')
         _get_id3v2_frame_info(frame_data, frame_size, &info->album, cs_conv, 1);
-    /* TCON, TCO */
-    else if (fid[1] == 'C' && fid[2] == 'O')
+    /* TCON (Content/Genre) */
+    else if (fid[1] == 'C' && fid[2] == 'O' && fid[3] == 'N')
         _get_id3v2_genre(frame_data, frame_size, &info->genre, cs_conv);
     else if (fid[1] == 'R' && (fid[2] == 'K' ||
                                (fid[2] == 'C' && fid[3] == 'K')))
