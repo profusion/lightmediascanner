@@ -60,6 +60,7 @@ static const char _name[] = "mp4";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".mp4"),
     LMS_STATIC_STRING_SIZE(".m4a"),
+    LMS_STATIC_STRING_SIZE(".m4v"),
     LMS_STATIC_STRING_SIZE(".mov"),
     LMS_STATIC_STRING_SIZE(".qt"),
     LMS_STATIC_STRING_SIZE(".3gp")
