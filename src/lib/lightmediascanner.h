@@ -64,7 +64,7 @@
  *      - id: identification inside LMS/DB.
  *      - path: file path.
  *      - mtime: modification time, in seconds from UNIX epoch.
- *      - dtime: modification time, in seconds from UNIX epoch.
+ *      - dtime: deletion time, in seconds from UNIX epoch.
  *      - size: in bytes.
  *   - @b audios: audio files.
  *      - id: same as files.id
