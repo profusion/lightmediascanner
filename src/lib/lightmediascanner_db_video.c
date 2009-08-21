@@ -34,6 +34,11 @@ static struct lms_db_cache _cache = {0, NULL};
 
 static int
 _db_table_updater_videos_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
+    return 0;
+}
+
+static int
+_db_table_updater_videos_1(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
     char *errmsg;
     int r, ret;
 
@@ -42,7 +47,8 @@ _db_table_updater_videos_0(sqlite3 *db, const char *table, unsigned int current_
                      "CREATE TABLE IF NOT EXISTS videos ("
                      "id INTEGER PRIMARY KEY, "
                      "title TEXT, "
-                     "artist TEXT"
+                     "artist TEXT, "
+                     "length INTEGER"
                      ")",
                      NULL, NULL, &errmsg);
     if (r != SQLITE_OK) {
@@ -94,7 +100,8 @@ _db_table_updater_videos_0(sqlite3 *db, const char *table, unsigned int current_
 }
 
 static lms_db_table_updater_t _db_table_updater_videos[] = {
-    _db_table_updater_videos_0
+    _db_table_updater_videos_0,
+    _db_table_updater_videos_1
 };
 
 
@@ -173,7 +180,8 @@ lms_db_video_start(lms_db_video_t *ldv)
         return 0;
 
     ldv->insert = lms_db_compile_stmt(ldv->db,
-        "INSERT OR REPLACE INTO videos (id, title, artist) VALUES (?, ?, ?)");
+        "INSERT OR REPLACE INTO videos (id, title, artist, length) "
+        "VALUES (?, ?, ?, ?)");
     if (!ldv->insert)
         return -2;
 
@@ -235,6 +243,10 @@ _db_insert(lms_db_video_t *ldv, const struct lms_video_info *info)
         goto done;
 
     ret = lms_db_bind_text(stmt, 3, info->artist.str, info->artist.len);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 4, info->length);
     if (ret != 0)
         goto done;
 

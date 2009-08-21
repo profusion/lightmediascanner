@@ -107,6 +107,7 @@ extern "C" {
         int64_t id;
         struct lms_string_size title;
         struct lms_string_size artist;
+        unsigned int length;
     };
 
     typedef struct lms_db_video lms_db_video_t;
