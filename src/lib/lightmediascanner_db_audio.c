@@ -63,6 +63,12 @@ _db_table_updater_audios_0(sqlite3 *db, const char *table, unsigned int current_
 static int
 _db_table_updater_audios_1(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run)
 {
+    return 0;
+}
+
+static int
+_db_table_updater_audios_2(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run)
+{
     char *err;
     int ret;
 
@@ -89,7 +95,8 @@ _db_table_updater_audios_1(sqlite3 *db, const char *table, unsigned int current_
         "genre_id INTEGER, "
         "trackno INTEGER, "
         "rating INTEGER, "
-        "playcnt INTEGER"
+        "playcnt INTEGER, "
+        "length INTEGER"
         ")");
     if (ret != 0)
         goto done;
@@ -148,7 +155,8 @@ _db_table_updater_audios_1(sqlite3 *db, const char *table, unsigned int current_
 
 static lms_db_table_updater_t _db_table_updater_audios[] = {
     _db_table_updater_audios_0,
-    _db_table_updater_audios_1
+    _db_table_updater_audios_1,
+    _db_table_updater_audios_2
 };
 
 static int
@@ -347,8 +355,9 @@ lms_db_audio_start(lms_db_audio_t *lda)
 
     lda->insert_audio = lms_db_compile_stmt(lda->db,
         "INSERT OR REPLACE INTO audios "
-        "(id, title, album_id, artist_id, genre_id, trackno, rating, playcnt) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        "(id, title, album_id, artist_id, genre_id, "
+        "trackno, rating, playcnt, length) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!lda->insert_audio)
         return -2;
 
@@ -660,6 +669,10 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
         goto done;
 
     ret = lms_db_bind_int(stmt, 8, info->playcnt);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 9, info->length);
     if (ret != 0)
         goto done;
 

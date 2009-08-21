@@ -92,6 +92,7 @@ extern "C" {
         unsigned int playcnt;
         unsigned char trackno;
         unsigned char rating;
+        unsigned int length;
     };
 
     typedef struct lms_db_audio lms_db_audio_t;
