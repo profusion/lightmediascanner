@@ -749,7 +749,7 @@ lms_parser_info(const char *so_path)
         authors_size;
     ret = malloc(sizeof(*ret) + len);
     if (!ret) {
-      fprintf(stderr, "ERROR: could not alloc %d bytes: %s",
+      fprintf(stderr, "ERROR: could not alloc %zd bytes: %s",
               sizeof(*ret) + len, strerror(errno));
       goto close_and_exit;
     }

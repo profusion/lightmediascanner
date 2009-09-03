@@ -199,9 +199,9 @@ _parse_content_description(lms_charset_conv_t *cs_conv, int fd, struct asf_info 
     int comment_length = _read_word(fd);
     int rating_length = _read_word(fd);
 
-    _read_string(fd, title_length, &info->title.str, &info->title.len);
+    _read_string(fd, title_length, &info->title.str, (size_t *)&info->title.len);
     lms_charset_conv_force(cs_conv, &info->title.str, &info->title.len);
-    _read_string(fd, artist_length, &info->artist.str, &info->artist.len);
+    _read_string(fd, artist_length, &info->artist.str, (size_t *)&info->artist.len);
     lms_charset_conv_force(cs_conv, &info->artist.str, &info->artist.len);
     /* ignore copyright, comment and rating */
     lseek(fd, copyright_length + comment_length + rating_length, SEEK_CUR);
@@ -242,7 +242,7 @@ _parse_attribute_string_data(lms_charset_conv_t *cs_conv,
                              size_t *attr_data_len)
 {
     _read_string(fd, attr_size, attr_data, attr_data_len);
-    lms_charset_conv_force(cs_conv, attr_data, attr_data_len);
+    lms_charset_conv_force(cs_conv, attr_data, (unsigned int *)attr_data_len);
 }
 
 static void
@@ -304,17 +304,17 @@ _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, 
                 _parse_attribute_string_data(cs_conv,
                                              fd, attr_size,
                                              &info->album.str,
-                                             &info->album.len);
+                                             (size_t *)&info->album.len);
             else if (memcmp(attr_name, attr_name_wm_genre, attr_name_len) == 0)
                 _parse_attribute_string_data(cs_conv,
                                              fd, attr_size,
                                              &info->genre.str,
-                                             &info->genre.len);
+                                             (size_t *)&info->genre.len);
             else if (memcmp(attr_name, attr_name_wm_album_artist, attr_name_len) == 0)
                 _parse_attribute_string_data(cs_conv,
                                              fd, attr_size,
                                              &info->artist.str,
-                                             &info->artist.len);
+                                             (size_t *)&info->artist.len);
             else if (memcmp(attr_name, attr_name_wm_track_number, attr_name_len) == 0) {
                 char *trackno;
                 size_t trackno_len;
@@ -380,7 +380,7 @@ _skip_header_extension(int fd)
 static void *
 _match(struct plugin *p, const char *path, int len, int base)
 {
-    int i;
+    long i;
 
     i = lms_which_extension(path, len, _exts, LMS_ARRAY_SIZE(_exts));
     if (i < 0)
@@ -455,7 +455,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
     /* try to define stream type by extension */
     if (stream_type == STREAM_TYPE_UNKNOWN) {
-        int ext_idx = ((int)match) - 1;
+        long ext_idx = ((long)match) - 1;
         if (strcmp(_exts[ext_idx].str, ".wma") == 0)
             stream_type = STREAM_TYPE_AUDIO;
         /* consider wmv and asf as video */
@@ -469,8 +469,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     lms_string_size_strip_and_free(&info.genre);
 
     if (!info.title.str) {
-        int ext_idx;
-        ext_idx = ((int)match) - 1;
+        long ext_idx;
+        ext_idx = ((long)match) - 1;
         info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
         info.title.str = malloc((info.title.len + 1) * sizeof(char));
         memcpy(info.title.str, finfo->path + finfo->base, info.title.len);

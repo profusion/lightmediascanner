@@ -108,7 +108,7 @@ struct plugin {
 static void *
 _match(struct plugin *p, const char *path, int len, int base)
 {
-    int i;
+    long i;
 
     i = lms_which_extension(path, len, _exts, LMS_ARRAY_SIZE(_exts));
     if (i < 0)
@@ -121,7 +121,8 @@ static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
     struct lms_playlist_info info = {0};
-    int fd, r, ext_idx;
+    int fd, r;
+    long ext_idx;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -134,7 +135,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
                 "WARNING: could not get number of entries in playlist '%s'.\n",
                 finfo->path);
 
-    ext_idx = ((int)match) - 1;
+    ext_idx = ((long)match) - 1;
     info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
     info.title.str = malloc((info.title.len + 1) * sizeof(char));
     memcpy(info.title.str, finfo->path + finfo->base, info.title.len);

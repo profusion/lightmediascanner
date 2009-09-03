@@ -80,14 +80,14 @@ _pls_find_header(int fd)
         perror("read");
         return -4;
     } else if (r != sizeof(buf) - 1) {
-        fprintf(stderr, "ERROR: premature end of file: read %d of %d bytes.\n",
-                r, sizeof(buf) - 1);
+        fprintf(stderr, "ERROR: premature end of file: read %zd of %zd"
+                "bytes.\n", r, sizeof(buf) - 1);
         return -5;
     }
 
     if (memcmp(buf + 1, header + 1, sizeof(buf) - 1) != 0) {
         fprintf(stderr, "ERROR: invalid pls header '%.*s'\n",
-                sizeof(buf) - 1, buf);
+                (int)sizeof(buf) - 1, buf);
         return -6;
     }
 
@@ -289,7 +289,7 @@ struct plugin {
 static void *
 _match(struct plugin *p, const char *path, int len, int base)
 {
-    int i;
+    long i;
 
     i = lms_which_extension(path, len, _exts, LMS_ARRAY_SIZE(_exts));
     if (i < 0)
@@ -302,7 +302,8 @@ static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
     struct lms_playlist_info info = {0};
-    int fd, r, ext_idx;
+    int fd, r;
+    long ext_idx;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -316,7 +317,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         return -1;
     }
 
-    ext_idx = ((int)match) - 1;
+    ext_idx = ((long)match) - 1;
     info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
     info.title.str = malloc((info.title.len + 1) * sizeof(char));
     memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
