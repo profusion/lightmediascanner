@@ -752,7 +752,7 @@ lms_db_set_file_dtime(sqlite3_stmt *stmt, const struct lms_file_info *finfo)
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int64(stmt, 1, finfo->id);
+    ret = lms_db_bind_int64(stmt, 2, finfo->id);
     if (ret != 0)
         goto done;
 
