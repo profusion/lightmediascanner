@@ -567,6 +567,7 @@ _update_finfo_from_stat(struct lms_file_info *finfo, const struct stat *st)
     finfo->mtime = st->st_mtime;
     finfo->size = st->st_size;
     finfo->dtime = 0;
+    finfo->itime = time(NULL);
 }
 
 static inline void
@@ -596,8 +597,10 @@ _finfo_update(void *db_ptr, struct cinfo *info, struct lms_file_info *finfo, uns
             if (finfo->dtime == 0) {
                 _report_progress(info, finfo, LMS_PROGRESS_STATUS_UP_TO_DATE);
                 return 0;
-            } else
+            } else {
                 finfo->dtime = 0;
+                finfo->itime = time(NULL);
+            }
         } else {
             _update_finfo_from_stat(finfo, &st);
             *flags |= COMM_FINFO_FLAG_OUTDATED;

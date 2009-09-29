@@ -18,6 +18,7 @@
  * @author Gustavo Sverzut Barbieri <gustavo.barbieri@openbossa.org>
  */
 
+#include <lightmediascanner_db.h>
 #include "lightmediascanner_db_private.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -471,6 +472,53 @@ lms_db_cache_get(struct lms_db_cache *cache, const sqlite3 *db, void **pdata)
     return 0;
 }
 
+static int
+_db_table_updater_files_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
+    return 0;
+}
+
+static int
+_db_table_updater_files_1(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
+    char *errmsg;
+    int r;
+
+    errmsg = NULL;
+    r = sqlite3_exec(db,
+                     "CREATE TABLE IF NOT EXISTS files ("
+                     "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                     "path BLOB NOT NULL UNIQUE, "
+                     "mtime INTEGER NOT NULL, "
+                     "dtime INTEGER NOT NULL, "
+                     "itime INTEGER NOT NULL, "
+                     "size INTEGER NOT NULL"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create 'files' table: %s\n", errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    r = sqlite3_exec(db,
+                     "CREATE INDEX IF NOT EXISTS files_path_idx ON files ("
+                     "path"
+                     ")",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create 'files_path_idx' index: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -2;
+    }
+
+    return 0;
+}
+
+static lms_db_table_updater_t _db_table_updater_files[] = {
+    _db_table_updater_files_0,
+    _db_table_updater_files_1
+};
+
 int
 lms_db_create_core_tables_if_required(sqlite3 *db)
 {
@@ -491,34 +539,10 @@ lms_db_create_core_tables_if_required(sqlite3 *db)
         return -1;
     }
 
-    r = sqlite3_exec(db,
-                     "CREATE TABLE IF NOT EXISTS files ("
-                     "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                     "path BLOB NOT NULL UNIQUE, "
-                     "mtime INTEGER NOT NULL, "
-                     "dtime INTEGER NOT NULL, "
-                     "size INTEGER NOT NULL"
-                     ")",
-                     NULL, NULL, &errmsg);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not create 'files' table: %s\n", errmsg);
-        sqlite3_free(errmsg);
-        return -2;
-    }
-
-    r = sqlite3_exec(db,
-                     "CREATE INDEX IF NOT EXISTS files_path_idx ON files ("
-                     "path"
-                     ")",
-                     NULL, NULL, &errmsg);
-    if (r != SQLITE_OK) {
-        fprintf(stderr, "ERROR: could not create 'files_path_idx' index: %s\n",
-                errmsg);
-        sqlite3_free(errmsg);
-        return -3;
-    }
-
-    return 0;
+    r = lms_db_table_update_if_required(db, "files",
+                                        LMS_ARRAY_SIZE(_db_table_updater_files),
+                                        _db_table_updater_files);
+    return r;
 }
 
 
@@ -580,7 +604,7 @@ sqlite3_stmt *
 lms_db_compile_stmt_get_file_info(sqlite3 *db)
 {
     return lms_db_compile_stmt(db,
-        "SELECT id, mtime, dtime, size FROM files WHERE path = ?");
+        "SELECT id, mtime, dtime, itime, size FROM files WHERE path = ?");
 }
 
 int
@@ -609,7 +633,8 @@ lms_db_get_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo)
     finfo->id = sqlite3_column_int64(stmt, 0);
     finfo->mtime = sqlite3_column_int(stmt, 1);
     finfo->dtime = sqlite3_column_int(stmt, 2);
-    finfo->size = sqlite3_column_int(stmt, 3);
+    finfo->itime = sqlite3_column_int(stmt, 3);
+    finfo->size = sqlite3_column_int(stmt, 4);
     ret = 0;
 
   done:
@@ -622,7 +647,7 @@ sqlite3_stmt *
 lms_db_compile_stmt_update_file_info(sqlite3 *db)
 {
     return lms_db_compile_stmt(db,
-        "UPDATE files SET mtime = ?, dtime = ?, size = ? WHERE id = ?");
+        "UPDATE files SET mtime = ?, dtime = ?, itime = ?, size = ? WHERE id = ?");
 }
 
 int
@@ -638,11 +663,15 @@ lms_db_update_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo)
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 3, finfo->size);
+    ret = lms_db_bind_int(stmt, 3, finfo->itime);
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 4, finfo->id);
+    ret = lms_db_bind_int(stmt, 4, finfo->size);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 5, finfo->id);
     if (ret != 0)
         goto done;
 
@@ -666,7 +695,7 @@ sqlite3_stmt *
 lms_db_compile_stmt_insert_file_info(sqlite3 *db)
 {
     return lms_db_compile_stmt(db,
-        "INSERT INTO files (path, mtime, dtime, size) VALUES(?, ?, ?, ?)");
+        "INSERT INTO files (path, mtime, dtime, itime, size) VALUES(?, ?, ?, ?, ?)");
 }
 
 int
@@ -686,7 +715,11 @@ lms_db_insert_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo)
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 4, finfo->size);
+    ret = lms_db_bind_int(stmt, 4, finfo->itime);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 5, finfo->size);
     if (ret != 0)
         goto done;
 
@@ -740,7 +773,7 @@ lms_db_delete_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo)
 sqlite3_stmt *
 lms_db_compile_stmt_set_file_dtime(sqlite3 *db)
 {
-    return lms_db_compile_stmt(db, "UPDATE files SET dtime = ? WHERE id = ?");
+    return lms_db_compile_stmt(db, "UPDATE files SET dtime = ?, itime = ? WHERE id = ?");
 }
 
 int
@@ -752,7 +785,11 @@ lms_db_set_file_dtime(sqlite3_stmt *stmt, const struct lms_file_info *finfo)
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int64(stmt, 2, finfo->id);
+    ret = lms_db_bind_int(stmt, 2, finfo->itime);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int64(stmt, 3, finfo->id);
     if (ret != 0)
         goto done;
 
@@ -776,7 +813,7 @@ sqlite3_stmt *
 lms_db_compile_stmt_get_files(sqlite3 *db)
 {
     return lms_db_compile_stmt(db,
-        "SELECT id, path, mtime, dtime, size FROM files WHERE path LIKE ?");
+        "SELECT id, path, mtime, dtime, itime, size FROM files WHERE path LIKE ?");
 }
 
 int

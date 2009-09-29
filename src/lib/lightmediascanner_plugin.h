@@ -149,6 +149,7 @@ extern "C" {
         int64_t id; /**< database id */
         time_t mtime; /**< in-disk modification time */
         time_t dtime; /**< deletion time */
+        time_t itime; /**< insert time */
         size_t size; /**< file size in bytes */
     };
 

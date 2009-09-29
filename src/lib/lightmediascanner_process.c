@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <signal.h>
+#include <time.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -482,6 +483,7 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
     if (r == 0) {
         if (finfo.dtime) {
             finfo.dtime = 0;
+            finfo.itime = time(NULL);
             lms_db_set_file_dtime(db->set_file_dtime, &finfo);
         }
         return r;
@@ -495,6 +497,7 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
         return 2;
 
     finfo.dtime = 0;
+    finfo.itime = time(NULL);
     if (finfo.id > 0)
         r = lms_db_update_file_info(db->update_file_info, &finfo);
     else
