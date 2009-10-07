@@ -21,8 +21,7 @@
 /**
  * @brief
  *
- * Dummy plugin demonstrating the basic lightmediascanner_plugin API,
- * it just write paths to /tmp/dummy.log.
+ * Dummy plugin that stores all files in the database.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -52,79 +51,57 @@ static const char *_authors[] = {
     NULL
 };
 
-struct plugin {
-    struct lms_plugin plugin;
-    int fd;
-};
-
 static void *
-_match(struct plugin *p, const char *path, int len, int base)
+_match(struct lms_plugin *p, const char *path, int len, int base)
 {
     return (void*)1;
 }
 
 static int
-_parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
-{
-    write(plugin->fd, finfo->path, finfo->path_len);
-    write(plugin->fd, "\n", 1);
-    return 0;
-}
-
-static int
-_close(struct plugin *plugin)
-{
-    free(plugin);
-    return 0;
-}
-
-static int
-_setup(struct plugin *plugin,  struct lms_context *ctxt)
+_parse(struct lms_plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
     return 0;
 }
 
 static int
-_start(struct plugin *plugin, struct lms_context *ctxt)
+_close(struct lms_plugin *plugin)
 {
-    char logfile[PATH_MAX];
-
-    snprintf(logfile, sizeof(logfile), "/tmp/dummy-%d.log", getuid());
-    plugin->fd = open(logfile, O_WRONLY | O_CREAT, 0600);
-    if (plugin->fd < 0) {
-        perror("open");
-        return -1;
-    }
-
     return 0;
 }
 
 static int
-_finish(struct plugin *plugin, struct lms_context *ctxt)
+_setup(struct lms_plugin *plugin,  struct lms_context *ctxt)
 {
-    if (close(plugin->fd) != 0)
-        perror("close");
+    return 0;
+}
 
-    plugin->fd = 0;
+static int
+_start(struct lms_plugin *plugin, struct lms_context *ctxt)
+{
+    return 0;
+}
 
+static int
+_finish(struct lms_plugin *plugin, struct lms_context *ctxt)
+{
     return 0;
 }
 
 API struct lms_plugin *
 lms_plugin_open(void)
 {
-    struct plugin *plugin;
+    struct lms_plugin *plugin;
 
-    plugin = malloc(sizeof(*plugin));
-    plugin->plugin.name = _name;
-    plugin->plugin.match = (lms_plugin_match_fn_t)_match;
-    plugin->plugin.parse = (lms_plugin_parse_fn_t)_parse;
-    plugin->plugin.close = (lms_plugin_close_fn_t)_close;
-    plugin->plugin.setup = (lms_plugin_setup_fn_t)_setup;
-    plugin->plugin.start = (lms_plugin_start_fn_t)_start;
-    plugin->plugin.finish = (lms_plugin_finish_fn_t)_finish;
+    plugin = malloc(sizeof(struct lms_plugin));
+    plugin->name = _name;
+    plugin->match = _match;
+    plugin->parse = _parse;
+    plugin->close = _close;
+    plugin->setup = _setup;
+    plugin->start = _start;
+    plugin->finish = _finish;
 
-    return (struct lms_plugin *)plugin;
+    return plugin;
 }
 
 API struct lms_plugin_info *
@@ -133,7 +110,7 @@ lms_plugin_info(void)
     static struct lms_plugin_info info = {
         _name,
         _cats,
-        "Accept everything and print out to /tmp/dummy-$UID.log",
+        "Stores all files in the database with no processing",
         PACKAGE_VERSION,
         _authors,
         "http://lms.garage.maemo.org"
