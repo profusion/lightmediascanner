@@ -308,8 +308,7 @@ lms_parser_del_int(lms_t *lms, int i)
 
         dif = lms->n_parsers - i;
         if (dif)
-            lms->parsers = memmove(parser, parser + 1,
-                                   dif * sizeof(struct parser));
+            memmove(parser, parser + 1, dif * sizeof(struct parser));
 
         lms->parsers = realloc(lms->parsers,
                                lms->n_parsers * sizeof(struct parser));
