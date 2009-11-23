@@ -1060,12 +1060,8 @@ lms_process_single_process(lms_t *lms, const char *top_path)
     sinfo.commit_counter = 0;
 
     r = _db_and_parsers_setup(sinfo.common.lms, &sinfo.db, &sinfo.parser_match);
-    if (r < 0) {
-        if (r == -1)
-            return r;
-        else
-            goto finish;
-    }
+    if (r < 0)
+        return r;
 
     lms_db_begin_transaction(sinfo.db->transaction_begin);
 
@@ -1075,7 +1071,6 @@ lms_process_single_process(lms_t *lms, const char *top_path)
     free(sinfo.parser_match);
     lms_db_end_transaction(sinfo.db->transaction_commit);
 
-  finish:
     lms_parsers_finish(lms, sinfo.db->handle);
     _db_close(sinfo.db);
     return r;
