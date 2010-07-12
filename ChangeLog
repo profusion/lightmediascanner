@@ -1,0 +1,204 @@
+ver 0.4:
+	Mention rakuco's contributions
+	Mention jprvita's contributions
+	Update etrunko's email on authors file
+	Fix double call of lms_parsers_finish()
+	Change the dummy plugin not to write a log file.
+	Fix lms_parser_del().
+	Adds insert time (itime) field to table files.
+	Fix binding in lms_db_set_file_dtime().
+	Ogg: Add "ogv" extension
+	Allow building from a separate directory.
+	Remove compiler warnings.
+	Fix small typo on README file.
+	Add length field to table videos.
+	Add length field to table audios.
+	Fix doxygen of dtime field in files DB table.
+
+ver 0.3:
+	Added m4v extension to the mp4 plugin.
+	LMS was mistakingly treating Composer field as Genre/Content.
+	Version bump to reflect API changes.
+	Fix sqlite3 dependencies.
+	New status code for progress callback (affects lms_process only).
+	Do not modify or free FLAC library-owned strings.
+	add path to parser_info.
+	improve test to use getopt.
+	export parsers and their informations.
+
+ver 0.2:
+	Remove compiler warnings.
+	New column on audios table: artist_id.
+	Bugfix: using correct column.
+	Introducing new API function: lms_check_single_process().
+	Changes on (lms_check's) functions to facilitate the choice between single process/original version mode of operation of LMS.
+	Factoring out code from (lms_check's) lms_check() and some related functions.
+	Introducing new API function: lms_process_single_process().
+	Adapting _process_trigger() to call a custom process_file() function.
+	Factoring out code from (lms_process's) lms_process().
+	Factoring out code from (lms_process's) _slave_work().
+	Add callback to report progress.
+	Get missing data from id3v1 when they are not available on id3v2.
+	ASF: Get album artist from extended content description.
+	Update my mail, add Etrunko.
+	Proper handling of DT_UNKNOWN directory entry type.
+	OGG: Avoid segfault when value returned by vorbis_comment_query is NULL.
+	Added example in test.c.
+	OGG: Make ogg plugin work with both libvorbisidec (aka Tremor) and libvorbis.
+	configure.ac: Better check for mp4 libraries.
+	Fixed FSF address.
+	Added flv to video-dummy.
+	Removed dead code.
+	Correct accounting for id3v1 strings.
+	Handle possible realloc() errors.
+	Better handling of id3v1 fields.
+	Ignore frames that contain just the encoding info.
+	Minor bugfixes.
+	Fix segmentation faults for zero-sized id3v2 frames.
+	Add myself as author of id3
+	Rework _find_id3v2() for simpler and faster code.
+	id3: minor id3v2 dispatcher speedup.
+	Move logic to get specific frame contents to separate functions.
+	id3: avoid some strips if content is known to be correct.
+	id3: just change cur_artist_priority if it's actually used.
+	Cosmetic: fit in 80 cols
+	Speed up id3v1 genre usage.
+	Share id3v1_genre getter.
+	Make defines dependent on real data, avoid getting out of sync.
+	Use posix_fadvise.
+	Improved artist/genre handling.
+	Fixed mp4 detection to not modify LIBS.
+	Small bug fix.
+	Use TPE/TP 1 to 4 for artists.
+	Proper handle UTF16 encoding.
+	Fix support for ID3v2.2.
+	Added TODO.
+	Added support for mov, qt, 3gp files to mp4 plugin.
+	Use ctxt->cs_conv to convert encoding for id3v1 tag.
+	Fixed _to_uint method.
+	Fix handling of encoding UTF16-LE.
+	Proper handle encoding.
+	Fixed _to_uint method.
+	Fix debug messages, show scanned path.
+	Add Andre and Renato to AUTHORS.
+	Some improvements.
+	Improved _find_id3v2 method.
+	Improved mp3 support.
+	Removed supported extensions from audio dummy.
+	Added flac plugin.
+	Debug.
+	Parse m4a files using mp4 plugin.
+	Use lseek to discard frames.
+	Added aac plugin.
+	Improved _find_id3v2 method.
+	Improved mp3 support.
+	Removed supported extensions from audio dummy.
+	Added flac plugin.
+	Debug.
+	Parse m4a files using mp4 plugin.
+	Use lseek to discard frames.
+	Fix typo
+	Added aac plugin.
+	Provide means to avoid check and fallback creation and usage.
+	ogg.c: Minor coding style fixes
+	Improve code reusage: string strip and free functions.
+	Bugfix in jpeg plugin to avoid missing header frame and image size
+	Also copy trailing \0
+	Remove debug
+	Make sure metadata is converted to the proper charset.
+	Added mp4 plugin.
+	Add .flac to audio-dummy
+	Request POSIX_FADV_DONTNEED
+	Request POSIX_FADV_DONTNEED, now correct
+	Request POSIX_FADV_DONTNEED
+	Minor warning cleanups
+	Added real media plugin.
+	Do just one lseek where possible.
+	Remove ASF compiler warnings.
+	Bug fixes.
+	Removed wma from audio-dummy and wmv from video-dummy.
+	Removed some memory leaks and some coding style fixes.
+	Added some documentation.
+	Added asf/wma/wmv plugin.
+	Add missing prototype
+	Better handling of strings that failed encoding.
+	Function to forcefully convert to some charset.
+	Set len to 0 if string is empty.
+	Fix problem with SubIFD in Exif.
+	Check for zero-padded strings.
+	Get both lead artist and band, use in order: band, artist
+	Cosmetic simplification.
+	Just get "lead artist" (TPE1), don't try others.
+	Add PNG image support (just size)
+	Add audio-dummy to build.
+	Add audio-dummy with missing audio formats.
+	Add .wmv to video-dummy.
+	Add copyright to all source files.
+	Consider DQT frame as JFIF (ignore and get just the size).
+	Also get size from other SOF (progressive, extended sequential...)
+	Provide means to stop check/process.
+	Add Doxyfiles to EXTRA_DIST
+	DoxyGen support.
+	Initial Repository Layout
+	Modules are optional, don't fail when they fail.
+	Adding support to ogg
+	Implement lms_check()
+	Refactor lightmediascanner_process.c
+	Add missing new lines to messages
+	Avoid breaking strict-aliasing rules.
+	Use correct pointer types for iconv, avoid warnings.
+	Move process stuff into own file, will add lms_check() and use part of it.
+	Charset conversion support.
+	Change plugin API to take a "context" instead of "db".
+	Remove unused API macros.
+	Cache lms_db_* per DB instance instead of globally.
+	Provide data caching based on DB instance.
+	Fix copy&paste legacy: s/ldi/ldv/g in lightmediascanner_db_video.c
+	id3lib now uses playcnt.
+	Add playcnt to audios table.
+	PLS Parser.
+	Also index audios by trackno.
+	M3U parser.
+	Fix memory leak and possible buffer overrun.
+	Add playlist indexes
+	Add video indexes
+	Fix header parameters to make naming consistent.
+	Playlist database support.
+	Remove thumb size from "images" table.
+	Store file size.
+	Support DB upgrades.
+	Make path a BLOB.
+	Remove unused function.
+	Use file name if no title is found.
+	Export db_path attribute via lms_get_db_path()
+	Check NULL pointers on public-API, log errors.
+	pkg-config support.
+	Dummy parser to register videos by extension only.
+	Video database support.
+	Don't store song length in DB, it's unreliable.
+	MP3 support using id3lib.
+	Clear dtime on files that had it but were found again.
+	Fix typo
+	Performance improvement and safety check.
+	Audio database support.
+	Add lms_db_bind_int64_or_null().
+	Cosmetic changes (static and remove string spaces).
+	Remove useless debug message.
+	Split plugin start and setup phase.
+	Add functions missing in older SQLite3 versions (maemo bora uses it).
+	JPEG parser plugin.
+	Make some errors non-fatal.
+	Delete files that failed all parsers.
+	Replace "is_valid" with "dtime" (deletion time), so we can expire them.
+	Split out db utilities from core and add image db functions.
+	Plugins now have a start/finish call before enter the processing loop.
+	Add lightmediascanner_utils.
+	Add missing empty definition for GNUC_NON_NULL() for non-GCC compilers.
+	Build system improvements.
+	Support configurable commit_interval.
+	SQLite3 support.
+	Setup things for future SQLite integration: stat, match and friends.
+	Add configurable slave_timeout support.
+	Initial revision of Light Media Scanner.
+ver 0.1:
+	We've lost track of the commit that released 0.1, so consider it somewhere in between the initial commit and ver 0.2 :)
