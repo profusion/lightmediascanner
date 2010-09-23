@@ -1,4 +1,4 @@
-AC_INIT(lightmediascanner, 0.4.0.0, lms-devel@garage.maemo.org)
+AC_INIT(lightmediascanner, 0.4.1.0, lms-devel@garage.maemo.org)
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR(configure.ac)
 AC_CANONICAL_BUILD
@@ -9,6 +9,7 @@ AM_INIT_AUTOMAKE(1.6 dist-bzip2)
 AM_CONFIG_HEADER(config.h)
 AC_SUBST(ACLOCAL_AMFLAGS, "-I m4")
 _XTERM_COLORS
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_PROG_CC
 AM_PROG_CC_STDC
