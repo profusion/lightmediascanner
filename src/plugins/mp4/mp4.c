@@ -32,7 +32,11 @@ static const char PV[] = PACKAGE_VERSION; /* mp4.h screws PACKAGE_VERSION */
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#ifdef HAVE_MP4V2
+#include <mp4v2/mp4v2.h>
+#else
 #include <mp4.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 
