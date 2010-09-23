@@ -2,7 +2,7 @@ dnl _XTERM_COLORS
 define([_XTERM_COLORS],
 [
         # Check for XTerm and define some colors
-        if test "x$TERM" = "xxterm"; then
+        if test "x$TERM" = "xxterm" -o "x$TERM" = "xrxvt-unicode" -o "x$TERM" = "xscreen"; then
                 COLOR_PREF="\0033\0133"
                 COLOR_H="${COLOR_PREF}1m"
                 COLOR_HGREEN="${COLOR_PREF}1;32m"
