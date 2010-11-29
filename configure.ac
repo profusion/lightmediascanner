@@ -101,6 +101,7 @@ AC_LMS_OPTIONAL_MODULE([flac], true, [CHECK_MODULE_FLAC])
 
 AC_OUTPUT([
 lightmediascanner.pc
+lightmediascanner.spec
 Makefile
 m4/Makefile
 src/Makefile

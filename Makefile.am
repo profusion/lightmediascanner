@@ -17,7 +17,8 @@ EXTRA_DIST = \
 	README \
 	AUTHORS \
 	COPYING \
-	Doxyfile
+	Doxyfile \
+	lightmediascanner.spec
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lightmediascanner.pc
