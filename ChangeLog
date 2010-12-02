@@ -1,3 +1,10 @@
+ver 0.4.2:
+	Add RPM spec so rpm-build works
+
+ver 0.4.1:
+	Support mp4v2.h as well
+        detect color in more $TERM (urxvt and screen)
+
 ver 0.4:
 	Mention rakuco's contributions
 	Mention jprvita's contributions
