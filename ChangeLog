@@ -1,3 +1,6 @@
+ver 0.4.3:
+	Fixed AM_CONDITIONAL(USE_TREMOR) if OGG was not in use.
+
 ver 0.4.2:
 	Add RPM spec so rpm-build works
 

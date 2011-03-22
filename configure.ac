@@ -1,4 +1,4 @@
-AC_INIT(lightmediascanner, 0.4.2.0, lms-devel@garage.maemo.org)
+AC_INIT(lightmediascanner, 0.4.3.0, lms-devel@garage.maemo.org)
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR(configure.ac)
 AC_CANONICAL_BUILD
@@ -41,6 +41,7 @@ PKG_CHECK_MODULES(SQLITE3, [sqlite3 >= 3.3])
 # plugins checks
 
 AM_CONDITIONAL(HAVE_VORBIS, false)
+AM_CONDITIONAL(USE_TREMOR, false)
 define([CHECK_MODULE_OGG],
 [
         AC_CHECK_HEADERS(tremor/ivorbiscodec.h tremor/ivorbisfile.h, HAVE_IVORBIS_HEADERS=yes, HAVE_IVORBIS_HEADERS=no)
