@@ -24,5 +24,5 @@ liblightmediascanner_la_SOURCES = \
 	lightmediascanner_db_video.c \
 	lightmediascanner_db_playlist.c
 
-liblightmediascanner_la_LIBADD = -ldl @SQLITE3_LIBS@
+liblightmediascanner_la_LIBADD = -ldl @SQLITE3_LIBS@ @LTLIBICONV@
 liblightmediascanner_la_LDFLAGS = -version-info @version_info@

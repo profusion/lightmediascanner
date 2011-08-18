@@ -34,6 +34,7 @@ AS_AC_EXPAND(PLUGINSDIR, $pluginsdir)
 AC_DEFINE_UNQUOTED(PLUGINSDIR, ["$PLUGINSDIR"], [Where plugins are installed.])
 
 AC_CHECK_FUNCS(realpath)
+AM_ICONV
 
 # required modules
 PKG_CHECK_MODULES(SQLITE3, [sqlite3 >= 3.3])
