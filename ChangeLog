@@ -1,3 +1,7 @@
+ver 0.4.4:
+	Fix iconv build when it's not inside libc (uclib).
+	Minor improvements to autofoo usage.
+
 ver 0.4.3:
 	Fixed AM_CONDITIONAL(USE_TREMOR) if OGG was not in use.
 

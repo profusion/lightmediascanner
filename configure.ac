@@ -1,4 +1,4 @@
-AC_INIT(lightmediascanner, 0.4.3.0, lms-devel@garage.maemo.org)
+AC_INIT(lightmediascanner, 0.4.4.0, lms-devel@garage.maemo.org)
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR(configure.ac)
 AC_CANONICAL_BUILD
