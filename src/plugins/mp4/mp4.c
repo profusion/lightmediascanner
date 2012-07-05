@@ -102,7 +102,11 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     MP4FileHandle mp4_fh;
     u_int32_t num_tracks;
 
+#ifdef HAVE_MP4V2_2_0_API
+    mp4_fh = MP4Read(finfo->path);
+#else
     mp4_fh = MP4Read(finfo->path, 0);
+#endif
     if (mp4_fh == MP4_INVALID_FILE_HANDLE) {
         fprintf(stderr, "ERROR: cannot read mp4 file %s\n", finfo->path);
         return -1;
@@ -179,7 +183,11 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 
+#ifdef HAVE_MP4V2_2_0_API
+    MP4Close(mp4_fh, 0);
+#else
     MP4Close(mp4_fh);
+#endif
 
     if (info.title.str)
         free(info.title.str);

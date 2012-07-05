@@ -75,6 +75,20 @@ define([CHECK_MODULE_MP4],
             if test "x$HAVE_MP4_HEADERS" = "xyes"; then
                AC_DEFINE(HAVE_MP4, 1, Define if mp4.h is present)
             fi
+
+            # test for new 2.0 api
+            if test "x$HAVE_MP4V2_HEADERS" = "xyes"; then
+               AC_MSG_CHECKING([mp4v2 2.0 API (MP4Read and MP4Close)])
+               AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+                  [[#include <mp4v2/mp4v2.h>]],
+                  [[MP4FileHandle fh = MP4Read("/tmp");
+                    MP4Close(fh, 0);
+                  ]])],
+                  [
+                     AC_MSG_RESULT([yes])
+                     AC_DEFINE(HAVE_MP4V2_2_0_API, 1, Define to 1 if you have mp4v2 2.0 api)
+                  ], [AC_MSG_RESULT([no])])
+            fi
         else
             MP4=false
         fi
