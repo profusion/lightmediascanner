@@ -1,3 +1,8 @@
+ver 0.4.5:
+	Fix build with mp4v2 2.0 api changes.
+	Change project email to my own, garage.maemo.org is not being
+	used anymore
+
 ver 0.4.4:
 	Fix iconv build when it's not inside libc (uclib).
 	Minor improvements to autofoo usage.
