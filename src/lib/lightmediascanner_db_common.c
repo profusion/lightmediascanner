@@ -516,9 +516,29 @@ _db_table_updater_files_1(sqlite3 *db, const char *table, unsigned int current_v
     return 0;
 }
 
+static int
+_db_table_updater_files_2(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run)
+{
+    char *errmsg = NULL;
+    int r;
+
+    r = sqlite3_exec(db,
+                     "ALTER TABLE files ADD COLUMN update_id INTEGER DEFAULT 0",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: add update_id field into 'files' table: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    return 0;
+}
+
 static lms_db_table_updater_t _db_table_updater_files[] = {
     _db_table_updater_files_0,
-    _db_table_updater_files_1
+    _db_table_updater_files_1,
+    _db_table_updater_files_2,
 };
 
 int
