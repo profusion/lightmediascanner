@@ -154,10 +154,36 @@ _db_table_updater_audios_2(sqlite3 *db, const char *table, unsigned int current_
     return ret;
 }
 
+static int
+_db_table_updater_audios_3(sqlite3 *db, const char *table,
+                           unsigned int current_version, int is_last_run)
+{
+    int ret;
+    char *err;
+
+    ret = sqlite3_exec(
+        db, "BEGIN TRANSACTION;"
+        "ALTER TABLE audios ADD COLUMN container TEXT DEFAULT NULL;"
+        "ALTER TABLE audios ADD COLUMN codec TEXT DEFAULT NULL;"
+        "ALTER TABLE audios ADD COLUMN channels INTEGER DEFAULT NULL;"
+        "ALTER TABLE audios ADD COLUMN sampling_rate INTEGER DEFAULT NULL;"
+        "ALTER TABLE audios ADD COLUMN bitrate INTEGER DEFAULT NULL;"
+        "ALTER TABLE audios ADD COLUMN dlna_profile TEXT DEFAULT NULL;"
+        "COMMIT;",
+        NULL, NULL, &err);
+    if (ret != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could add columns to audio table: %s\n", err);
+        sqlite3_free(err);
+    }
+
+    return ret;
+}
+
 static lms_db_table_updater_t _db_table_updater_audios[] = {
     _db_table_updater_audios_0,
     _db_table_updater_audios_1,
-    _db_table_updater_audios_2
+    _db_table_updater_audios_2,
+    _db_table_updater_audios_3,
 };
 
 static int
