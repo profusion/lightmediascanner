@@ -392,7 +392,7 @@ _slave_work_int(lms_t *lms, struct fds *fds, struct slave_db *db)
 
     while (((r = _slave_recv_file(fds, &finfo, &flags)) == 0) &&
            finfo.path_len > 0) {
-        r = lms_db_update_file_info(db->update_file_info, &finfo);
+        r = lms_db_update_file_info(db->update_file_info, &finfo, 0);
         if (r < 0)
             fprintf(stderr, "ERROR: could not update path in DB\n");
         else if (flags & COMM_FINFO_FLAG_OUTDATED) {
@@ -679,7 +679,7 @@ _check_row_single_process(void *db_ptr, struct cinfo *info)
     if (r == 0)
         return r;
 
-    r = lms_db_update_file_info(db->update_file_info, &finfo);
+    r = lms_db_update_file_info(db->update_file_info, &finfo, 0);
     if (r < 0)
         fprintf(stderr, "ERROR: could not update path in DB\n");
     else if (flags & COMM_FINFO_FLAG_OUTDATED) {

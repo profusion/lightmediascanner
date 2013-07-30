@@ -669,11 +669,11 @@ sqlite3_stmt *
 lms_db_compile_stmt_update_file_info(sqlite3 *db)
 {
     return lms_db_compile_stmt(db,
-        "UPDATE files SET mtime = ?, dtime = ?, itime = ?, size = ? WHERE id = ?");
+        "UPDATE files SET mtime = ?, dtime = ?, itime = ?, size = ?, update_id = ? WHERE id = ?");
 }
 
 int
-lms_db_update_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo)
+lms_db_update_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo, unsigned int update_id)
 {
     int r, ret;
 
@@ -693,7 +693,11 @@ lms_db_update_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo)
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_int(stmt, 5, finfo->id);
+    ret = lms_db_bind_int(stmt, 5, update_id);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 6, finfo->id);
     if (ret != 0)
         goto done;
 
@@ -717,11 +721,12 @@ sqlite3_stmt *
 lms_db_compile_stmt_insert_file_info(sqlite3 *db)
 {
     return lms_db_compile_stmt(db,
-        "INSERT INTO files (path, mtime, dtime, itime, size) VALUES(?, ?, ?, ?, ?)");
+        "INSERT INTO files (path, mtime, dtime, itime, size, update_id) VALUES(?, ?, ?, ?, ?, ?)");
 }
 
 int
-lms_db_insert_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo)
+lms_db_insert_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo,
+                        unsigned int update_id)
 {
     int r, ret;
 
@@ -742,6 +747,10 @@ lms_db_insert_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo)
         goto done;
 
     ret = lms_db_bind_int(stmt, 5, finfo->size);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 6, update_id);
     if (ret != 0)
         goto done;
 

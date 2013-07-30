@@ -515,9 +515,9 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
     finfo.dtime = 0;
     finfo.itime = time(NULL);
     if (finfo.id > 0)
-        r = lms_db_update_file_info(db->update_file_info, &finfo);
+        r = lms_db_update_file_info(db->update_file_info, &finfo, 0);
     else
-        r = lms_db_insert_file_info(db->insert_file_info, &finfo);
+        r = lms_db_insert_file_info(db->insert_file_info, &finfo, 0);
 
     if (r < 0) {
         fprintf(stderr, "ERROR: could not register path in DB\n");

@@ -81,9 +81,9 @@ sqlite3_stmt *lms_db_compile_stmt_get_files(sqlite3 *db) GNUC_NON_NULL(1);
 
 int lms_db_begin_transaction(sqlite3_stmt *stmt) GNUC_NON_NULL(1);
 int lms_db_end_transaction(sqlite3_stmt *stmt) GNUC_NON_NULL(1);
-int lms_db_update_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
+int lms_db_update_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo, unsigned int update_id) GNUC_NON_NULL(1, 2);
 int lms_db_get_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
-int lms_db_insert_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
+int lms_db_insert_file_info(sqlite3_stmt *stmt, struct lms_file_info *finfo, unsigned int update_id) GNUC_NON_NULL(1, 2);
 int lms_db_delete_file_info(sqlite3_stmt *stmt, const struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
 int lms_db_set_file_dtime(sqlite3_stmt *stmt, const struct lms_file_info *finfo) GNUC_NON_NULL(1, 2);
 int lms_db_get_files(sqlite3_stmt *stmt, const char *path, int len) GNUC_NON_NULL(1, 2);
