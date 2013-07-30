@@ -427,8 +427,10 @@ _slave_work_int(lms_t *lms, struct fds *fds, struct slave_db *db)
 }
 
 static int
-_slave_work(lms_t *lms, struct fds *fds)
+_slave_work(struct pinfo *pinfo)
 {
+    lms_t *lms = pinfo->common.lms;
+    struct fds *fds = &pinfo->slave;
     struct slave_db *db;
     int r;
 

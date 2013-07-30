@@ -95,8 +95,8 @@ typedef int (*check_row_callback_t)(void *db_ptr, struct cinfo *info);
 int lms_parser_del_int(lms_t *lms, int i) GNUC_NON_NULL(1);
 int lms_create_pipes(struct pinfo *pinfo) GNUC_NON_NULL(1);
 int lms_close_pipes(struct pinfo *pinfo) GNUC_NON_NULL(1);
-int lms_create_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds)) GNUC_NON_NULL(1, 2);
-int lms_restart_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds)) GNUC_NON_NULL(1, 2);
+int lms_create_slave(struct pinfo *pinfo, int (*work)(struct pinfo *pinfo)) GNUC_NON_NULL(1, 2);
+int lms_restart_slave(struct pinfo *pinfo, int (*work)(struct pinfo *pinfo)) GNUC_NON_NULL(1, 2);
 int lms_finish_slave(struct pinfo *pinfo, int (*finish)(const struct fds *fds)) GNUC_NON_NULL(1, 2);
 
 int lms_parsers_setup(lms_t *lms, sqlite3 *db) GNUC_NON_NULL(1, 2);

@@ -536,8 +536,10 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
 }
 
 static int
-_slave_work(lms_t *lms, struct fds *fds)
+_slave_work(struct pinfo *pinfo)
 {
+    lms_t *lms = pinfo->common.lms;
+    struct fds *fds = &pinfo->slave;
     int r, len, base, counter;
     char path[PATH_SIZE];
     void **parser_match;
@@ -656,7 +658,7 @@ lms_create_pipes(struct pinfo *pinfo)
 }
 
 int
-lms_create_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds))
+lms_create_slave(struct pinfo *pinfo, int (*work)(struct pinfo *pinfo))
 {
     int r;
 
@@ -671,7 +673,7 @@ lms_create_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds))
 
     _close_fds(&pinfo->master);
     nice(19);
-    r = work(pinfo->common.lms, &pinfo->slave);
+    r = work(pinfo);
     lms_free(pinfo->common.lms);
     _exit(r);
     return r; /* shouldn't reach anyway... */
@@ -716,7 +718,7 @@ lms_finish_slave(struct pinfo *pinfo, int (*finish)(const struct fds *fds))
 }
 
 int
-lms_restart_slave(struct pinfo *pinfo, int (*work)(lms_t *lms, struct fds *fds))
+lms_restart_slave(struct pinfo *pinfo, int (*work)(struct pinfo *pinfo))
 {
     int status;
 
