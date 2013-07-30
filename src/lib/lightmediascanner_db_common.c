@@ -270,6 +270,18 @@ lms_db_bind_double(sqlite3_stmt *stmt, int col, double value)
 }
 
 int
+lms_db_update_id_get(sqlite3 *db)
+{
+    return lms_db_table_version_get(db, "update_id");
+}
+
+int
+lms_db_update_id_set(sqlite3 *db, unsigned int update_id)
+{
+    return lms_db_table_version_set(db, "update_id", update_id);
+}
+
+int
 lms_db_table_version_get(sqlite3 *db, const char *table)
 {
     int r, version;

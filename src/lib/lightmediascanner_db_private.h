@@ -46,6 +46,9 @@ int lms_db_bind_int(sqlite3_stmt *stmt, int col, int value) GNUC_NON_NULL(1);
 int lms_db_bind_double(sqlite3_stmt *stmt, int col, double value) GNUC_NON_NULL(1);
 int lms_db_create_trigger_if_not_exists(sqlite3 *db, const char *sql) GNUC_NON_NULL(1, 2);
 
+int lms_db_update_id_get(sqlite3 *db) GNUC_NON_NULL(1);
+int lms_db_update_id_set(sqlite3 *db, unsigned int version) GNUC_NON_NULL(1);
+
 int lms_db_table_version_get(sqlite3 *db, const char *table) GNUC_NON_NULL(1, 2);
 int lms_db_table_version_set(sqlite3 *db, const char *table, unsigned int version) GNUC_NON_NULL(1, 2);
 
