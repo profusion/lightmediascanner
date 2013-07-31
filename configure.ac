@@ -1,11 +1,11 @@
 AC_INIT(lightmediascanner, 0.4.5.0, barbieri@profusion.mobi)
-AC_PREREQ(2.52)
+AC_PREREQ(2.60)
 AC_CONFIG_SRCDIR(configure.ac)
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_ISC_POSIX
 
-AM_INIT_AUTOMAKE(1.6 dist-bzip2)
+AM_INIT_AUTOMAKE(foreign 1.11 silent-rules subdir-objects dist-bzip2)
 AM_CONFIG_HEADER(config.h)
 AC_CONFIG_MACRO_DIR([m4])
 _XTERM_COLORS

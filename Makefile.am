@@ -18,8 +18,7 @@ EXTRA_DIST = \
 	AUTHORS \
 	COPYING \
 	Doxyfile \
-	lightmediascanner.spec \
-	autogen.sh
+	lightmediascanner.spec
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lightmediascanner.pc
