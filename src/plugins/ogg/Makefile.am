@@ -15,6 +15,6 @@ endif
 
 ogg_la_DEPENDENCIES = $(top_builddir)/config.h
 ogg_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la @VORBIS_LIBS@
-ogg_la_LDFLAGS = -module -avoid-version
+ogg_la_LDFLAGS = -module -avoid-version -shared
 
 noinst_HEADERS= lms_ogg_private.h

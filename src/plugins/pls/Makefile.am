@@ -8,4 +8,4 @@ pkg_LTLIBRARIES = pls.la
 pls_la_SOURCES = pls.c
 pls_la_DEPENDENCIES = $(top_builddir)/config.h
 pls_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la
-pls_la_LDFLAGS = -module -avoid-version
+pls_la_LDFLAGS = -module -avoid-version -shared

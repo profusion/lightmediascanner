@@ -8,4 +8,4 @@ pkg_LTLIBRARIES = png.la
 png_la_SOURCES = png.c
 png_la_DEPENDENCIES = $(top_builddir)/config.h
 png_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la
-png_la_LDFLAGS = -module -avoid-version
+png_la_LDFLAGS = -module -avoid-version -shared

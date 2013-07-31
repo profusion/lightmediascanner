@@ -8,4 +8,4 @@ pkg_LTLIBRARIES = mp4.la
 mp4_la_SOURCES = mp4.c
 mp4_la_DEPENDENCIES = $(top_builddir)/config.h
 mp4_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la @MP4V2_LIBS@
-mp4_la_LDFLAGS = -module -avoid-version
+mp4_la_LDFLAGS = -module -avoid-version -shared
