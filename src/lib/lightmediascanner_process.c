@@ -257,6 +257,12 @@ _db_close(struct db *db)
     return 0;
 }
 
+/*
+ * Return:
+ *  0: file found and nothing changed
+ *  1: file not found or mtime/size is different
+ *  < 0: error
+ */
 static int
 _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
 {
@@ -471,6 +477,13 @@ _db_and_parsers_setup(lms_t *lms, struct db **db_ret, void ***parser_match_ret)
     return r;
 }
 
+/*
+ * Return:
+ *  LMS_PROGRESS_STATUS_UP_TO_DATE
+ *  LMS_PROGRESS_STATUS_PROCESSED
+ *  LMS_PROGRESS_STATUS_SKIPPED
+ *  < 0 on error
+ */
 static int
 _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, char *path, int path_len, int path_base)
 {
@@ -483,12 +496,13 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
 
     r = _retrieve_file_status(db, &finfo);
     if (r == 0) {
-        if (finfo.dtime) {
-            finfo.dtime = 0;
-            finfo.itime = time(NULL);
-            lms_db_set_file_dtime(db->set_file_dtime, &finfo);
-        }
-        return r;
+        if (!finfo.dtime)
+            return LMS_PROGRESS_STATUS_UP_TO_DATE;
+
+        finfo.dtime = 0;
+        finfo.itime = time(NULL);
+        lms_db_set_file_dtime(db->set_file_dtime, &finfo);
+        return LMS_PROGRESS_STATUS_PROCESSED;
     } else if (r < 0) {
         fprintf(stderr, "ERROR: could not detect file status.\n");
         return r;
@@ -496,7 +510,7 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
 
     used = lms_parsers_check_using(lms, parser_match, &finfo);
     if (!used)
-        return 2;
+        return LMS_PROGRESS_STATUS_SKIPPED;
 
     finfo.dtime = 0;
     finfo.itime = time(NULL);
@@ -504,6 +518,7 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
         r = lms_db_update_file_info(db->update_file_info, &finfo);
     else
         r = lms_db_insert_file_info(db->insert_file_info, &finfo);
+
     if (r < 0) {
         fprintf(stderr, "ERROR: could not register path in DB\n");
         return r;
@@ -514,9 +529,10 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
         fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
                 getpid(), finfo.path);
         lms_db_delete_file_info(db->delete_file_info, &finfo);
+        return r;
     }
 
-    return r;
+    return LMS_PROGRESS_STATUS_PROCESSED;
 }
 
 static int
@@ -539,6 +555,10 @@ _slave_work(lms_t *lms, struct fds *fds)
             lms, db, parser_match, path, len, base);
 
         _slave_send_reply(fds, r);
+
+        if (r < 0 || r == LMS_PROGRESS_STATUS_UP_TO_DATE)
+            continue;
+
         counter++;
         if (counter > lms->commit_interval) {
             lms_db_end_transaction(db->transaction_commit);
@@ -799,12 +819,9 @@ _process_file(struct cinfo *info, int base, char *path, const char *name)
                     getpid(), path);
             _report_progress(
                 info, path, new_len, LMS_PROGRESS_STATUS_ERROR_PARSE);
-            return (-reply) << 8;
-        } else if (reply == 2)
-            _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_SKIPPED);
-        else
-            _report_progress(
-                info, path, new_len, LMS_PROGRESS_STATUS_PROCESSED);
+            return reply;
+        }
+        _report_progress(info, path, new_len, r);
         return reply;
     }
 }
@@ -823,28 +840,27 @@ _process_file_single_process(struct cinfo *info, int base, char *path, const cha
     if (new_len < 0)
         return -1;
 
-    r = _db_and_parsers_process_file(
-        lms, db, parser_match, path, new_len, base);
+    r = _db_and_parsers_process_file(lms, db, parser_match, path, new_len,
+                                     base);
     if (r < 0) {
         fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
                 getpid(), path);
         _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_ERROR_PARSE);
-        return (-r) << 8;
-    } else {
-        sinfo->commit_counter++;
-        if (sinfo->commit_counter > lms->commit_interval) {
-            lms_db_end_transaction(db->transaction_commit);
-            lms_db_begin_transaction(db->transaction_begin);
-            sinfo->commit_counter = 0;
-        }
-
-        if (r == 2)
-            _report_progress(info, path, new_len, LMS_PROGRESS_STATUS_SKIPPED);
-        else
-            _report_progress(
-                info, path, new_len, LMS_PROGRESS_STATUS_PROCESSED);
         return r;
     }
+
+    if (r != LMS_PROGRESS_STATUS_UP_TO_DATE)
+        sinfo->commit_counter++;
+
+    if (sinfo->commit_counter > lms->commit_interval) {
+        lms_db_end_transaction(db->transaction_commit);
+        lms_db_begin_transaction(db->transaction_begin);
+        sinfo->commit_counter = 0;
+    }
+
+    _report_progress(info, path, new_len, r);
+
+    return r;
 }
 
 static int _process_dir(struct cinfo *info, int base, char *path, const char *name, process_file_callback_t process_file);
