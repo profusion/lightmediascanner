@@ -560,7 +560,7 @@ _update_finfo_from_stmt(struct lms_file_info *finfo, sqlite3_stmt *stmt)
     finfo->base = 0;
     finfo->mtime = sqlite3_column_int(stmt, 2);
     finfo->dtime = sqlite3_column_int(stmt, 3);
-    finfo->size = sqlite3_column_int(stmt, 4);
+    finfo->size = sqlite3_column_int(stmt, 5);
 }
 
 static inline void
