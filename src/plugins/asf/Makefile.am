@@ -9,3 +9,4 @@ asf_la_SOURCES = asf.c
 asf_la_DEPENDENCIES = $(top_builddir)/config.h
 asf_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la
 asf_la_LDFLAGS = -module -avoid-version -shared
+asf_la_CFLAGS = -fvisibility=hidden

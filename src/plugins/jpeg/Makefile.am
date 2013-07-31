@@ -9,3 +9,4 @@ jpeg_la_SOURCES = jpeg.c
 jpeg_la_DEPENDENCIES = $(top_builddir)/config.h
 jpeg_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la
 jpeg_la_LDFLAGS = -module -avoid-version -shared
+jpeg_la_CFLAGS = -fvisibility=hidden

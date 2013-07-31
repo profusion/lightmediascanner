@@ -9,3 +9,4 @@ video_dummy_la_SOURCES = video-dummy.c
 video_dummy_la_DEPENDENCIES = $(top_builddir)/config.h
 video_dummy_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la
 video_dummy_la_LDFLAGS = -module -avoid-version -shared
+video_dummy_la_CFLAGS = -fvisibility=hidden

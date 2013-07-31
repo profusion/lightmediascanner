@@ -18,3 +18,4 @@ ogg_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la @VORBIS_LIBS@
 ogg_la_LDFLAGS = -module -avoid-version -shared
 
 noinst_HEADERS= lms_ogg_private.h
+ogg_la_CFLAGS = -fvisibility=hidden

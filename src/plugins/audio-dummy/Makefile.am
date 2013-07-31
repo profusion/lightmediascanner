@@ -9,3 +9,4 @@ audio_dummy_la_SOURCES = audio-dummy.c
 audio_dummy_la_DEPENDENCIES = $(top_builddir)/config.h
 audio_dummy_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la
 audio_dummy_la_LDFLAGS = -module -avoid-version -shared
+audio_dummy_la_CFLAGS = -fvisibility=hidden

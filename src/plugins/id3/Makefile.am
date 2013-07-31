@@ -16,3 +16,4 @@ id3v1_genres.c: $(srcdir)/id3v1_genres.def $(srcdir)/id3v1_genres_gen.awk
 EXTRA_DIST = id3v1_genres.def id3v1_genres_gen.awk
 BUILT_SOURCES = id3v1_genres.c
 CLEANFILES = $(BUILT_SOURCES)
+id3_la_CFLAGS = -fvisibility=hidden

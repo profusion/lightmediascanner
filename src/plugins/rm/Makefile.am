@@ -9,3 +9,4 @@ rm_la_SOURCES = rm.c
 rm_la_DEPENDENCIES = $(top_builddir)/config.h
 rm_la_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la
 rm_la_LDFLAGS = -module -avoid-version -shared
+rm_la_CFLAGS = -fvisibility=hidden
