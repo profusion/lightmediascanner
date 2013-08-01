@@ -48,6 +48,7 @@ struct fds {
 
 struct cinfo {
     lms_t *lms;
+    unsigned int update_id;
 };
 
 /* info to be carried along lms_process() and lms_check() */
@@ -65,6 +66,7 @@ struct sinfo {
     struct db *db;
     void **parser_match;
     int commit_counter;
+    int total_committed;
 };
 
 struct parser {

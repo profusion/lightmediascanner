@@ -485,7 +485,9 @@ _db_and_parsers_setup(lms_t *lms, struct db **db_ret, void ***parser_match_ret)
  *  < 0 on error
  */
 static int
-_db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, char *path, int path_len, int path_base)
+_db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match,
+                             char *path, int path_len, int path_base,
+                             unsigned int update_id)
 {
     struct lms_file_info finfo;
     int used, r;
@@ -515,9 +517,9 @@ _db_and_parsers_process_file(lms_t *lms, struct db *db, void **parser_match, cha
     finfo.dtime = 0;
     finfo.itime = time(NULL);
     if (finfo.id > 0)
-        r = lms_db_update_file_info(db->update_file_info, &finfo, 0);
+        r = lms_db_update_file_info(db->update_file_info, &finfo, update_id);
     else
-        r = lms_db_insert_file_info(db->insert_file_info, &finfo, 0);
+        r = lms_db_insert_file_info(db->insert_file_info, &finfo, update_id);
 
     if (r < 0) {
         fprintf(stderr, "ERROR: could not register path in DB\n");
@@ -544,17 +546,27 @@ _slave_work(struct pinfo *pinfo)
     char path[PATH_SIZE];
     void **parser_match;
     struct db *db;
+    unsigned int total_committed;
 
     r = _db_and_parsers_setup(lms, &db, &parser_match);
     if (r < 0)
         return r;
 
+    r = lms_db_update_id_get(db->handle);
+    if (r < 0) {
+        fprintf(stderr, "ERROR: could not get global update id.\n");
+        goto done;
+    }
+
+    pinfo->common.update_id = r + 1;
+
     counter = 0;
+    total_committed = 0;
     lms_db_begin_transaction(db->transaction_begin);
 
     while (((r = _slave_recv_path(fds, &len, &base, path)) == 0) && len > 0) {
         r = _db_and_parsers_process_file(
-            lms, db, parser_match, path, len, base);
+            lms, db, parser_match, path, len, base, pinfo->common.update_id);
 
         _slave_send_reply(fds, r);
 
@@ -563,14 +575,26 @@ _slave_work(struct pinfo *pinfo)
 
         counter++;
         if (counter > lms->commit_interval) {
+            if (!total_committed) {
+                total_committed += counter;
+                lms_db_update_id_set(db->handle, pinfo->common.update_id);
+            }
+
             lms_db_end_transaction(db->transaction_commit);
             lms_db_begin_transaction(db->transaction_begin);
             counter = 0;
         }
     }
 
-    free(parser_match);
+    if (counter) {
+        total_committed += counter;
+        lms_db_update_id_set(db->handle, pinfo->common.update_id);
+    }
+
     lms_db_end_transaction(db->transaction_commit);
+
+done:
+    free(parser_match);
     lms_parsers_finish(lms, db->handle);
     _db_close(db);
 
@@ -843,7 +867,7 @@ _process_file_single_process(struct cinfo *info, int base, char *path, const cha
         return -1;
 
     r = _db_and_parsers_process_file(lms, db, parser_match, path, new_len,
-                                     base);
+                                     base, sinfo->common.update_id);
     if (r < 0) {
         fprintf(stderr, "ERROR: pid=%d failed to parse \"%s\".\n",
                 getpid(), path);
@@ -855,6 +879,11 @@ _process_file_single_process(struct cinfo *info, int base, char *path, const cha
         sinfo->commit_counter++;
 
     if (sinfo->commit_counter > lms->commit_interval) {
+        if (!sinfo->total_committed) {
+            sinfo->total_committed += sinfo->commit_counter;
+            lms_db_update_id_set(db->handle, sinfo->common.update_id);
+        }
+
         lms_db_end_transaction(db->transaction_commit);
         lms_db_begin_transaction(db->transaction_begin);
         sinfo->commit_counter = 0;
@@ -1078,19 +1107,35 @@ lms_process_single_process(lms_t *lms, const char *top_path)
 
     sinfo.common.lms = lms;
     sinfo.commit_counter = 0;
+    sinfo.total_committed = 0;
 
     r = _db_and_parsers_setup(sinfo.common.lms, &sinfo.db, &sinfo.parser_match);
     if (r < 0)
         return r;
+
+    r = lms_db_update_id_get(sinfo.db->handle);
+    if (r < 0) {
+        fprintf(stderr, "ERROR: could not get global update id.\n");
+        goto done;
+    }
+
+    sinfo.common.update_id = r + 1;
 
     lms_db_begin_transaction(sinfo.db->transaction_begin);
 
     r = _process_trigger(
         (struct cinfo *)&sinfo, top_path, _process_file_single_process);
 
-    free(sinfo.parser_match);
+    /* Check only if there are remaining commits to do */
+    if (sinfo.commit_counter) {
+        sinfo.total_committed += sinfo.commit_counter;
+        lms_db_update_id_set(sinfo.db->handle, sinfo.common.update_id);
+    }
+
     lms_db_end_transaction(sinfo.db->transaction_commit);
 
+done:
+    free(sinfo.parser_match);
     lms_parsers_finish(lms, sinfo.db->handle);
     _db_close(sinfo.db);
     return r;
