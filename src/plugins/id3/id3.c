@@ -662,8 +662,11 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct id3_info info = {{0}, {0}, {0}, {0}, -1, -1};
-    struct lms_audio_info audio_info = {0, {0}, {0}, {0}, {0}, 0, 0, 0};
+    struct id3_info info = {
+        .trackno = -1,
+        .cur_artist_priority = -1,
+    };
+    struct lms_audio_info audio_info = { };
     int r, fd;
     long id3v2_offset;
 
