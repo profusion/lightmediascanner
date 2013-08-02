@@ -43,6 +43,7 @@
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_utils.h>
+#include <inttypes.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -93,12 +94,12 @@ extern "C" {
         struct lms_string_size codec;
         struct lms_string_size dlna_profile;
         unsigned int playcnt;
-        unsigned char trackno;
-        unsigned char rating;
         unsigned int length;
-        unsigned char channels;
         unsigned int sampling_rate;
         unsigned int bitrate;
+        uint8_t trackno;
+        uint8_t rating;
+        uint8_t channels;
     };
 
     typedef struct lms_db_audio lms_db_audio_t;
