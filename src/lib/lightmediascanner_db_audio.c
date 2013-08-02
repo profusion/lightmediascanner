@@ -380,11 +380,13 @@ lms_db_audio_start(lms_db_audio_t *lda)
     if (lda->_is_started)
         return 0;
 
-    lda->insert_audio = lms_db_compile_stmt(lda->db,
-        "INSERT OR REPLACE INTO audios "
+    lda->insert_audio = lms_db_compile_stmt(
+        lda->db, "INSERT OR REPLACE INTO audios "
         "(id, title, album_id, artist_id, genre_id, "
-        "trackno, rating, playcnt, length) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        "trackno, rating, playcnt, length, "
+        "container, codec, channels, sampling_rate, bitrate, dlna_profile) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "
+        "?, ?, ?, ?, ?, ?)");
     if (!lda->insert_audio)
         return -2;
 
@@ -700,6 +702,32 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
         goto done;
 
     ret = lms_db_bind_int(stmt, 9, info->length);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_text(stmt, 10, info->container.str, info->container.len);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_text(stmt, 11, info->codec.str, info->codec.len);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 12, info->channels);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 13, info->sampling_rate);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int(stmt, 14, info->bitrate);
+    if (ret != 0)
+        goto done;
+
+    /* TODO: Calculate dlna_profile ourselves */
+    ret = lms_db_bind_text(stmt, 15, info->dlna_profile.str,
+                           info->dlna_profile.len);
     if (ret != 0)
         goto done;
 

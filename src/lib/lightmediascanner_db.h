@@ -89,10 +89,16 @@ extern "C" {
         struct lms_string_size artist;
         struct lms_string_size album;
         struct lms_string_size genre;
+        struct lms_string_size container;
+        struct lms_string_size codec;
+        struct lms_string_size dlna_profile;
         unsigned int playcnt;
         unsigned char trackno;
         unsigned char rating;
         unsigned int length;
+        unsigned char channels;
+        unsigned int sampling_rate;
+        unsigned int bitrate;
     };
 
     typedef struct lms_db_audio lms_db_audio_t;
