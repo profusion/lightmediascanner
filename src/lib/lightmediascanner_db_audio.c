@@ -666,70 +666,34 @@ static int
 _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t *album_id, int64_t *artist_id, int64_t *genre_id)
 {
     sqlite3_stmt *stmt;
-    int r, ret;
+    int r, ret, col = 1;
 
     stmt = lda->insert_audio;
-    ret = lms_db_bind_int64(stmt, 1, info->id);
-    if (ret != 0)
-        goto done;
 
-    ret = lms_db_bind_text(stmt, 2, info->title.str, info->title.len);
-    if (ret != 0)
-        goto done;
+/* clobbers ret, id and stmt */
+#define INSERT_AUDIO_BIND(__type, ...)                                  \
+    do {                                                                \
+        if ((ret = lms_db_bind_##__type(stmt, col++, __VA_ARGS__) != 0)) \
+            goto done;                                                  \
+    } while (0)
 
-    ret = lms_db_bind_int64_or_null(stmt, 3, album_id);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int64_or_null(stmt, 4, artist_id);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int64_or_null(stmt, 5, genre_id);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 6, info->trackno);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 7, info->rating);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 8, info->playcnt);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 9, info->length);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_text(stmt, 10, info->container.str, info->container.len);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_text(stmt, 11, info->codec.str, info->codec.len);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 12, info->channels);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 13, info->sampling_rate);
-    if (ret != 0)
-        goto done;
-
-    ret = lms_db_bind_int(stmt, 14, info->bitrate);
-    if (ret != 0)
-        goto done;
+    INSERT_AUDIO_BIND(int64, info->id);
+    INSERT_AUDIO_BIND(text, info->title.str, info->title.len);
+    INSERT_AUDIO_BIND(int64_or_null, album_id);
+    INSERT_AUDIO_BIND(int64_or_null, artist_id);
+    INSERT_AUDIO_BIND(int64_or_null, genre_id);
+    INSERT_AUDIO_BIND(int, info->trackno);
+    INSERT_AUDIO_BIND(int, info->rating);
+    INSERT_AUDIO_BIND(int, info->playcnt);
+    INSERT_AUDIO_BIND(int, info->length);
+    INSERT_AUDIO_BIND(text, info->container.str, info->container.len);
+    INSERT_AUDIO_BIND(text, info->codec.str, info->codec.len);
+    INSERT_AUDIO_BIND(int, info->channels);
+    INSERT_AUDIO_BIND(int, info->sampling_rate);
+    INSERT_AUDIO_BIND(int, info->bitrate);
 
     /* TODO: Calculate dlna_profile ourselves */
-    ret = lms_db_bind_text(stmt, 15, info->dlna_profile.str,
-                           info->dlna_profile.len);
-    if (ret != 0)
-        goto done;
+    INSERT_AUDIO_BIND(text, info->dlna_profile.str, info->dlna_profile.len);
 
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
@@ -741,10 +705,10 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
 
     ret = 0;
 
-  done:
+done:
     lms_db_reset_stmt(stmt);
-
     return ret;
+#undef INSERT_AUDIO_BIND
 }
 
 /**
