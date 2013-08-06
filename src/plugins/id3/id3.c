@@ -48,6 +48,70 @@
 #define ID3V2_HEADER_SIZE       10
 #define ID3V2_FOOTER_SIZE       10
 
+/* We parse only the first 4 bytes, which are the interesting ones */
+#define MPEG_HEADER_SIZE 4
+
+enum mpeg_audio_version {
+    MPEG_AUDIO_VERSION_1,
+    MPEG_AUDIO_VERSION_2,
+    MPEG_AUDIO_VERSION_2_5,
+    MPEG_AUDIO_VERSION_4,
+};
+
+enum mpeg_audio_layer {
+    MPEG_AUDIO_LAYER_1,
+    MPEG_AUDIO_LAYER_2,
+    MPEG_AUDIO_LAYER_3,
+    MPEG_AUDIO_LAYER_AAC,
+};
+
+struct mpeg_header {
+    enum mpeg_audio_version version;
+    enum mpeg_audio_layer layer;
+
+    uint8_t channels;
+    uint8_t sampling_rate_idx;
+    uint8_t codec_idx;
+};
+
+static const struct lms_string_size _codecs[] = {
+    /* mp3 */
+    [0] = LMS_STATIC_STRING_SIZE("mpeg1layer1"),
+    [1] = LMS_STATIC_STRING_SIZE("mpeg1layer2"),
+    [2] = LMS_STATIC_STRING_SIZE("mpeg1layer3"),
+    [3] = LMS_STATIC_STRING_SIZE("mpeg2layer1"),
+    [4] = LMS_STATIC_STRING_SIZE("mpeg2layer2"),
+    [5] = LMS_STATIC_STRING_SIZE("mpeg2layer3"),
+    [6] = LMS_STATIC_STRING_SIZE("mpeg2.5layer1"),
+    [7] = LMS_STATIC_STRING_SIZE("mpeg2.5layer2"),
+    [8] = LMS_STATIC_STRING_SIZE("mpeg2.5layer3"),
+
+    /* aac */
+#define MPEG_CODEC_AAC_START 9
+    [9] = LMS_STATIC_STRING_SIZE("mpeg2aac-main"),
+    [10] = LMS_STATIC_STRING_SIZE("mpeg2aac-lc"),
+    [11] = LMS_STATIC_STRING_SIZE("mpeg2aac-ssr"),
+    [12] = LMS_STATIC_STRING_SIZE("mpeg2aac-ltp"),
+
+    [13] = LMS_STATIC_STRING_SIZE("mpeg4aac-main"),
+    [14] = LMS_STATIC_STRING_SIZE("mpeg4aac-lc"),
+    [15] = LMS_STATIC_STRING_SIZE("mpeg4aac-ssr"),
+    [16] = LMS_STATIC_STRING_SIZE("mpeg4aac-ltp"),
+    { }
+};
+
+/* Ordered according to AAC index, take care with mp3 */
+static int _sample_rates[16] = {
+    96000, 88200, 64000,
+
+    /* Frequencies available on mp3, */
+    48000, 44100, 32000,
+    24000, 22050, 16000,
+    12000, 11025, 8000,
+
+    7350, /* reserved, zeroed */
+};
+
 enum ID3Encodings {
     ID3_ENCODING_LATIN1 = 0,
     ID3_ENCODING_UTF16,
@@ -132,8 +196,154 @@ _is_id3v2_second_synch_byte(unsigned char byte)
     return 0;
 }
 
+static inline int
+_fill_mp3_header(struct mpeg_header *hdr, const uint8_t b[4])
+{
+    hdr->sampling_rate_idx = (b[2] & 0x0C) >> 2;
+    if (hdr->sampling_rate_idx == 0x3)
+        return -1;
+    /*
+     * Sampling rate frequency index
+     * bits     MPEG1           MPEG2           MPEG2.5
+     * 00       44100 Hz        22050 Hz        11025 Hz
+     * 01       48000 Hz        24000 Hz        12000 Hz
+     * 10       32000 Hz        16000 Hz        8000 Hz
+     * 11       reserv.         reserv.         reserv.
+     */
+
+    /* swap 0x1 and 0x0 */
+    if (hdr->sampling_rate_idx < 0x2)
+        hdr->sampling_rate_idx = !hdr->sampling_rate_idx;
+    hdr->sampling_rate_idx += 3 * hdr->version + 3;
+
+    hdr->codec_idx = hdr->version * 3 + hdr->layer;
+
+    hdr->channels = (b[3] & 0xC0) >> 6;
+    hdr->channels = hdr->channels == 0x3 ? 1 : 2;
+    return 0;
+}
+
+static inline int
+_fill_aac_header(struct mpeg_header *hdr, const uint8_t b[4])
+{
+    unsigned int profile;
+
+    hdr->sampling_rate_idx = (b[2] & 0x3C) >> 2;
+
+    profile = (b[2] & 0xC0) >> 6;
+    hdr->codec_idx = MPEG_CODEC_AAC_START + profile;
+    if (hdr->version == MPEG_AUDIO_VERSION_4)
+        hdr->codec_idx += 4;
+
+    hdr->channels = ((b[2] & 0x1) << 2) | ((b[3] & 0xC0) >> 6);
+    return 0;
+}
+
+static inline int
+_fill_mpeg_header(struct mpeg_header *hdr, const uint8_t b[4])
+{
+    unsigned int version = (b[1] & 0x18) >>  3;
+    unsigned int layer = (b[1] & 0x06) >> 1;
+
+    switch (layer) {
+    case 0x0:
+        if (version == 0x2 || version == 0x3)
+            hdr->layer = MPEG_AUDIO_LAYER_AAC;
+        else
+            return -1;
+        break;
+    case 0x1:
+        hdr->layer = MPEG_AUDIO_LAYER_3;
+        break;
+    case 0x2:
+        hdr->layer = MPEG_AUDIO_LAYER_2;
+        break;
+    case 0x3:
+        hdr->layer = MPEG_AUDIO_LAYER_1;
+        break;
+    }
+
+    switch (version) {
+    case 0x0:
+        hdr->version = MPEG_AUDIO_VERSION_2_5;
+        break;
+    case 0x1:
+        return -1;
+    case 0x2:
+        if (layer == 0x0)
+            hdr->version = MPEG_AUDIO_VERSION_4;
+        else
+            hdr->version = MPEG_AUDIO_VERSION_2;
+        break;
+    case 0x3:
+        if (layer == 0x0)
+            hdr->version = MPEG_AUDIO_VERSION_2;
+        else
+            hdr->version = MPEG_AUDIO_VERSION_1;
+    }
+
+    if (hdr->layer == MPEG_AUDIO_LAYER_AAC)
+        return _fill_aac_header(hdr, b);
+    else
+        return _fill_mp3_header(hdr, b);
+
+    return 0;
+}
+
+static int
+_parse_mpeg_header(int fd, off_t off, struct lms_audio_info *audio_info)
+{
+    uint8_t buffer[32];
+    const uint8_t *p, *p_end;
+    unsigned int prev_read;
+    struct mpeg_header hdr;
+
+    lseek(fd, off, SEEK_SET);
+
+    /* Find sync word */
+    prev_read = 0;
+    do {
+        int nread = read(fd, buffer + prev_read, sizeof(buffer) - prev_read);
+        if (nread < MPEG_HEADER_SIZE)
+            return -1;
+
+        p = buffer;
+        p_end = buffer + nread;
+        while (p < p_end && (p = memchr(p, 0xFF, p_end - p))) {
+            /* poor man's ring buffer since the the needle is small (4 bytes) */
+            if (p > p_end - MPEG_HEADER_SIZE) {
+                memcpy(buffer, p, p_end - p);
+                break;
+            }
+
+            if (_is_id3v2_second_synch_byte(*(p + 1)))
+                goto found;
+
+            p++;
+        }
+        prev_read = p ? p_end - p : 0;
+    } while(1);
+
+found:
+
+    if (_fill_mpeg_header(&hdr, p) < 0) {
+        fprintf(stderr, "Invalid field in file, ignoring.\n");
+        return 0;
+    }
+
+    audio_info->codec = _codecs[hdr.codec_idx];
+    audio_info->sampling_rate = _sample_rates[hdr.sampling_rate_idx];
+    audio_info->channels = hdr.channels;
+
+    return 0;
+}
+
+/* Returns the offset in fd to the position after the ID3 tag, iff it occurs
+ * *before* a sync word. Otherwise < 0 is returned and if we gave up looking
+ * after ID3 because of a sync value, @syncframe_offset is set to its
+ * correspondent offset */
 static long
-_find_id3v2(int fd)
+_find_id3v2(int fd, off_t *syncframe_offset)
 {
     static const char pattern[3] = "ID3";
     char buffer[3];
@@ -166,8 +376,10 @@ _find_id3v2(int fd)
 
         /* (1) previous partial match */
         if (prev_part_match_sync) {
-            if (_is_id3v2_second_synch_byte(buffer[0]))
+            if (_is_id3v2_second_synch_byte(buffer[0])) {
+                *syncframe_offset = buffer_offset - 1;
                 return -1;
+            }
             prev_part_match_sync = 0;
         }
 
@@ -206,9 +418,11 @@ _find_id3v2(int fd)
 
                 q = p + 1;
                 if (q < p_end) {
-                    if (_is_id3v2_second_synch_byte(*q))
+                    if (_is_id3v2_second_synch_byte(*q)) {
                         /* (2) synch pattern contained in current buffer */
+                        *syncframe_offset = buffer_offset + (p - buffer);
                         return -1;
+                    }
                 } else
                     /* (3) partial match */
                     prev_part_match_sync = 1;
@@ -669,6 +883,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     struct lms_audio_info audio_info = { };
     int r, fd;
     long id3v2_offset;
+    off_t syncframe_offset = 0;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -676,7 +891,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         return -1;
     }
 
-    id3v2_offset = _find_id3v2(fd);
+    id3v2_offset = _find_id3v2(fd, &syncframe_offset);
     if (id3v2_offset >= 0) {
 #if 0
         fprintf(stderr, "id3v2 tag found in file %s with offset %ld\n",
@@ -691,6 +906,10 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 #endif
             id3v2_offset = -1;
         }
+
+        /* Even if later we failed to parse the ID3, we want to look for sync
+         * frame only where we were left */
+        syncframe_offset = lseek(fd, 0, SEEK_CUR);
     }
 
     if (id3v2_offset < 0) {
@@ -749,6 +968,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     audio_info.album = info.album;
     audio_info.genre = info.genre;
     audio_info.trackno = info.trackno;
+
+    _parse_mpeg_header(fd, syncframe_offset, &audio_info);
+
     r = lms_db_audio_add(plugin->audio_db, &audio_info);
 
   done:
