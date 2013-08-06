@@ -115,6 +115,63 @@ AC_LMS_OPTIONAL_MODULE([mp4], true, [CHECK_MODULE_MP4])
 AC_LMS_OPTIONAL_MODULE([id3], true)
 AC_LMS_OPTIONAL_MODULE([flac], true, [CHECK_MODULE_FLAC])
 
+
+#####################################################################
+# Default CFLAGS and LDFLAGS
+#####################################################################
+
+CC_CHECK_FLAGS_APPEND(with_cflags, [CFLAGS], [\
+		       -pipe \
+		       -DANOTHER_BRICK_IN_THE \
+		       -Wall \
+		       -W \
+		       -Wextra \
+		       -Wno-inline \
+		       -Wvla \
+		       -Wundef \
+		       -Wformat=2 \
+		       -Wlogical-op \
+		       -Wsign-compare \
+		       -Wformat-security \
+		       -Wmissing-include-dirs \
+		       -Wformat-nonliteral \
+		       -Wold-style-definition \
+		       -Wpointer-arith \
+		       -Winit-self \
+		       -Wdeclaration-after-statement \
+		       -Wfloat-equal \
+		       -Wmissing-prototypes \
+		       -Wstrict-prototypes \
+		       -Wredundant-decls \
+		       -Wmissing-declarations \
+		       -Wmissing-noreturn \
+		       -Wshadow \
+		       -Wendif-labels \
+		       -Wstrict-aliasing=2 \
+		       -Wwrite-strings \
+		       -Wno-long-long \
+		       -Wno-overlength-strings \
+		       -Wno-unused-parameter \
+		       -Wno-missing-field-initializers \
+		       -Wno-unused-result \
+		       -Wnested-externs \
+		       -Wchar-subscripts \
+		       -Wtype-limits \
+		       -Wuninitialized \
+		       -fno-common \
+		       -fdiagnostics-show-option \
+		       -fvisibility=hidden \
+		       -ffunction-sections \
+		       -fdata-sections])
+AC_SUBST([WARNINGFLAGS], $with_cflags)
+
+
+CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [ \
+		       -Wl,--as-needed \
+		       -Wl,--gc-sections])
+AC_SUBST([GCLDFLAGS], $with_ldflags)
+
+
 AC_OUTPUT([
 lightmediascanner.pc
 lightmediascanner.spec

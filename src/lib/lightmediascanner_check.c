@@ -610,7 +610,7 @@ _finfo_update(void *db_ptr, struct cinfo *info, struct lms_file_info *finfo, uns
 
     *flags = 0;
     if (stat(finfo->path, &st) == 0) {
-        if (st.st_mtime == finfo->mtime && st.st_size == finfo->size) {
+        if (st.st_mtime == finfo->mtime && (size_t)st.st_size == finfo->size) {
             if (finfo->dtime == 0) {
                 _report_progress(info, finfo, LMS_PROGRESS_STATUS_UP_TO_DATE);
                 return 0;

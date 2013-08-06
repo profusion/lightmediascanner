@@ -65,8 +65,8 @@ struct sinfo {
     struct cinfo common;
     struct db *db;
     void **parser_match;
-    int commit_counter;
-    int total_committed;
+    unsigned int commit_counter;
+    unsigned int total_committed;
 };
 
 struct parser {

@@ -113,7 +113,7 @@ lms_charset_conv_new(void)
 void
 lms_charset_conv_free(lms_charset_conv_t *lcc)
 {
-    int i;
+    unsigned int i;
 
     if (!lcc)
         return;
@@ -192,7 +192,7 @@ lms_charset_conv_add(lms_charset_conv_t *lcc, const char *charset)
 static int
 _find(const lms_charset_conv_t *lcc, const char *charset)
 {
-    int i;
+    unsigned int i;
 
     for (i = 0; i < lcc->size; i++)
         if (strcmp(lcc->names[i], charset) == 0)
@@ -232,7 +232,7 @@ lms_charset_conv_del(lms_charset_conv_t *lcc, const char *charset)
     free(lcc->names[idx]);
 
     lcc->size--;
-    for (; idx < lcc->size; idx++) {
+    for (; (unsigned)idx < lcc->size; idx++) {
         lcc->convs[idx] = lcc->convs[idx + 1];
         lcc->names[idx] = lcc->names[idx + 1];
     }
@@ -353,7 +353,7 @@ lms_charset_conv(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_len)
         return 0;
     }
 
-    for (i = 0; i < lcc->size; i++)
+    for (i = 0; (unsigned) i < lcc->size; i++)
         if (_conv(lcc->convs[i], p_str, p_len, outstr, outlen) == 0)
             return 0;
 
@@ -406,7 +406,7 @@ lms_charset_conv_force(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_le
         return -4;
     }
 
-    for (i = 0; i < lcc->size; i++)
+    for (i = 0; (unsigned)i < lcc->size; i++)
         if (_conv(lcc->convs[i], p_str, p_len, outstr, outlen) == 0)
             return 0;
 

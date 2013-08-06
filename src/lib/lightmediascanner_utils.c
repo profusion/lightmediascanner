@@ -138,7 +138,7 @@ lms_string_size_strip_and_free(struct lms_string_size *p)
  */
 int
 lms_which_extension(const char *name, unsigned int name_len, const struct lms_string_size *exts, unsigned int exts_len) {
-    int i;
+    unsigned int i;
     unsigned int *exts_pos;
     const char *s;
 
@@ -147,7 +147,7 @@ lms_which_extension(const char *name, unsigned int name_len, const struct lms_st
         exts_pos[i] = exts[i].len;
 
     for (s = name + name_len - 1; s >= name; s--) {
-        int i, match;
+        int match;
         char c1, c2;
 
         c1 = *s;

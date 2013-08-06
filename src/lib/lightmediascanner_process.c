@@ -276,7 +276,7 @@ _retrieve_file_status(struct db *db, struct lms_file_info *finfo)
 
     r = lms_db_get_file_info(db->get_file_info, finfo);
     if (r == 0) {
-        if (st.st_mtime <= finfo->mtime && finfo->size == st.st_size)
+        if (st.st_mtime <= finfo->mtime && finfo->size == (size_t)st.st_size)
             return 0;
         else {
             finfo->mtime = st.st_mtime;
@@ -542,11 +542,11 @@ _slave_work(struct pinfo *pinfo)
 {
     lms_t *lms = pinfo->common.lms;
     struct fds *fds = &pinfo->slave;
-    int r, len, base, counter;
+    int r, len, base;
     char path[PATH_SIZE];
     void **parser_match;
     struct db *db;
-    unsigned int total_committed;
+    unsigned int total_committed, counter;
 
     r = _db_and_parsers_setup(lms, &db, &parser_match);
     if (r < 0)
@@ -1075,7 +1075,7 @@ lms_process(lms_t *lms, const char *top_path)
         goto close_pipes;
     }
 
-    r = _process_trigger((struct cinfo *)&pinfo, top_path, _process_file);
+    r = _process_trigger(&pinfo.common, top_path, _process_file);
 
     lms_finish_slave(&pinfo, _master_send_finish);
   close_pipes:
@@ -1123,8 +1123,7 @@ lms_process_single_process(lms_t *lms, const char *top_path)
 
     lms_db_begin_transaction(sinfo.db->transaction_begin);
 
-    r = _process_trigger(
-        (struct cinfo *)&sinfo, top_path, _process_file_single_process);
+    r = _process_trigger(&sinfo.common, top_path, _process_file_single_process);
 
     /* Check only if there are remaining commits to do */
     if (sinfo.commit_counter) {
