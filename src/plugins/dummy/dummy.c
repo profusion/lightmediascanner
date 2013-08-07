@@ -106,7 +106,7 @@ lms_plugin_open(void)
     return plugin;
 }
 
-API struct lms_plugin_info *
+API const struct lms_plugin_info *
 lms_plugin_info(void)
 {
     static struct lms_plugin_info info = {

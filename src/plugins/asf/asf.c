@@ -160,10 +160,10 @@ _read_qword(int fd)
 }
 
 static int
-_read_string(int fd, size_t count, char **str, size_t *len)
+_read_string(int fd, size_t count, char **str, unsigned int *len)
 {
     char *data;
-    size_t data_size, size;
+    ssize_t data_size, size;
 
     if (!str) {
         lseek(fd, count, SEEK_CUR);
@@ -199,9 +199,9 @@ _parse_content_description(lms_charset_conv_t *cs_conv, int fd, struct asf_info 
     int comment_length = _read_word(fd);
     int rating_length = _read_word(fd);
 
-    _read_string(fd, title_length, &info->title.str, (size_t *)&info->title.len);
+    _read_string(fd, title_length, &info->title.str, &info->title.len);
     lms_charset_conv_force(cs_conv, &info->title.str, &info->title.len);
-    _read_string(fd, artist_length, &info->artist.str, (size_t *)&info->artist.len);
+    _read_string(fd, artist_length, &info->artist.str, &info->artist.len);
     lms_charset_conv_force(cs_conv, &info->artist.str, &info->artist.len);
     /* ignore copyright, comment and rating */
     lseek(fd, copyright_length + comment_length + rating_length, SEEK_CUR);
@@ -211,7 +211,7 @@ static void
 _parse_attribute_name(int fd,
                       int kind,
                       char **attr_name,
-                      size_t *attr_name_len,
+                      unsigned int *attr_name_len,
                       int *attr_type,
                       int *attr_size)
 {
@@ -239,10 +239,10 @@ _parse_attribute_string_data(lms_charset_conv_t *cs_conv,
                              int fd,
                              int attr_size,
                              char **attr_data,
-                             size_t *attr_data_len)
+                             unsigned int *attr_data_len)
 {
     _read_string(fd, attr_size, attr_data, attr_data_len);
-    lms_charset_conv_force(cs_conv, attr_data, (unsigned int *)attr_data_len);
+    lms_charset_conv_force(cs_conv, attr_data, attr_data_len);
 }
 
 static void
@@ -292,7 +292,7 @@ _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, 
 {
     int count = _read_word(fd);
     char *attr_name;
-    size_t attr_name_len;
+    unsigned int attr_name_len;
     int attr_type, attr_size;
     while (count--) {
         attr_name = NULL;
@@ -304,20 +304,20 @@ _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, 
                 _parse_attribute_string_data(cs_conv,
                                              fd, attr_size,
                                              &info->album.str,
-                                             (size_t *)&info->album.len);
+                                             &info->album.len);
             else if (memcmp(attr_name, attr_name_wm_genre, attr_name_len) == 0)
                 _parse_attribute_string_data(cs_conv,
                                              fd, attr_size,
                                              &info->genre.str,
-                                             (size_t *)&info->genre.len);
+                                             &info->genre.len);
             else if (memcmp(attr_name, attr_name_wm_album_artist, attr_name_len) == 0)
                 _parse_attribute_string_data(cs_conv,
                                              fd, attr_size,
                                              &info->artist.str,
-                                             (size_t *)&info->artist.len);
+                                             &info->artist.len);
             else if (memcmp(attr_name, attr_name_wm_track_number, attr_name_len) == 0) {
                 char *trackno;
-                size_t trackno_len;
+                unsigned int trackno_len;
                 _parse_attribute_string_data(cs_conv,
                                              fd, attr_size,
                                              &trackno,
@@ -582,7 +582,7 @@ lms_plugin_open(void)
     return (struct lms_plugin *)plugin;
 }
 
-API struct lms_plugin_info *
+API const struct lms_plugin_info *
 lms_plugin_info(void)
 {
     static struct lms_plugin_info info = {

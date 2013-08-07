@@ -184,6 +184,9 @@ extern "C" {
         const char *uri; /**< how to find who wrote it (bug reports, etc) */
     };
 
+    /* Plugins' entrypoints */
+    API struct lms_plugin *lms_plugin_open(void);
+    API const struct lms_plugin_info *lms_plugin_info(void);
 
 #ifdef __cplusplus
 }

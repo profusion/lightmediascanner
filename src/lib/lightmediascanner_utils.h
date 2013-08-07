@@ -51,7 +51,7 @@ extern "C" {
         unsigned int len;
     };
 
-#define LMS_STATIC_STRING_SIZE(s)  {s, sizeof(s) - 1}
+#define LMS_STATIC_STRING_SIZE(s) { (char *)s, sizeof(s) - 1}
 #define LMS_ARRAY_SIZE(a)  (sizeof(a) / sizeof(*a))
 
 

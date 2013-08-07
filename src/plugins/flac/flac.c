@@ -69,10 +69,11 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct lms_audio_info info = {0, {0}, {0}, {0}, {0}, 0, 0, 0};
+    struct lms_audio_info info = { };
     FLAC__StreamMetadata *tags = 0;
     char *str;
-    int i, len, r;
+    int len, r;
+    unsigned int i;
 
     if (!FLAC__metadata_get_tags(finfo->path, &tags)) {
         fprintf(stderr, "ERROR: cannot retrieve file %s tags\n", finfo->path);
@@ -197,7 +198,7 @@ lms_plugin_open(void)
     return (struct lms_plugin *)plugin;
 }
 
-API struct lms_plugin_info *
+API const struct lms_plugin_info *
 lms_plugin_info(void)
 {
     static struct lms_plugin_info info = {

@@ -220,9 +220,9 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct rm_info info = {{0}, {0}};
-    struct lms_audio_info audio_info = {0, {0}, {0}, {0}, {0}, 0, 0, 0};
-    struct lms_video_info video_info = {0, {0}, {0}};
+    struct rm_info info = { };
+    struct lms_audio_info audio_info = { };
+    struct lms_video_info video_info = { };
     int r, fd, stream_type = STREAM_TYPE_UNKNOWN;
     struct rm_file_header file_header;
     char type[4];
@@ -376,7 +376,7 @@ lms_plugin_open(void)
     return (struct lms_plugin *)plugin;
 }
 
-API struct lms_plugin_info *
+API const struct lms_plugin_info *
 lms_plugin_info(void)
 {
     static struct lms_plugin_info info = {

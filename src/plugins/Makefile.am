@@ -1,7 +1,7 @@
 MAINTAINERCLEANFILES = Makefile.in
 
-AM_LDFLAGS = -module -avoid-version -shared
-AM_CFLAGS = -fvisibility=hidden
+AM_LDFLAGS = -module -avoid-version -shared $(GCLDFLAGS)
+AM_CFLAGS = -fvisibility=hidden $(WARNINGFLAGS)
 AM_CPPFLAGS = -include $(top_builddir)/config.h \
 		-I$(top_srcdir)/src/lib @SQLITE3_CFLAGS@
 pkgdir = $(pluginsdir)

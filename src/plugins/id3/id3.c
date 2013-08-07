@@ -560,7 +560,7 @@ _parse_id3v1_genre(const char *str_genre, struct lms_string_size *out)
 static void
 _get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_string_size *out, lms_charset_conv_t *cs_conv)
 {
-    int i, is_number;
+    unsigned int i, is_number;
     struct lms_string_size genre = {0};
 
     _get_id3v2_frame_info(frame_data, frame_size, &genre, cs_conv, 1);
@@ -822,7 +822,7 @@ _id3v1_str_get(struct lms_string_size *s, const char *buf, int maxlen, lms_chars
         return;
 
     len++; /* p_last is not included yet */
-    if (len > s->len) {
+    if ((unsigned)len > s->len) {
         char *tmp;
 
         tmp = realloc(s->str, sizeof(char) * (len + 1));
@@ -1066,7 +1066,7 @@ lms_plugin_open(void)
     return (struct lms_plugin *)plugin;
 }
 
-API struct lms_plugin_info *
+API const struct lms_plugin_info *
 lms_plugin_info(void)
 {
     static struct lms_plugin_info info = {

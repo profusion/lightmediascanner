@@ -95,9 +95,9 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct mp4_info info = {{0}, {0}, {0}, {0}};
-    struct lms_audio_info audio_info = {0, {0}, {0}, {0}, {0}, 0, 0, 0};
-    struct lms_video_info video_info = {0, {0}, {0}};
+    struct mp4_info info = { };
+    struct lms_audio_info audio_info = { };
+    struct lms_video_info video_info = { };
     int r, stream_type = STREAM_TYPE_AUDIO;
     MP4FileHandle mp4_fh;
     u_int32_t num_tracks;
@@ -258,7 +258,7 @@ lms_plugin_open(void)
     return (struct lms_plugin *)plugin;
 }
 
-API struct lms_plugin_info *
+API const struct lms_plugin_info *
 lms_plugin_info(void)
 {
     static struct lms_plugin_info info = {
