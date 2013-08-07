@@ -18,6 +18,8 @@ config.log
 config.status
 config.sub
 configure
+cscope.out
+cscope.files
 depcomp
 install-sh
 libtool
