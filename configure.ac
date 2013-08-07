@@ -181,19 +181,6 @@ src/Makefile
 src/bin/Makefile
 src/lib/Makefile
 src/plugins/Makefile
-src/plugins/dummy/Makefile
-src/plugins/jpeg/Makefile
-src/plugins/png/Makefile
-src/plugins/video-dummy/Makefile
-src/plugins/audio-dummy/Makefile
-src/plugins/m3u/Makefile
-src/plugins/ogg/Makefile
-src/plugins/pls/Makefile
-src/plugins/asf/Makefile
-src/plugins/rm/Makefile
-src/plugins/mp4/Makefile
-src/plugins/id3/Makefile
-src/plugins/flac/Makefile
 ])
 
 
