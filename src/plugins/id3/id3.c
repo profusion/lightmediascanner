@@ -159,7 +159,8 @@ struct plugin {
 static const char _name[] = "id3";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".mp3"),
-    LMS_STATIC_STRING_SIZE(".aac")
+    LMS_STATIC_STRING_SIZE(".aac"),
+    LMS_STATIC_STRING_SIZE(".adts"),
 };
 static const char *_cats[] = {
     "multimedia",
