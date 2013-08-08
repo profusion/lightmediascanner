@@ -170,11 +170,6 @@ _read_string(int fd, size_t count, char **str, unsigned int *len)
     char *data;
     ssize_t data_size, size;
 
-    if (!str) {
-        lseek(fd, count, SEEK_CUR);
-        return 0;
-    }
-
     data = malloc(sizeof(char) * count);
     data_size = read(fd, data, count);
     if (data_size == -1) {
@@ -249,7 +244,6 @@ _parse_content_description(lms_charset_conv_t *cs_conv, int fd, struct asf_info 
 
 static void
 _parse_attribute_name(int fd,
-                      int kind,
                       char **attr_name,
                       unsigned int *attr_name_len,
                       int *attr_type,
@@ -257,21 +251,10 @@ _parse_attribute_name(int fd,
 {
     int attr_name_length;
 
-    /* extended content descriptor */
-    if (kind == 0) {
-        attr_name_length = _read_word(fd);
-        _read_string(fd, attr_name_length, attr_name, attr_name_len);
-        *attr_type = _read_word(fd);
-        *attr_size = _read_word(fd);
-    }
-    /* metadata & metadata library */
-    else {
-        lseek(fd, 2 + 2, SEEK_CUR); /* language and stream */
-        attr_name_length = _read_word(fd);
-        *attr_type = _read_word(fd);
-        *attr_size = _read_dword(fd);
-        _read_string(fd, attr_name_length, attr_name, attr_name_len);
-    }
+    attr_name_length = _read_word(fd);
+    _read_string(fd, attr_name_length, attr_name, attr_name_len);
+    *attr_type = _read_word(fd);
+    *attr_size = _read_word(fd);
 }
 
 static void
@@ -320,14 +303,6 @@ _skip_attribute_data(int fd, int kind, int attr_type, int attr_size)
 }
 
 static void
-_skip_attribute(int fd, int kind)
-{
-    int attr_type, attr_size;
-    _parse_attribute_name(fd, kind, NULL, NULL, &attr_type, &attr_size);
-    _skip_attribute_data(fd, kind, attr_type, attr_size);
-}
-
-static void
 _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, struct asf_info *info)
 {
     int count = _read_word(fd);
@@ -336,7 +311,7 @@ _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, 
     int attr_type, attr_size;
     while (count--) {
         attr_name = NULL;
-        _parse_attribute_name(fd, 0,
+        _parse_attribute_name(fd,
                               &attr_name, &attr_name_len,
                               &attr_type, &attr_size);
         if (attr_type == ATTR_TYPE_UNICODE) {
@@ -374,46 +349,6 @@ _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, 
             _skip_attribute_data(fd, 0, attr_type, attr_size);
         if (attr_name)
             free(attr_name);
-    }
-}
-
-static void
-_skip_metadata(int fd)
-{
-    int count = _read_word(fd);
-    while (count--)
-        _skip_attribute(fd, 1);
-}
-
-static void
-_skip_metadata_library(int fd)
-{
-    int count = _read_word(fd);
-    while (count--)
-        _skip_attribute(fd, 2);
-}
-
-static void
-_skip_header_extension(int fd)
-{
-    char guid[16];
-    long long size, data_size, data_pos;
-
-    lseek(fd, 18, SEEK_CUR);
-    data_size = _read_dword(fd);
-    data_pos = 0;
-    while (data_pos < data_size) {
-        read(fd, &guid, 16);
-        size = _read_qword(fd);
-        if (size == 0)
-            break;
-        if (memcmp(guid, metadata_guid, 16) == 0)
-            _skip_metadata(fd);
-        else if (memcmp(guid, metadata_library_guid, 16) == 0)
-            _skip_metadata_library(fd);
-        else
-            lseek(fd, size - 24, SEEK_CUR);
-        data_pos += size;
     }
 }
 
@@ -483,8 +418,6 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             _parse_content_description(plugin->cs_conv, fd, &info);
         else if (memcmp(guid, extended_content_description_guid, 16) == 0)
             _parse_extended_content_description_object(plugin->cs_conv, fd, &info);
-        else if (memcmp(guid, header_extension_guid, 16) == 0)
-            _skip_header_extension(fd);
         else if (memcmp(guid, content_encryption_object_guid, 16) == 0 ||
                  memcmp(guid, extended_content_encryption_object_guid, 16) == 0) {
             /* ignore DRM'd files */
