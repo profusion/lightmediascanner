@@ -29,8 +29,10 @@
 #endif
 
 #define _XOPEN_SOURCE 600
+#define _BSD_SOURCE
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#include <endian.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -38,6 +40,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#define NSEC100_PER_SEC  10000000ULL
+#define MSEC_PER_SEC  1000ULL
 
 enum StreamTypes {
     STREAM_TYPE_UNKNOWN = 0,
@@ -188,6 +193,41 @@ _read_string(int fd, size_t count, char **str, unsigned int *len)
     *len = size;
 
     return 0;
+}
+
+static int
+_parse_file_properties(lms_charset_conv_t *cs_conv, int fd,
+                       struct lms_audio_info *info)
+{
+    struct {
+        char fileid[16];
+        uint64_t file_size;
+        uint64_t creation_date;
+        uint64_t data_packets_count;
+        uint64_t play_duration;
+        uint64_t send_duration;
+        uint64_t preroll;
+        uint32_t flags;
+        uint32_t min_data_packet_size;
+        uint32_t max_data_packet_size;
+        uint32_t max_bitrate;
+    } __attribute__((packed)) props;
+    int r;
+
+    r = read(fd, &props, sizeof(props));
+    if (r != sizeof(props))
+        return r;
+
+    /* Broadcast flag */
+    if (le32toh(props.flags) & 0x1)
+        return r;
+
+    /* ASF spec 01.20.06 sec. 3.2: we need to subtract the preroll value from
+     * the duration in order to obtain the real duration */
+    info->length = (unsigned int)((le64toh(props.play_duration) / NSEC100_PER_SEC)
+                                  - le64toh(props.preroll) / MSEC_PER_SEC);
+
+    return r;
 }
 
 static void
@@ -392,9 +432,9 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct asf_info info = {{0}, {0}, {0}, {0}, 0};
-    struct lms_audio_info audio_info = {0};
-    struct lms_video_info video_info = {0};
+    struct asf_info info = { };
+    struct lms_audio_info audio_info = { };
+    struct lms_video_info video_info = { };
     int r, fd, num_objects, i;
     char guid[16];
     unsigned int size;
@@ -426,9 +466,12 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         read(fd, &guid, 16);
         size = _read_qword(fd);
 
-        if (memcmp(guid, file_properties_guid, 16) == 0)
-            lseek(fd, size - 24, SEEK_CUR);
-        else if (memcmp(guid, stream_properties_guid, 16) == 0) {
+        if (memcmp(guid, file_properties_guid, 16) == 0) {
+            r = _parse_file_properties(plugin->cs_conv, fd, &audio_info);
+            if (r < 0)
+                goto done;
+            lseek(fd, size - (24 + r), SEEK_CUR);
+        } else if (memcmp(guid, stream_properties_guid, 16) == 0) {
             read(fd, &guid, 16);
             if (memcmp(guid, stream_type_audio_guid, 16) == 0)
                 stream_type = STREAM_TYPE_AUDIO;
