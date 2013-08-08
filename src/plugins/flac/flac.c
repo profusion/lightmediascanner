@@ -41,6 +41,7 @@ struct plugin {
 };
 
 static const char _name[] = "flac";
+static const struct lms_string_size _codec = LMS_STATIC_STRING_SIZE("flac");
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".flac")
 };
@@ -70,14 +71,32 @@ static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
     struct lms_audio_info info = { };
-    FLAC__StreamMetadata *tags = 0;
+    FLAC__StreamMetadata *tags = NULL;
+    FLAC__StreamMetadata si;
     char *str;
     int len, r;
     unsigned int i;
 
+    if (!FLAC__metadata_get_streaminfo(finfo->path, &si)) {
+        fprintf(stderr, "ERROR: cannot retrieve file %s STREAMINFO block\n",
+                finfo->path);
+        return -1;
+    }
+
+    info.channels = si.data.stream_info.channels;
+    info.sampling_rate = si.data.stream_info.sample_rate;
+
+    if (si.data.stream_info.sample_rate) {
+        info.length = si.data.stream_info.total_samples / si.data.stream_info.sample_rate;
+        info.bitrate = (finfo->size * 8) / info.length;
+    }
+
+    info.codec = _codec;
+    info.container = _codec;
+
     if (!FLAC__metadata_get_tags(finfo->path, &tags)) {
         fprintf(stderr, "ERROR: cannot retrieve file %s tags\n", finfo->path);
-        return -1;
+        goto title_fallback;
     }
 
     for (i = 0; i < tags->data.vorbis_comment.num_comments; i++) {
@@ -107,11 +126,14 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             info.trackno = atoi(str + 12);
     }
 
+    FLAC__metadata_object_delete(tags);
+
     lms_string_size_strip_and_free(&info.title);
     lms_string_size_strip_and_free(&info.artist);
     lms_string_size_strip_and_free(&info.album);
     lms_string_size_strip_and_free(&info.genre);
 
+title_fallback:
     if (!info.title.str) {
         long ext_idx;
         ext_idx = ((long)match) - 1;
@@ -145,8 +167,6 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     free(info.artist.str);
     free(info.album.str);
     free(info.genre.str);
-
-    FLAC__metadata_object_delete(tags);
 
     return r;
 }
