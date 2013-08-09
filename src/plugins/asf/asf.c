@@ -97,6 +97,14 @@ struct stream {
     int id;
     enum StreamTypes type;
     struct stream *next;
+    union {
+        struct {
+            uint16_t codec_id;
+            uint16_t channels;
+            uint32_t sampling_rate;
+            uint32_t byterate;
+        } audio;
+    };
 };
 
 /* ASF GUIDs
@@ -269,6 +277,21 @@ _parse_stream_properties(int fd, struct stream **pstream)
     }
 
     s->id = le16toh(props.flags) & 0x7F;
+    /* Not a valid stream */
+    if (!s->id)
+        goto done;
+
+    if (s->type == STREAM_TYPE_AUDIO) {
+        if (le32toh(props.type_specific_len) < 18)
+            goto done;
+
+        s->audio.codec_id = _read_word(fd);
+        s->audio.channels = _read_word(fd);
+        s->audio.sampling_rate = _read_dword(fd);
+        s->audio.byterate = _read_dword(fd);
+        r += 12;
+    }
+
     *pstream = s;
 
     return r;
@@ -532,6 +555,11 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.album = info.album;
         audio_info.genre = info.genre;
         audio_info.trackno = info.trackno;
+
+        audio_info.channels = streams->audio.channels;
+        audio_info.bitrate = streams->audio.byterate * 8;
+        audio_info.sampling_rate = streams->audio.sampling_rate;
+
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     } else {
         video_info.id = finfo->id;
