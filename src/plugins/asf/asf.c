@@ -33,6 +33,7 @@
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <endian.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -90,6 +91,12 @@ static const char *_cats[] = {
 static const char *_authors[] = {
     "Andre Moreira Magalhaes",
     NULL
+};
+
+struct stream {
+    int id;
+    enum StreamTypes type;
+    struct stream *next;
 };
 
 /* ASF GUIDs
@@ -223,6 +230,51 @@ _parse_file_properties(lms_charset_conv_t *cs_conv, int fd,
     info->length = (unsigned int)((le64toh(props.play_duration) / NSEC100_PER_SEC)
                                   - le64toh(props.preroll) / MSEC_PER_SEC);
 
+    return r;
+}
+
+static int
+_parse_stream_properties(int fd, struct stream **pstream)
+{
+    struct {
+        char stream_type[16];
+        char error_correction_type[16];
+        uint64_t time_offset;
+        uint32_t type_specific_len;
+        uint32_t error_correction_data_len;
+        uint16_t flags;
+        uint32_t reserved; /* don't use, unaligned */
+    }  __attribute__((packed)) props;
+
+    int r;
+    struct stream *s;
+
+    *pstream = NULL;
+
+    s = calloc(1, sizeof(struct stream));
+    if (!s)
+        return -ENOMEM;
+
+    r = read(fd, &props, sizeof(props));
+    if (r != sizeof(props))
+        goto done;
+
+    if (memcmp(props.stream_type, stream_type_audio_guid, 16) == 0)
+        s->type = STREAM_TYPE_AUDIO;
+    else if (memcmp(props.stream_type, stream_type_video_guid, 16) == 0)
+        s->type = STREAM_TYPE_VIDEO;
+    else {
+        /* ignore stream */
+        goto done;
+    }
+
+    s->id = le16toh(props.flags) & 0x7F;
+    *pstream = s;
+
+    return r;
+
+done:
+    free(s);
     return r;
 }
 
@@ -375,6 +427,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     char guid[16];
     unsigned int size;
     int stream_type = STREAM_TYPE_UNKNOWN;
+    struct stream *streams = NULL;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -408,14 +461,21 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
                 goto done;
             lseek(fd, size - (24 + r), SEEK_CUR);
         } else if (memcmp(guid, stream_properties_guid, 16) == 0) {
-            read(fd, &guid, 16);
-            if (memcmp(guid, stream_type_audio_guid, 16) == 0)
-                stream_type = STREAM_TYPE_AUDIO;
-            else if (memcmp(guid, stream_type_video_guid, 16) == 0)
-                stream_type = STREAM_TYPE_VIDEO;
-            lseek(fd, size - 40, SEEK_CUR);
-        }
-        else if (memcmp(guid, content_description_guid, 16) == 0)
+            struct stream *s;
+            r = _parse_stream_properties(fd, &s);
+            if (r < 0)
+                goto done;
+
+            lseek(fd, size - (24 + r), SEEK_CUR);
+            if (!s)
+                continue;
+
+            if (stream_type != STREAM_TYPE_VIDEO)
+                stream_type = s->type;
+
+            s->next = streams;
+            streams = s;
+        } else if (memcmp(guid, content_description_guid, 16) == 0)
             _parse_content_description(plugin->cs_conv, fd, &info);
         else if (memcmp(guid, extended_content_description_guid, 16) == 0)
             _parse_extended_content_description_object(plugin->cs_conv, fd, &info);
@@ -481,6 +541,12 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     }
 
 done:
+    while (streams) {
+        struct stream *s = streams;
+        streams = s->next;
+        free(s);
+    }
+
     free(info.title.str);
     free(info.artist.str);
     free(info.album.str);
