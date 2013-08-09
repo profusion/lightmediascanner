@@ -76,6 +76,7 @@ struct plugin {
 };
 
 static const char _name[] = "asf";
+static const struct lms_string_size _container = LMS_STATIC_STRING_SIZE("asf");
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".wma"),
     LMS_STATIC_STRING_SIZE(".wmv"),
@@ -424,8 +425,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             fprintf(stderr, "ERROR: ignoring DRM'd file %s\n", finfo->path);
             r = -4;
             goto done;
-        }
-        else
+        } else
             lseek(fd, size - 24, SEEK_CUR);
     }
 
@@ -463,6 +463,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     fprintf(stderr, "\ttrackno=%d\n", info.trackno);
 #endif
 
+    audio_info.container = _container;
+
     if (stream_type == STREAM_TYPE_AUDIO) {
         audio_info.id = finfo->id;
         audio_info.title = info.title;
@@ -471,23 +473,18 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.genre = info.genre;
         audio_info.trackno = info.trackno;
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
-    }
-    else {
+    } else {
         video_info.id = finfo->id;
         video_info.title = info.title;
         video_info.artist = info.artist;
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 
-  done:
-    if (info.title.str)
-        free(info.title.str);
-    if (info.artist.str)
-        free(info.artist.str);
-    if (info.album.str)
-        free(info.album.str);
-    if (info.genre.str)
-        free(info.genre.str);
+done:
+    free(info.title.str);
+    free(info.artist.str);
+    free(info.album.str);
+    free(info.genre.str);
 
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
     close(fd);
