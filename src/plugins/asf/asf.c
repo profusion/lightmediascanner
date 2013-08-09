@@ -107,6 +107,24 @@ struct stream {
     };
 };
 
+/* TODO: Add the gazillion of possible codecs -- possibly a task to gperf */
+static const struct {
+    uint16_t id;
+    struct lms_string_size name;
+} _codecs[] = {
+    { 0x0160, LMS_STATIC_STRING_SIZE("wmav1") },
+    { 0x0161, LMS_STATIC_STRING_SIZE("wmav2") },
+    { 0x0162, LMS_STATIC_STRING_SIZE("wmavpro") },
+    { 0x0163, LMS_STATIC_STRING_SIZE("wmavlossless") },
+    { 0x1600, LMS_STATIC_STRING_SIZE("aac") },
+    { 0x706d, LMS_STATIC_STRING_SIZE("aac") },
+    { 0x4143, LMS_STATIC_STRING_SIZE("aac") },
+    { 0xA106, LMS_STATIC_STRING_SIZE("aac") },
+    { 0xF1AC, LMS_STATIC_STRING_SIZE("flac") },
+    { 0x0055, LMS_STATIC_STRING_SIZE("mp3") },
+    { }
+};
+
 /* ASF GUIDs
  *
  * Microsoft defines these 16-byte (128-bit) GUIDs as:
@@ -239,6 +257,18 @@ _parse_file_properties(lms_charset_conv_t *cs_conv, int fd,
                                   - le64toh(props.preroll) / MSEC_PER_SEC);
 
     return r;
+}
+
+static struct lms_string_size
+_codec_id_to_str(uint16_t id)
+{
+    unsigned int i;
+
+    for (i = 0; _codecs[i].name.str != NULL; i++)
+        if (_codecs[i].id == id)
+            return _codecs[i].name;
+
+    return _codecs[i].name;
 }
 
 static int
@@ -559,6 +589,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.channels = streams->audio.channels;
         audio_info.bitrate = streams->audio.byterate * 8;
         audio_info.sampling_rate = streams->audio.sampling_rate;
+        audio_info.codec = _codec_id_to_str(streams->audio.codec_id);
 
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     } else {
