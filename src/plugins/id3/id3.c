@@ -518,8 +518,7 @@ _get_id3v2_artist(unsigned int index, const char *frame_data, unsigned int frame
 
         _get_id3v2_frame_info(frame_data, frame_size, &artist, cs_conv, 1);
         if (artist.str) {
-            if (info->artist.str)
-                free(info->artist.str);
+            free(info->artist.str);
             info->artist = artist;
             info->cur_artist_priority = artist_priorities[index];
         }
@@ -978,14 +977,10 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
     close(fd);
 
-    if (info.title.str)
-        free(info.title.str);
-    if (info.artist.str)
-        free(info.artist.str);
-    if (info.album.str)
-        free(info.album.str);
-    if (info.genre.str)
-        free(info.genre.str);
+    free(info.title.str);
+    free(info.artist.str);
+    free(info.album.str);
+    free(info.genre.str);
 
     return r;
 }

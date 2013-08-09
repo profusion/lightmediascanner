@@ -329,8 +329,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     info.id = finfo->id;
     r = lms_db_playlist_add(plugin->playlist_db, &info);
 
-    if (info.title.str)
-        free(info.title.str);
+    free(info.title.str);
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
     close(fd);
 

@@ -668,10 +668,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     r = lms_db_image_add(plugin->img_db, &info);
 
   done:
-    if (info.title.str)
-        free(info.title.str);
-    if (info.artist.str)
-        free(info.artist.str);
+    free(info.title.str);
+    free(info.artist.str);
 
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
     close(fd);

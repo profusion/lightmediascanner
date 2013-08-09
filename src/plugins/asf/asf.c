@@ -453,8 +453,7 @@ _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, 
         }
         else
             _skip_attribute_data(fd, 0, attr_type, attr_size);
-        if (attr_name)
-            free(attr_name);
+        free(attr_name);
     }
 }
 

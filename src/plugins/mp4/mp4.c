@@ -189,14 +189,10 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     MP4Close(mp4_fh);
 #endif
 
-    if (info.title.str)
-        free(info.title.str);
-    if (info.artist.str)
-        free(info.artist.str);
-    if (info.album.str)
-        free(info.album.str);
-    if (info.genre.str)
-        free(info.genre.str);
+    free(info.title.str);
+    free(info.artist.str);
+    free(info.album.str);
+    free(info.genre.str);
 
     return r;
 }

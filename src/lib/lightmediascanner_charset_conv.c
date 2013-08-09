@@ -128,10 +128,8 @@ lms_charset_conv_free(lms_charset_conv_t *lcc)
         free(lcc->names[i]);
     }
 
-    if (lcc->convs)
-        free(lcc->convs);
-    if (lcc->names)
-        free(lcc->names);
+    free(lcc->convs);
+    free(lcc->names);
     free(lcc);
 }
 

@@ -102,8 +102,7 @@ _parser_unload(struct parser *p)
         }
     }
 
-    if (p->so_path)
-        free(p->so_path);
+    free(p->so_path);
 
     return r;
 }
