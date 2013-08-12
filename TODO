@@ -20,3 +20,9 @@
    UTF-8, probably it's impossible to know due the broad range of
    possible values, but maybe there is a way to give hints for latin,
    asian, western european charsets?
+
+ * Check/benchmark buffered vs unbuffered IO and possibly use mmap.
+   There are lots of code in plugin issuing one read(2) syscall for
+   small things like 4 bytes. Setting a proper buffer size (e.g. setvbuf)
+   and reading all at onece would be better performance-wise. Another option
+   is to write the common code for handling sigbus and use mmap instead.
