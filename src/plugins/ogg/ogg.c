@@ -88,6 +88,8 @@ _get_vorbis_comment(FILE *file, vorbis_comment *vc)
 
     osync = lms_create_ogg_sync();
 
+    vorbis_comment_init(vc);
+
     while (1) {
         buffer = lms_get_ogg_sync_buffer(osync, CHUNKSIZE);
         bytes = fread(buffer, 1, CHUNKSIZE, file);
@@ -103,8 +105,6 @@ _get_vorbis_comment(FILE *file, vorbis_comment *vc)
 
     serial = ogg_page_serialno(&og);
     os = lms_create_ogg_stream(serial);
-
-    vorbis_comment_init(vc);
 
     if (ogg_stream_pagein(os, &og) < 0 ||
         ogg_stream_packetout(os, &header) != 1 ||
@@ -146,6 +146,8 @@ _get_vorbis_comment(FILE *file, vorbis_comment *vc)
 
 end:
     vorbis_info_clear(&vi);
+    if (ret)
+        vorbis_comment_clear(vc);
 
     if (os)
         lms_destroy_ogg_stream(os);
