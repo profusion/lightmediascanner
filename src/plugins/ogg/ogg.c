@@ -38,6 +38,9 @@
 
 #include "lms_ogg_private.h"
 
+static const struct lms_string_size _container = LMS_STATIC_STRING_SIZE("ogg");
+static const struct lms_string_size _codec = LMS_STATIC_STRING_SIZE("vorbis");
+
 static long int
 _id3_tag_size(FILE *file)
 {
@@ -63,7 +66,7 @@ _id3_tag_size(FILE *file)
 
 
 static int
-_get_vorbis_comment(FILE *file, vorbis_comment *vc)
+_get_vorbis_headers(FILE *file, vorbis_info *vi, vorbis_comment *vc)
 {
     lms_ogg_buffer_t buffer = NULL;
     int bytes = 0, i = 0, chunks = 0;
@@ -72,7 +75,6 @@ _get_vorbis_comment(FILE *file, vorbis_comment *vc)
     ogg_page og;
     ogg_sync_state *osync = NULL;
     ogg_stream_state *os = NULL;
-    vorbis_info vi;
 
     int serial = 0;
 #ifndef CHUNKSIZE
@@ -84,10 +86,10 @@ _get_vorbis_comment(FILE *file, vorbis_comment *vc)
     /* Initialize stuff */
     memset(&header, 0, sizeof(ogg_packet));
     memset(&og, 0, sizeof(ogg_page));
-    vorbis_info_init(&vi);
 
     osync = lms_create_ogg_sync();
 
+    vorbis_info_init(vi);
     vorbis_comment_init(vc);
 
     while (1) {
@@ -108,7 +110,7 @@ _get_vorbis_comment(FILE *file, vorbis_comment *vc)
 
     if (ogg_stream_pagein(os, &og) < 0 ||
         ogg_stream_packetout(os, &header) != 1 ||
-        vorbis_synthesis_headerin(&vi, vc, &header) != 0)
+        vorbis_synthesis_headerin(vi, vc, &header) != 0)
         goto end;
 
     i = 1;
@@ -127,7 +129,7 @@ _get_vorbis_comment(FILE *file, vorbis_comment *vc)
                     if (result == -1)
                         goto end;
 
-                    vorbis_synthesis_headerin(&vi, vc, &header);
+                    vorbis_synthesis_headerin(vi, vc, &header);
                     i++;
                 }
             }
@@ -145,9 +147,10 @@ _get_vorbis_comment(FILE *file, vorbis_comment *vc)
     ret = 0;
 
 end:
-    vorbis_info_clear(&vi);
-    if (ret)
+    if (ret) {
         vorbis_comment_clear(vc);
+        vorbis_info_clear(vi);
+    }
 
     if (os)
         lms_destroy_ogg_stream(os);
@@ -181,6 +184,7 @@ static int
 _parse_ogg(const char *filename, struct lms_audio_info *info)
 {
     vorbis_comment vc;
+    vorbis_info vi;
     FILE *file;
     const char *tag;
 
@@ -193,7 +197,7 @@ _parse_ogg(const char *filename, struct lms_audio_info *info)
 
     fseek(file, _id3_tag_size(file), SEEK_SET);
 
-    if (_get_vorbis_comment(file, &vc) != 0)
+    if (_get_vorbis_headers(file, &vi, &vc) != 0)
         return -1;
 
     tag = vorbis_comment_query(&vc, "TITLE", 0);
@@ -212,8 +216,16 @@ _parse_ogg(const char *filename, struct lms_audio_info *info)
     tag = vorbis_comment_query(&vc, "GENRE", 0);
     _set_lms_info(&info->genre, tag);
 
+    info->container = _container;
+    info->codec = _codec;
+
+    info->channels = vi.channels;
+    info->sampling_rate = vi.rate;
+    info->bitrate = vi.bitrate_nominal;
+
     fclose(file);
     vorbis_comment_clear(&vc);
+    vorbis_info_clear(&vi);
 
     return 0;
 }
