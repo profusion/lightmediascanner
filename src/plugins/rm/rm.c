@@ -29,12 +29,15 @@
 #endif
 
 #define _XOPEN_SOURCE 600
+#define _BSD_SOURCE
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <endian.h>
 #include <fcntl.h>
-#include <stdint.h>
+#include <stdbool.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,6 +58,9 @@ enum StreamTypes {
 struct rm_info {
     struct lms_string_size title;
     struct lms_string_size artist;
+
+    uint32_t bitrate;
+    uint32_t length; /* msec */
 };
 
 struct rm_file_header {
@@ -213,6 +219,38 @@ _parse_cont_header(int fd, struct rm_info *info)
     return lseek(fd, 0, SEEK_CUR) - pos1;
 }
 
+static int
+_parse_prop_header(int fd, struct rm_info *info)
+{
+    uint16_t object_version;
+    struct {
+        uint32_t max_bit_rate;
+        uint32_t avg_bit_rate;
+        uint32_t max_packet_size;
+        uint32_t avg_packet_size;
+        uint32_t num_packets;
+        uint32_t duration;
+        uint32_t preroll;
+        uint32_t index_offset;
+        uint32_t data_offset;
+        uint16_t num_streams;
+        uint16_t flags;
+    } __attribute__((packed, aligned)) hdr;
+
+    if (read(fd, &object_version, sizeof(object_version))
+        != sizeof(object_version)
+        || object_version != 0)
+        return -1;
+
+    if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr))
+        return -1;
+
+    info->bitrate = be32toh(hdr.avg_bit_rate);
+    info->length = be32toh(hdr.duration);
+
+    return sizeof(object_version) + sizeof(hdr);
+}
+
 static void *
 _match(struct plugin *p, const char *path, int len, int base)
 {
@@ -235,6 +273,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     struct rm_file_header file_header;
     char type[4];
     uint32_t size;
+    bool has_cont = false, has_prop = false;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -253,19 +292,26 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             goto done;
         }
 
+        /* Give up, already reached DATA section */
         if (memcmp(type, "DATA", 4) == 0)
             break;
-        else if (memcmp(type, "CONT", 4) == 0) {
+
+        if (memcmp(type, "CONT", 4) == 0) {
             r = _parse_cont_header(fd, &info);
             if (r < 0)
                 goto done;
             lseek(fd, size - 8 - r, SEEK_CUR);
-            break;
-        }
-
-        /* Ignore other headers */
-        lseek(fd, size - 8, SEEK_CUR);
-    } while (1);
+            has_cont = true;
+        } else if (memcmp(type, "PROP", 4) == 0) {
+            r = _parse_prop_header(fd, &info);
+            if (r < 0)
+                goto done;
+            lseek(fd, size - 8 - r, SEEK_CUR);
+            has_prop = true;
+        } else
+            /* Ignore other headers */
+            lseek(fd, size - 8, SEEK_CUR);
+    } while (!has_cont && !has_prop);
 
     /* try to define stream type by extension */
     if (stream_type == STREAM_TYPE_UNKNOWN) {
