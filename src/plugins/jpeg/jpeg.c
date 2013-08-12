@@ -351,7 +351,7 @@ static unsigned int
 _exif_datetime_get(int fd, int offset)
 {
     char buf[20];
-    struct tm tm = {0};
+    struct tm tm = { };
 
     if (lseek(fd, offset, SEEK_SET) == -1) {
         perror("lseek");
@@ -611,7 +611,7 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct lms_image_info info = {0};
+    struct lms_image_info info = { };
     int fd, type, len, r;
 
     fd = open(finfo->path, O_RDONLY);

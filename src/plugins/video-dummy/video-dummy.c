@@ -76,7 +76,7 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct lms_video_info info = {0};
+    struct lms_video_info info = { };
     int r;
     long ext_idx;
 

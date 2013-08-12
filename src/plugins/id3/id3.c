@@ -514,7 +514,7 @@ _get_id3v2_artist(unsigned int index, const char *frame_data, unsigned int frame
         return 1;
 
     if (artist_priorities[index] > info->cur_artist_priority) {
-        struct lms_string_size artist = {0};
+        struct lms_string_size artist = { };
 
         _get_id3v2_frame_info(frame_data, frame_size, &artist, cs_conv, 1);
         if (artist.str) {
@@ -561,7 +561,7 @@ static void
 _get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_string_size *out, lms_charset_conv_t *cs_conv)
 {
     unsigned int i, is_number;
-    struct lms_string_size genre = {0};
+    struct lms_string_size genre = { };
 
     _get_id3v2_frame_info(frame_data, frame_size, &genre, cs_conv, 1);
     if (!genre.str)
@@ -627,7 +627,7 @@ _get_id3v2_genre(const char *frame_data, unsigned int frame_size, struct lms_str
 static void
 _get_id3v2_trackno(const char *frame_data, unsigned int frame_size, struct id3_info *info, lms_charset_conv_t *cs_conv)
 {
-    struct lms_string_size trackno = {0};
+    struct lms_string_size trackno = { };
 
     _get_id3v2_frame_info(frame_data, frame_size, &trackno, cs_conv, 0);
     if (!trackno.str)

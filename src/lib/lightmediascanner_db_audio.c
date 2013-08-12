@@ -37,7 +37,7 @@ struct lms_db_audio {
     unsigned int _is_started:1;
 };
 
-static struct lms_db_cache _cache = {0, NULL};
+static struct lms_db_cache _cache = { };
 
 static int
 _db_create(sqlite3 *db, const char *name, const char *sql)

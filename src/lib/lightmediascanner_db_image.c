@@ -32,7 +32,7 @@ struct lms_db_image {
     unsigned int _is_started:1;
 };
 
-static struct lms_db_cache _cache = {0, NULL};
+static struct lms_db_cache _cache = { };
 
 static int
 _db_table_updater_images_0(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run) {
