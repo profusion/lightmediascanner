@@ -95,6 +95,9 @@ static const char *_authors[] = {
  * word  chunk version
  * dword file version
  * dword number of headers
+ *
+ * Old RealAudio files (up to version 5) are not supported - they have the
+ * .ra\xfd
  */
 static int
 _parse_file_header(int fd, struct rm_file_header *file_header)
@@ -191,18 +194,23 @@ _read_string(int fd, char **out, unsigned int *out_len)
  * word    Comment string length
  * byte[]  Comment string
  */
-static void
+static long
 _parse_cont_header(int fd, struct rm_info *info)
 {
+    long pos1;
     /* Ps.: type and size were already read */
 
     /* ignore version */
-    lseek(fd, 2, SEEK_CUR);
+    pos1 = lseek(fd, 2, SEEK_CUR);
+    if (pos1 < 0)
+        return pos1;
 
     _read_string(fd, &info->title.str, &info->title.len);
     _read_string(fd, &info->artist.str, &info->artist.len);
     _read_string(fd, NULL, NULL); /* copyright */
     _read_string(fd, NULL, NULL); /* comment */
+
+    return lseek(fd, 0, SEEK_CUR) - pos1;
 }
 
 static void *
@@ -239,28 +247,25 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         goto done;
     }
 
-    if (_read_header_type_and_size(fd, type, &size) != 0) {
-        r = -3;
-        goto done;
-    }
-    while (memcmp(type, "DATA", 4) != 0) {
-        if (memcmp(type, "CONT", 4) == 0) {
-            _parse_cont_header(fd, &info);
-            break;
-        }
-        /* TODO check for mimetype
-        else if (memcmp(type, "MDPR", 4) == 0) {
-        }
-        */
-        /* ignore other headers */
-        else
-            lseek(fd, size - 8, SEEK_CUR);
-
+    do {
         if (_read_header_type_and_size(fd, type, &size) != 0) {
-            r = -4;
+            r = -3;
             goto done;
         }
-    }
+
+        if (memcmp(type, "DATA", 4) == 0)
+            break;
+        else if (memcmp(type, "CONT", 4) == 0) {
+            r = _parse_cont_header(fd, &info);
+            if (r < 0)
+                goto done;
+            lseek(fd, size - 8 - r, SEEK_CUR);
+            break;
+        }
+
+        /* Ignore other headers */
+        lseek(fd, size - 8, SEEK_CUR);
+    } while (1);
 
     /* try to define stream type by extension */
     if (stream_type == STREAM_TYPE_UNKNOWN) {
