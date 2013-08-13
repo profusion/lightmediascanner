@@ -26,7 +26,6 @@
  * Audio Dummy plugin, just register matched extensions in audios DB.
  */
 
-#define _XOPEN_SOURCE 600
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <stdlib.h>

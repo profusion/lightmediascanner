@@ -24,8 +24,6 @@
  * asf/wma file parser.
  */
 
-#define _XOPEN_SOURCE 600
-#define _BSD_SOURCE
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <endian.h>

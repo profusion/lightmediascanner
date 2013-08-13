@@ -29,7 +29,6 @@
  * @todo: check if worth using mmap().
  */
 
-#define _XOPEN_SOURCE 600
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_utils.h>
 #include <lightmediascanner_db.h>

@@ -26,7 +26,6 @@
  * Dummy plugin that stores all files in the database.
  */
 
-#define _XOPEN_SOURCE 600
 #include <lightmediascanner_plugin.h>
 #include <sys/types.h>
 #include <sys/stat.h>

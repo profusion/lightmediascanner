@@ -20,7 +20,6 @@
  * @author Gustavo Sverzut Barbieri <barbieri@profusion.mobi>
  */
 
-#define _GNU_SOURCE
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <unistd.h>

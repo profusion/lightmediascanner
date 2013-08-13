@@ -33,7 +33,6 @@
  * In theory this should not happen, so let's wait for bug reports.
  */
 
-#define _XOPEN_SOURCE 600
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <sys/types.h>

@@ -7,6 +7,7 @@ AC_ISC_POSIX
 
 AM_INIT_AUTOMAKE(foreign 1.11 silent-rules subdir-objects dist-bzip2)
 AM_CONFIG_HEADER(config.h)
+AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_MACRO_DIR([m4])
 _XTERM_COLORS
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])

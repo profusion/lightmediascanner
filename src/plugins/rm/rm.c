@@ -24,8 +24,6 @@
  * real media file parser.
  */
 
-#define _XOPEN_SOURCE 600
-#define _BSD_SOURCE
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <sys/types.h>

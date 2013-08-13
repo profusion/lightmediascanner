@@ -25,8 +25,6 @@
  * wave file parser.
  */
 
-#define _GNU_SOURCE
-#define _XOPEN_SOURCE 600
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <lightmediascanner_charset_conv.h>
