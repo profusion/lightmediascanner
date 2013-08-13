@@ -58,9 +58,13 @@ enum StreamTypes {
 struct rm_info {
     struct lms_string_size title;
     struct lms_string_size artist;
+    struct lms_string_size codec;
 
     uint32_t bitrate;
     uint32_t length; /* msec */
+
+    uint16_t sampling_rate;
+    uint16_t channels;
 };
 
 struct rm_file_header {
@@ -219,6 +223,138 @@ _parse_cont_header(int fd, struct rm_info *info)
     return lseek(fd, 0, SEEK_CUR) - pos1;
 }
 
+static struct lms_string_size
+_ra_codec_to_str(uint8_t fourcc[4])
+{
+    struct {
+        char fourcc[4];
+        struct lms_string_size str;
+    } *iter, _codecs[] = {
+        { "RV10", LMS_STATIC_STRING_SIZE("rv10") },
+        { "RV20", LMS_STATIC_STRING_SIZE("rv20") },
+        { "RV20", LMS_STATIC_STRING_SIZE("rv20") },
+        { "RVTR", LMS_STATIC_STRING_SIZE("rv20") },
+        { "RV20", LMS_STATIC_STRING_SIZE("rv20") },
+        { "RV30", LMS_STATIC_STRING_SIZE("rv30") },
+        { "RV40", LMS_STATIC_STRING_SIZE("rv40") },
+        { "dnet", LMS_STATIC_STRING_SIZE("ac3") },
+        { "lpcj", LMS_STATIC_STRING_SIZE("rm_144") },
+        { "28_8", LMS_STATIC_STRING_SIZE("rm_288") },
+        { "cook", LMS_STATIC_STRING_SIZE("cook") },
+        { "atrc", LMS_STATIC_STRING_SIZE("atrac3") },
+        { "atrc", LMS_STATIC_STRING_SIZE("atrac3") },
+        { "sipr", LMS_STATIC_STRING_SIZE("sipr") },
+        { "raac", LMS_STATIC_STRING_SIZE("aac") },
+        { "racp", LMS_STATIC_STRING_SIZE("aac") },
+        { "LSD:", LMS_STATIC_STRING_SIZE("ralf") },
+        { }
+    };
+
+    for (iter = _codecs; iter->str.str; iter++)
+        if (memcmp(fourcc, iter->fourcc, 4) == 0)
+            break;
+
+    return iter->str;
+}
+
+static bool
+_parse_mdpr_codec_header(int fd, struct rm_info *info)
+{
+    uint32_t size;
+    uint8_t fourcc[4];
+    uint16_t version;
+    long skipbytes;
+
+    if (read(fd, &size, sizeof(size)) != sizeof(size)
+        || read(fd, fourcc, sizeof(fourcc)) != sizeof(fourcc))
+        return false;
+
+    if (memcmp(fourcc, ".ra\xfd", 4) != 0)
+        return false;
+
+    if (read(fd, &version, sizeof(version)) != sizeof(version))
+        return false;
+    version = be16toh(version);
+
+    if (version == 3) {
+        info->codec = LMS_STATIC_STRING_SIZE("rm_144");
+        info->sampling_rate = 8000;
+        info->channels = 1;
+        return true;
+    }
+    if (version == 4)
+        skipbytes = 42;
+    else if (version == 5)
+        skipbytes = 48;
+    else
+        return false;
+
+    if (lseek(fd, skipbytes, SEEK_CUR) < 0
+        && read(fd, &info->sampling_rate, 2) != 2)
+        return false;
+
+    info->sampling_rate = be16toh(info->sampling_rate);
+
+    if (lseek(fd, 4, SEEK_CUR) < 0
+        || read(fd, &info->channels, 2) != 2)
+        return true;
+
+    info->channels = be16toh(info->channels);
+
+    if (version == 4)
+        skipbytes = 9;
+    else
+        skipbytes = 4;
+
+    if (read(fd, fourcc, 4) != 4)
+        return true;
+
+    info->codec = _ra_codec_to_str(fourcc);
+    return true;
+}
+
+static int
+_parse_mdpr_header(int fd, struct rm_info *info, bool *has_mdpr)
+{
+    uint16_t object_version;
+    uint8_t slen;
+    char buf[32];
+    long pos1;
+
+    pos1 = lseek(fd, 0, SEEK_CUR);
+
+    if (read(fd, &object_version, sizeof(object_version)) !=
+        sizeof(object_version))
+        return -1;
+
+    if (object_version != 0)
+        return sizeof(object_version);
+
+    lseek(fd, 7 * sizeof(uint32_t), SEEK_CUR);
+
+    /* stream description string: ignore */
+    if (read(fd, &slen, sizeof(slen)) != sizeof(slen))
+        return -1;
+    lseek(fd, slen, SEEK_CUR);
+
+    /* mime type string */
+    if (read(fd, &slen, sizeof(slen)) != sizeof(slen)
+        || slen > 32
+        || read(fd, buf, slen) != slen)
+        goto done;
+
+    buf[slen] = '\0';
+
+    if (strcmp(buf, "audio/x-pn-realaudio") != 0 &&
+        strcmp(buf, "audio/x-pn-multirate-realaudio") != 0)
+        goto done;
+
+    *has_mdpr = _parse_mdpr_codec_header(fd, info);
+
+done:
+    return lseek(fd, 0, SEEK_CUR) - pos1;
+}
+
 static int
 _parse_prop_header(int fd, struct rm_info *info)
 {
@@ -273,7 +409,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     struct rm_file_header file_header;
     char type[4];
     uint32_t size;
-    bool has_cont = false, has_prop = false;
+    bool has_cont = false, has_prop = false, has_mdpr = false;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -308,10 +444,15 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
                 goto done;
             lseek(fd, size - 8 - r, SEEK_CUR);
             has_prop = true;
+        } else if (memcmp(type, "MDPR", 4)) {
+            r = _parse_mdpr_header(fd, &info, &has_mdpr);
+            if (r < 0)
+                goto done;
+            lseek(fd, size - 8 - r, SEEK_CUR);
         } else
             /* Ignore other headers */
             lseek(fd, size - 8, SEEK_CUR);
-    } while (!has_cont && !has_prop);
+    } while (!has_cont && !has_prop && !has_mdpr);
 
     /* try to define stream type by extension */
     if (stream_type == STREAM_TYPE_UNKNOWN) {
