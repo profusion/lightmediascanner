@@ -114,6 +114,7 @@ AC_LMS_OPTIONAL_MODULE([rm], true)
 AC_LMS_OPTIONAL_MODULE([mp4], true, [CHECK_MODULE_MP4])
 AC_LMS_OPTIONAL_MODULE([id3], true)
 AC_LMS_OPTIONAL_MODULE([flac], true, [CHECK_MODULE_FLAC])
+AC_LMS_OPTIONAL_MODULE([wave], true)
 
 
 #####################################################################

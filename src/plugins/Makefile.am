@@ -107,4 +107,10 @@ flac_flac_la_SOURCES = flac/flac.c
 flac_flac_la_LIBADD = $(PLUGINS_LIBADD) $(FLAC_LIBS)
 endif
 
+if USE_MODULE_WAVE
+pkg_LTLIBRARIES += wave/wave.la
+wave_wave_la_SOURCES = wave/wave.c
+wave_wave_la_LIBADD = $(PLUGINS_LIBADD) $(FLAC_LIBS)
+endif
+
 CLEAN_FILES = $(BUILT_SOURCES)
