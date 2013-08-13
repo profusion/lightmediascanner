@@ -27,10 +27,6 @@
  * id3 file parser.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #define _GNU_SOURCE
 #define _XOPEN_SOURCE 600
 #include <lightmediascanner_plugin.h>

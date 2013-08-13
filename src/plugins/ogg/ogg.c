@@ -26,10 +26,6 @@
  * ogg file parser.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <lightmediascanner_utils.h>

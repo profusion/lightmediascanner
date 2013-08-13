@@ -27,10 +27,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #define _XOPEN_SOURCE 600
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_utils.h>

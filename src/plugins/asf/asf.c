@@ -24,10 +24,6 @@
  * asf/wma file parser.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #define _XOPEN_SOURCE 600
 #define _BSD_SOURCE
 #include <lightmediascanner_plugin.h>

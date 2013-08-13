@@ -1,6 +1,7 @@
 MAINTAINERCLEANFILES = Makefile.in
 
 AM_CPPFLAGS = \
+	-include $(top_builddir)/config.h \
 	-I$(top_srcdir)/src/lib \
 	@SQLITE3_CFLAGS@
 

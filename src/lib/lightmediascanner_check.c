@@ -20,10 +20,6 @@
  * @author Gustavo Sverzut Barbieri <barbieri@profusion.mobi>
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #define _GNU_SOURCE
 #include <sys/wait.h>
 #include <sys/stat.h>

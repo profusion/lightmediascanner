@@ -19,10 +19,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <tremor/ogg.h>
 
 #include "lms_ogg_private.h"

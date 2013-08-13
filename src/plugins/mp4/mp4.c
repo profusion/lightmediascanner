@@ -24,10 +24,6 @@
  * mp4 file parser.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 static const char PV[] = PACKAGE_VERSION; /* mp4.h screws PACKAGE_VERSION */
 
 #include <lightmediascanner_plugin.h>
