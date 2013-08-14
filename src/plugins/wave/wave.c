@@ -36,17 +36,17 @@
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <lightmediascanner_charset_conv.h>
+#include <shared/util.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <shared/util.h>
 
 static const char _name[] = "wave";
 static const struct lms_string_size _exts[] = {
@@ -225,14 +225,11 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
     /* Ignore errors, waves likely don't have any additional information */
     _parse_info(fd, &info);
 
-    if (!info.title.str) {
-        long ext_idx = ((long)match) - 1;
-        info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
-        info.title.str = malloc((info.title.len + 1) * sizeof(char));
-        memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
-        info.title.str[info.title.len] = '\0';
-        lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
-    }
+    if (!info.title.str)
+        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
+                                                finfo->base,
+                                                &_exts[((long) match) - 1],
+                                                ctxt->cs_conv);
 
     info.id = finfo->id;
     r = lms_db_audio_add(plugin->audio_db, &info);

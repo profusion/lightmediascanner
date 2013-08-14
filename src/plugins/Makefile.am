@@ -6,7 +6,8 @@ AM_CPPFLAGS = -include $(top_builddir)/config.h \
 		-I$(top_srcdir)/src/lib @SQLITE3_CFLAGS@
 pkgdir = $(pluginsdir)
 
-PLUGINS_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la
+PLUGINS_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la \
+		 $(top_builddir)/src/lib/shared/libshared.la
 
 pkg_LTLIBRARIES =
 BUILT_SOURCES =

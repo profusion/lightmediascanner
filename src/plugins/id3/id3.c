@@ -30,6 +30,8 @@
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <lightmediascanner_charset_conv.h>
+#include <shared/util.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -934,15 +936,11 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         }
     }
 
-    if (!info.title.str) {
-        long ext_idx;
-        ext_idx = ((long)match) - 1;
-        info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
-        info.title.str = malloc((info.title.len + 1) * sizeof(char));
-        memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
-        info.title.str[info.title.len] = '\0';
-        lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
-    }
+    if (!info.title.str)
+        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
+                                                finfo->base,
+                                                &_exts[((long) match) - 1],
+                                                ctxt->cs_conv);
 
     if (info.trackno == -1)
         info.trackno = 0;
