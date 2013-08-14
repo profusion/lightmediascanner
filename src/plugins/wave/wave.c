@@ -23,6 +23,14 @@
  * @brief
  *
  * wave file parser.
+ *
+ * References:
+ *   Format specification:
+ *     http://www-mmsp.ece.mcgill.ca/documents/AudioFormats/WAVE/WAVE.html
+ *     http://www.sonicspot.com/guide/wavefiles.html
+ *   INFO tags:
+ *     http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/RIFF.html#Info
+ *     http://www.aelius.com/njh/wavemetatools/bsiwave_tag_map.html
  */
 
 #include <lightmediascanner_plugin.h>
@@ -73,6 +81,82 @@ _match(struct plugin *p, const char *path, int len, int base)
 }
 
 static int
+_parse_info(int fd, struct lms_audio_info *info)
+{
+    struct hdr {
+        uint8_t id[4];
+        uint32_t size;
+        uint8_t infoid[4];
+    } __attribute__((packed)) hdr;
+    long maxsize = 0;
+
+    /* Search the LIST INFO chunk */
+    do {
+        uint32_t size;
+
+        if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr))
+            goto done;
+
+        size = get_le32(&hdr.size) - sizeof(hdr.infoid);
+
+        if (memcmp(hdr.id, "LIST", 4) == 0
+            && memcmp(hdr.infoid, "INFO", 4) == 0) {
+            maxsize = size;
+            break;
+        } else if ((size & 0x1) && memcmp(hdr.id, "data", 4) == 0)
+            /* 'data' chunk has a 1-byte padding if size is odd */
+            size++;
+
+        lseek(fd, size, SEEK_CUR);
+    } while (1);
+
+    while (maxsize > 8) {
+        uint8_t chunkid[4];
+        uint32_t size;
+        struct lms_string_size *str;
+
+        if (read(fd, chunkid, sizeof(chunkid)) != sizeof(chunkid)
+            || read(fd, &size, sizeof(size)) != sizeof(size))
+            break;
+
+        size = le32toh(size);
+
+        if (memcmp(chunkid, "INAM", 4) == 0)
+            str = &info->title;
+        else if (memcmp(chunkid, "IART", 4) == 0)
+            str = &info->artist;
+        else if (memcmp(chunkid, "IPRD", 4) == 0)
+            str = &info->album;
+        else if (memcmp(chunkid, "IGNR", 4) == 0)
+            str = &info->genre;
+        else {
+            lseek(fd, size, SEEK_CUR);
+            maxsize -= size;
+            goto next_field;
+        }
+
+        str->str = malloc(size + 1);
+        read(fd, str->str, size);
+        str->str[size] = '\0';
+        str->len = size;
+
+    next_field:
+        /* Ignore trailing '\0', even if they are not part of the previous
+         * size */
+        while (maxsize > 0 && read(fd, chunkid, 1) == 1) {
+            if (chunkid[0] != '\0') {
+                lseek(fd, -1, SEEK_CUR);
+                break;
+            }
+            maxsize--;
+        }
+    }
+
+done:
+    return 0;
+}
+
+static int
 _parse_fmt(int fd, struct lms_audio_info *info)
 {
     struct fmt {
@@ -85,6 +169,7 @@ _parse_fmt(int fd, struct lms_audio_info *info)
         uint16_t block_align;
         uint16_t bps;
     } __attribute__((packed)) fmt;
+    long remain;
 
     if (read(fd, &fmt, sizeof(fmt)) != sizeof(fmt)
         || memcmp(fmt.fmt, "fmt ", 4) != 0)
@@ -93,6 +178,11 @@ _parse_fmt(int fd, struct lms_audio_info *info)
     info->channels = get_le16(&fmt.n_channels);
     info->bitrate = get_le32(&fmt.byte_rate) * 8;
     info->sampling_rate = get_le32(&fmt.sample_rate);
+
+    remain = get_le32(&fmt.size) - sizeof(fmt) +
+        offsetof(struct fmt, audio_format);
+    if (remain > 0)
+        lseek(fd, remain, SEEK_CUR);
 
     return 0;
 }
@@ -132,6 +222,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
     if (r < 0)
         goto done;
 
+    /* Ignore errors, waves likely don't have any additional information */
+    _parse_info(fd, &info);
+
     if (!info.title.str) {
         long ext_idx = ((long)match) - 1;
         info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
@@ -149,6 +242,9 @@ done:
     close(fd);
 
     free(info.title.str);
+    free(info.artist.str);
+    free(info.album.str);
+    free(info.genre.str);
 
     return r;
 }
