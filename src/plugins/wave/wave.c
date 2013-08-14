@@ -28,9 +28,17 @@
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <lightmediascanner_charset_conv.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+
+#include <shared/util.h>
 
 static const char _name[] = "wave";
 static const struct lms_string_size _exts[] = {
@@ -45,6 +53,7 @@ static const char *_authors[] = {
     "Lucas De Marchi",
     NULL
 };
+static const struct lms_string_size _container = LMS_STATIC_STRING_SIZE("wave");
 
 struct plugin {
     struct lms_plugin plugin;
@@ -64,22 +73,80 @@ _match(struct plugin *p, const char *path, int len, int base)
 }
 
 static int
+_parse_fmt(int fd, struct lms_audio_info *info)
+{
+    struct fmt {
+        uint8_t fmt[4];
+        uint32_t size;
+        uint16_t audio_format;
+        uint16_t n_channels;
+        uint32_t sample_rate;
+        uint32_t byte_rate;
+        uint16_t block_align;
+        uint16_t bps;
+    } __attribute__((packed)) fmt;
+
+    if (read(fd, &fmt, sizeof(fmt)) != sizeof(fmt)
+        || memcmp(fmt.fmt, "fmt ", 4) != 0)
+        return -1;
+
+    info->channels = get_le16(&fmt.n_channels);
+    info->bitrate = get_le32(&fmt.byte_rate) * 8;
+    info->sampling_rate = get_le32(&fmt.sample_rate);
+
+    return 0;
+}
+
+static int
+_parse_wave(int fd, struct lms_audio_info *info)
+{
+    struct hdr {
+        uint8_t riff[4];
+        uint32_t size;
+        uint8_t wave[4];
+    } __attribute__((packed)) hdr;
+
+    if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr)
+        || memcmp(hdr.riff, "RIFF", 4) != 0
+        || memcmp(hdr.wave, "WAVE", 4) != 0
+        || _parse_fmt(fd, info) < 0)
+        return -1;
+
+    info->container = _container;
+
+    return 0;
+}
+
+static int
 _parse(struct plugin *plugin, struct lms_context *ctxt,
        const struct lms_file_info *finfo, void *match)
 {
     struct lms_audio_info info = { };
-    int r;
-    long ext_idx;
+    int r, fd;
 
-    ext_idx = ((long)match) - 1;
-    info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
-    info.title.str = malloc((info.title.len + 1) * sizeof(char));
-    memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
-    info.title.str[info.title.len] = '\0';
-    lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
+    fd = open(finfo->path, O_RDONLY);
+    if (fd < 0)
+        return -errno;
+
+    r = _parse_wave(fd, &info);
+    if (r < 0)
+        goto done;
+
+    if (!info.title.str) {
+        long ext_idx = ((long)match) - 1;
+        info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
+        info.title.str = malloc((info.title.len + 1) * sizeof(char));
+        memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
+        info.title.str[info.title.len] = '\0';
+        lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
+    }
 
     info.id = finfo->id;
     r = lms_db_audio_add(plugin->audio_db, &info);
+
+done:
+    posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+    close(fd);
 
     free(info.title.str);
 
