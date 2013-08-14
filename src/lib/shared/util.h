@@ -24,6 +24,9 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+#include <lightmediascanner_utils.h>
+#include <lightmediascanner_charset_conv.h>
+
 #define get_unaligned(ptr)			\
     ({						\
 	struct __attribute__((packed)) {	\
@@ -78,3 +81,8 @@ static inline uint16_t get_be16(const void *ptr)
 #else
 #error "Unknown byte order"
 #endif
+
+
+struct lms_string_size str_extract_name_from_path(
+    const char *path, unsigned int pathlen, unsigned int baselen,
+    const struct lms_string_size *ext, struct lms_charset_conv *cs_conv);
