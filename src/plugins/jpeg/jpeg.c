@@ -196,14 +196,8 @@ _jpeg_data_get(int fd, int *type, int *len)
     return 0;
 }
 
-#define LE_4BYTE(a) ((a)[0] | ((a)[1] << 8) | ((a)[2] << 16) | ((a)[3] << 24))
-#define BE_4BYTE(a) (((a)[0] << 24) | ((a)[1] << 16) | ((a)[2] << 8) | (a)[3])
-
-#define LE_2BYTE(a) ((a)[0] | ((a)[1] << 8))
-#define BE_2BYTE(a) (((a)[0] << 8) | (a)[1])
-
-#define E_2BTYE(little_endian, a) ((little_endian) ? LE_2BYTE(a) : BE_2BYTE(a))
-#define E_4BTYE(little_endian, a) ((little_endian) ? LE_4BYTE(a) : BE_4BYTE(a))
+#define E_2BTYE(little_endian, a) ((little_endian) ? get_le16(a) : get_be16(a))
+#define E_4BTYE(little_endian, a) ((little_endian) ? get_le32(a) : get_be32(a))
 
 enum {
     EXIF_TYPE_BYTE = 1, /* 8 bit unsigned */
@@ -249,15 +243,15 @@ _exif_ifd_get(int fd, int little_endian, struct exif_ifd *ifd)
     }
 
     if (little_endian) {
-        ifd->tag = LE_2BYTE(buf);
-        ifd->type = LE_2BYTE(buf + 2);
-        ifd->count = LE_4BYTE(buf + 4);
-        ifd->offset = LE_4BYTE(buf + 8);
+        ifd->tag = get_le16(buf);
+        ifd->type = get_le16(buf + 2);
+        ifd->count = get_le32(buf + 4);
+        ifd->offset = get_le32(buf + 8);
     } else {
-        ifd->tag = BE_2BYTE(buf);
-        ifd->type = BE_2BYTE(buf + 2);
-        ifd->count = BE_4BYTE(buf + 4);
-        ifd->offset = BE_4BYTE(buf + 8);
+        ifd->tag = get_be16(buf);
+        ifd->type = get_be16(buf + 2);
+        ifd->count = get_be32(buf + 4);
+        ifd->offset = get_be32(buf + 8);
     }
     return 0;
 }
@@ -502,10 +496,10 @@ _exif_data_get(int fd, int len, struct lms_image_info *info)
 
     if (buf[0] == 'I' && buf[1] == 'I') {
         little_endian = 1;
-        offset = LE_4BYTE(buf + 4);
+        offset = get_le32(buf + 4);
     } else if (buf[0] == 'M' && buf[1] == 'M') {
         little_endian = 0;
-        offset = BE_4BYTE(buf + 4);
+        offset = get_be32(buf + 4);
     } else {
         fprintf(stderr, "ERROR: undefined byte sex \"%2.2s\".\n", buf);
         return -5;

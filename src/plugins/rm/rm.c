@@ -39,12 +39,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define BE_4BYTE(a) ((((unsigned char*)a)[0] << 24) |                   \
-                     (((unsigned char*)a)[1] << 16) |                   \
-                     (((unsigned char*)a)[2] << 8) |                    \
-                     ((unsigned char*)a)[3])
-#define BE_2BYTE(a) ((((unsigned char*)a)[0] << 8) | ((unsigned char*)a)[1])
-
 enum StreamTypes {
     STREAM_TYPE_UNKNOWN = 0,
     STREAM_TYPE_AUDIO,
@@ -119,8 +113,7 @@ _parse_file_header(int fd, struct rm_file_header *file_header)
         return -1;
     }
 
-    /* convert to host byte order */
-    file_header->size = BE_4BYTE(&file_header->size);
+    file_header->size = be32toh(file_header->size);
 
 #if 0
     fprintf(stderr, "file_header type=%.*s\n", 4, file_header->type);
@@ -147,7 +140,7 @@ _read_header_type_and_size(int fd, char *type, uint32_t *size)
     if (read(fd, size, 4) != 4)
         return -1;
 
-    *size = BE_4BYTE(size);
+    *size = be32toh(*size);
 
 #if 0
     fprintf(stderr, "header type=%.*s\n", 4, type);
@@ -166,7 +159,7 @@ _read_string(int fd, char **out, unsigned int *out_len)
     if (read(fd, &len, 2) == -1)
         return -1;
 
-    len = BE_2BYTE(&len);
+    len = be16toh(len);
 
     if (out) {
         if (len > 0) {
