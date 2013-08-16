@@ -21,6 +21,9 @@
 /**
  * @brief
  *
+ * References:
+ *   http://wiki.multimedia.cx/index.php?title=RealMedia
+ *
  * real media file parser.
  */
 
