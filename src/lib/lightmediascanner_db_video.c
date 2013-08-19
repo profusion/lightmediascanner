@@ -101,9 +101,133 @@ _db_table_updater_videos_1(sqlite3 *db, const char *table, unsigned int current_
     return ret;
 }
 
+static int
+_db_table_updater_videos_2(sqlite3 *db, const char *table,
+                           unsigned int current_version, int is_last_run)
+{
+    char *errmsg = NULL;
+    int r;
+
+    /* Video streams */
+    r = sqlite3_exec(db,
+                     "CREATE TABLE IF NOT EXISTS videos_videos ("
+                     "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                     "video_id INTEGER, "
+                     "stream_id INTEGER, "
+                     "codec TEXT, "
+                     "lang TEXT, "
+                     "aspect_ratio TEXT, "
+                     "bitrate INTEGER, "
+                     "framerate REAL, "
+                     "interlaced INTEGER, "
+                     "width INTEGER, "
+                     "height INTEGER)",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create table videos_videos\n");
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    r = sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS videos_videos_video_idx "
+                     "ON videos_videos (video_id)", NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr,
+                "ERROR: could not create 'videos_videos_video_idx' index: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    /* Audio streams */
+    r = sqlite3_exec(db,
+                     "CREATE TABLE IF NOT EXISTS videos_audios ("
+                     "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                     "video_id INTEGER, "
+                     "stream_id INTEGER, "
+                     "codec TEXT, "
+                     "lang TEXT, "
+                     "channels INTEGER, "
+                     "bitrate INTEGER)",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create table videos_audios\n");
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    r = sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS videos_audios_video_idx "
+                     "ON videos_audios (video_id) ", NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr,
+                "ERROR: could not create 'videos_audios_video_idx' index: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    /* Subtitle streams */
+    r = sqlite3_exec(db,
+                     "CREATE TABLE IF NOT EXISTS videos_subtitles ("
+                     "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                     "video_id INTEGER, "
+                     "stream_id INTEGER, "
+                     "codec TEXT, "
+                     "lang TEXT)",
+                     NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could not create table videos_subtitles\n");
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    r = sqlite3_exec(db,
+                     "CREATE INDEX IF NOT EXISTS videos_subtitles_video_idx "
+                     "ON videos_subtitles (video_id) ", NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr,
+                "ERROR: could not create 'videos_subtitles_video_idx' index: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    /* Create triggers: one for each sub-relation table, deleting the video from
+     * the videos table and one to delete the sub-relation rows in case the
+     * video is deleted. */
+
+    if (lms_db_create_trigger_if_not_exists(
+            db, "delete_video_on_audio_stream_deleted "
+            "DELETE ON videos_audios FOR EACH ROW BEGIN "
+            " DELETE FROM videos WHERE id = OLD.video_id; END;") != 0 ||
+        lms_db_create_trigger_if_not_exists(
+            db, "delete_video_on_video_stream_deleted "
+            "DELETE ON videos_videos FOR EACH ROW BEGIN "
+            " DELETE FROM videos WHERE id = OLD.video_id; END;") != 0 ||
+        lms_db_create_trigger_if_not_exists(
+            db, "delete_video_on_subtitle_stream_deleted "
+            "DELETE ON videos_subtitles FOR EACH ROW BEGIN "
+            " DELETE FROM videos WHERE id = OLD.video_id; END;") != 0) {
+        fprintf(stderr ,"ERROR: could not create delete trigger\n");
+        return -1;
+    }
+
+    if (lms_db_create_trigger_if_not_exists(
+            db, "delete_streams_on_video_deleted "
+            "DELETE ON videos FOR EACH ROW BEGIN "
+            " DELETE FROM videos_videos WHERE video_id = OLD.id; "
+            " DELETE FROM videos_audios WHERE video_id = OLD.id; "
+            " DELETE FROM videos_subtitles WHERE video_id = OLD.id; "
+            "END;") != 0)
+        return -1;
+
+    return 0;
+}
+
 static lms_db_table_updater_t _db_table_updater_videos[] = {
     _db_table_updater_videos_0,
-    _db_table_updater_videos_1
+    _db_table_updater_videos_1,
+    _db_table_updater_videos_2,
 };
 
 
