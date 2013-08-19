@@ -407,14 +407,14 @@ show(lms_t *lms, const char *orig_path)
 
     while ((r = sqlite3_step(stmt)) == SQLITE_ROW) {
         uint64_t id;
-        const char *path;
+        const char *p;
         size_t size;
 
         id = sqlite3_column_int64(stmt, 0);
-        path = sqlite3_column_blob(stmt, 1);
+        p = sqlite3_column_blob(stmt, 1);
         size = sqlite3_column_int(stmt, 2);
 
-        printf("%" PRIu64 " \"%s\" %zd\n", id, path, size);
+        printf("%" PRIu64 " \"%s\" %zd\n", id, p, size);
     }
     printf("END: all files starting with directory '%s'\n", path);
 
