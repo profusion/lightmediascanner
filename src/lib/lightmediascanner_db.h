@@ -44,6 +44,7 @@
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_utils.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,6 +55,10 @@ extern "C" {
  * Although Light Media Scanner uses SQLite3 and doesn't try to hide it from
  * plugins/parsers, it does provide some utilities to make development easier
  * and less error prone.
+ *
+ * @warning This is to be considered an *internal* API for plugins/parsers and
+ * there's no versioning or backward compatibility whatsoever. It's much
+ * better to keep plugins inside LMS tree than keeping them separate.
  *
  * @{
  */
@@ -110,11 +115,46 @@ extern "C" {
     API int lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info) GNUC_NON_NULL(1, 2);
 
     /* Video Records */
+
+    enum lms_stream_type {
+        LMS_STREAM_TYPE_UNKNOWN,
+        LMS_STREAM_TYPE_AUDIO,
+        LMS_STREAM_TYPE_VIDEO,
+        LMS_STREAM_TYPE_SUBTITLE,
+    };
+
+    struct lms_stream_video_info {
+        struct lms_string_size aspect_ratio;
+        unsigned int bitrate;
+        unsigned int width;
+        unsigned int height;
+        double framerate;
+        bool interlaced;
+    };
+
+    struct lms_stream_audio_info {
+        unsigned int bitrate;
+        uint8_t channels;
+    };
+
+    struct lms_stream {
+        struct lms_stream *next;
+        enum lms_stream_type type;
+        unsigned int stream_id;
+        struct lms_string_size codec;
+        struct lms_string_size lang;
+        union {
+            struct lms_stream_audio_info audio;
+            struct lms_stream_video_info video;
+        };
+    };
+
     struct lms_video_info {
         int64_t id;
         struct lms_string_size title;
         struct lms_string_size artist;
         unsigned int length;
+        struct lms_stream *streams;
     };
 
     typedef struct lms_db_video lms_db_video_t;

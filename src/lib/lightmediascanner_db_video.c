@@ -28,6 +28,9 @@
 struct lms_db_video {
     sqlite3 *db;
     sqlite3_stmt *insert;
+    sqlite3_stmt *insert_video_streams;
+    sqlite3_stmt *insert_audio_streams;
+    sqlite3_stmt *insert_subtitle_streams;
     unsigned int _references;
     unsigned int _is_started:1;
 };
@@ -311,6 +314,28 @@ lms_db_video_start(lms_db_video_t *ldv)
     if (!ldv->insert)
         return -2;
 
+    ldv->insert_video_streams = lms_db_compile_stmt(
+        ldv->db, "INSERT OR REPLACE INTO videos_videos ("
+        "video_id, stream_id, codec, lang, aspect_ratio, bitrate, framerate, "
+        "interlaced, width, height) VALUES ("
+        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    if (!ldv->insert_video_streams)
+        return -1;
+
+    ldv->insert_audio_streams = lms_db_compile_stmt(
+        ldv->db, "INSERT OR REPLACE INTO videos_audios ("
+        "video_id, stream_id, codec, lang, channels, bitrate) VALUES ("
+        "?, ?, ?, ?, ?, ?)");
+    if (!ldv->insert_audio_streams)
+        return -1;
+
+    ldv->insert_subtitle_streams = lms_db_compile_stmt(
+        ldv->db, "INSERT OR REPLACE INTO videos_subtitles ("
+        "video_id, stream_id, codec, lang) VALUES ("
+        "?, ?, ?, ?)");
+    if (!ldv->insert_subtitle_streams)
+        return -1;
+
     ldv->_is_started = 1;
     return 0;
 }
@@ -345,11 +370,126 @@ lms_db_video_free(lms_db_video_t *ldv)
 
     if (ldv->insert)
         lms_db_finalize_stmt(ldv->insert, "insert");
+    if (ldv->insert_video_streams)
+        lms_db_finalize_stmt(ldv->insert_video_streams, "insert_video_streams");
+    if (ldv->insert_audio_streams)
+        lms_db_finalize_stmt(ldv->insert_audio_streams, "insert_audio_streams");
+    if (ldv->insert_subtitle_streams)
+        lms_db_finalize_stmt(ldv->insert_subtitle_streams,
+                             "insert_subtitle_streams");
 
     r = lms_db_cache_del(&_cache, ldv->db, ldv);
     free(ldv);
 
     return r;
+}
+
+static int
+_db_insert_stream_subtitle(lms_db_video_t *ldv, int64_t video_id,
+                           const struct lms_stream *s)
+{
+    sqlite3_stmt *stmt;
+    int col = 0, ret;
+
+    stmt = ldv->insert_subtitle_streams;
+
+    if (lms_db_bind_int64(stmt, ++col, video_id) ||
+        lms_db_bind_int(stmt, ++col, s->stream_id) ||
+        lms_db_bind_text(stmt, ++col, s->codec.str, s->codec.len) ||
+        lms_db_bind_text(stmt, ++col, s->lang.str, s->lang.len)) {
+        fprintf(stderr, "ERROR: Failed to bind value to column %d\n", col);
+        ret = -1;
+        goto done;
+    }
+
+    ret = sqlite3_step(stmt);
+    if (ret != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not insert subtitle stream info: %s\n",
+                sqlite3_errmsg(ldv->db));
+        ret = -1;
+        goto done;
+    }
+
+    ret = 0;
+
+done:
+    lms_db_reset_stmt(stmt);
+    return ret;
+}
+
+static int
+_db_insert_stream_audio(lms_db_video_t *ldv, int64_t video_id,
+                        const struct lms_stream *s)
+{
+    sqlite3_stmt *stmt;
+    int col = 0, ret;
+
+    stmt = ldv->insert_audio_streams;
+
+    if (lms_db_bind_int64(stmt, ++col, video_id) ||
+        lms_db_bind_int(stmt, ++col, s->stream_id) ||
+        lms_db_bind_text(stmt, ++col, s->codec.str, s->codec.len) ||
+        lms_db_bind_text(stmt, ++col, s->lang.str, s->lang.len) ||
+        lms_db_bind_int(stmt, ++col, s->audio.channels) ||
+        lms_db_bind_int(stmt, ++col, s->audio.bitrate)) {
+        fprintf(stderr, "ERROR: Failed to bind value to column %d\n", col);
+        ret = -1;
+        goto done;
+    }
+
+    ret = sqlite3_step(stmt);
+    if (ret != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not insert audio stream info: %s\n",
+                sqlite3_errmsg(ldv->db));
+        ret = -1;
+        goto done;
+    }
+
+    ret = 0;
+
+done:
+    lms_db_reset_stmt(stmt);
+    return ret;
+}
+
+static int
+_db_insert_stream_video(lms_db_video_t *ldv, int64_t video_id,
+                        const struct lms_stream *s)
+{
+    sqlite3_stmt *stmt;
+    int col = 0, ret;
+
+    stmt = ldv->insert_video_streams;
+
+    if (lms_db_bind_int64(stmt, ++col, video_id) ||
+        lms_db_bind_int(stmt, ++col, s->stream_id) ||
+        lms_db_bind_text(stmt, ++col, s->codec.str, s->codec.len) ||
+        lms_db_bind_text(stmt, ++col, s->lang.str, s->lang.len) ||
+        lms_db_bind_text(stmt, ++col, s->video.aspect_ratio.str,
+                         s->video.aspect_ratio.len) ||
+        lms_db_bind_int(stmt, ++col, s->video.bitrate) ||
+        lms_db_bind_double(stmt, ++col, s->video.framerate) ||
+        lms_db_bind_int(stmt, ++col, s->video.interlaced) ||
+        lms_db_bind_int(stmt, ++col, s->video.width) ||
+        lms_db_bind_int(stmt, ++col, s->video.height)) {
+        fprintf(stderr, "ERROR: Failed to bind value to column %d\n", col);
+        ret = -1;
+        goto done;
+    }
+
+    ret = sqlite3_step(stmt);
+    if (ret != SQLITE_DONE) {
+        fprintf(stderr, "ERROR: could not insert video stream info: %s\n",
+                sqlite3_errmsg(ldv->db));
+        ret = -1;
+        goto done;
+    }
+
+    ret = 0;
+
+done:
+    lms_db_reset_stmt(stmt);
+    return ret;
 }
 
 static int
@@ -406,6 +546,9 @@ _db_insert(lms_db_video_t *ldv, const struct lms_video_info *info)
 int
 lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
 {
+    struct lms_stream *s;
+    int r;
+
     if (!ldv)
         return -1;
     if (!info)
@@ -413,5 +556,33 @@ lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
     if (info->id < 1)
         return -3;
 
-    return _db_insert(ldv, info);
+    r = _db_insert(ldv, info);
+    if (r < 0)
+        return r;
+
+    for (s = info->streams; s; s = s->next) {
+        switch (s->type) {
+        case LMS_STREAM_TYPE_AUDIO:
+            r = _db_insert_stream_audio(ldv, info->id, s);
+            break;
+        case LMS_STREAM_TYPE_VIDEO:
+            r = _db_insert_stream_video(ldv, info->id, s);
+            break;
+        case LMS_STREAM_TYPE_SUBTITLE:
+            r = _db_insert_stream_subtitle(ldv, info->id, s);
+            break;
+        case LMS_STREAM_TYPE_UNKNOWN:
+            fprintf(stderr, "WARNING: Ignoring unknown stream type\n");
+            r = 0;
+            break;
+        }
+
+        if (r < 0) {
+            fprintf(stderr, "ERROR: Failed to insert stream #%d type %d\n",
+                    s->stream_id, s->type);
+            break;
+        }
+    }
+
+    return r;
 }
