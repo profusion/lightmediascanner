@@ -22,6 +22,9 @@
  * @brief
  *
  * asf/wma file parser.
+ *
+ * Reference:
+ *   http://www.microsoft.com/en-us/download/details.aspx?id=14995
  */
 
 #include <lightmediascanner_plugin.h>
