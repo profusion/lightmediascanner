@@ -42,3 +42,33 @@ struct lms_string_size str_extract_name_from_path(
     return str;
 }
 
+/* Euclidean algorithm
+ * http://en.wikipedia.org/wiki/Euclidean_algorithm */
+static unsigned int gcd(unsigned int a, unsigned int b)
+{
+    unsigned int t;
+
+    while (b) {
+        t = b;
+        b = a % t;
+        a = t;
+    }
+
+    return a;
+}
+
+void reduce_gcd(unsigned int w, unsigned int h, unsigned int *dw,
+                unsigned int *dh)
+{
+    unsigned int f;
+
+    *dw = w;
+    *dh = h;
+
+    if (!w || !h)
+        return;
+
+    f = gcd(w, h);
+    *dw /= f;
+    *dh /= f;
+}
