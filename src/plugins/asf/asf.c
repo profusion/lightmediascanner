@@ -97,7 +97,7 @@ struct stream {
 static const struct {
     uint16_t id;
     struct lms_string_size name;
-} _codecs[] = {
+} _audio_codecs[] = {
     { 0x0160, LMS_STATIC_STRING_SIZE("wmav1") },
     { 0x0161, LMS_STATIC_STRING_SIZE("wmav2") },
     { 0x0162, LMS_STATIC_STRING_SIZE("wmavpro") },
@@ -246,15 +246,15 @@ _parse_file_properties(lms_charset_conv_t *cs_conv, int fd,
 }
 
 static struct lms_string_size
-_codec_id_to_str(uint16_t id)
+_audio_codec_id_to_str(uint16_t id)
 {
     unsigned int i;
 
-    for (i = 0; _codecs[i].name.str != NULL; i++)
-        if (_codecs[i].id == id)
-            return _codecs[i].name;
+    for (i = 0; _audio_codecs[i].name.str != NULL; i++)
+        if (_audio_codecs[i].id == id)
+            return _audio_codecs[i].name;
 
-    return _codecs[i].name;
+    return _audio_codecs[i].name;
 }
 
 static int
@@ -301,7 +301,7 @@ _parse_stream_properties(int fd, struct stream **pstream)
         if (le32toh(props.type_specific_len) < 18)
             goto done;
 
-        s->base.codec = _codec_id_to_str(_read_word(fd));
+        s->base.codec = _audio_codec_id_to_str(_read_word(fd));
         s->base.audio.channels = _read_word(fd);
         s->priv.sampling_rate = _read_dword(fd);
         s->base.audio.bitrate = _read_dword(fd) * 8;
