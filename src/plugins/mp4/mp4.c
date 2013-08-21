@@ -38,12 +38,6 @@ static const char PV[] = PACKAGE_VERSION; /* mp4.h screws PACKAGE_VERSION */
 #include <string.h>
 #include <stdlib.h>
 
-enum StreamTypes {
-    STREAM_TYPE_UNKNOWN = 0,
-    STREAM_TYPE_AUDIO,
-    STREAM_TYPE_VIDEO
-};
-
 struct mp4_info {
     struct lms_string_size title;
     struct lms_string_size artist;
@@ -96,7 +90,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     struct mp4_info info = { };
     struct lms_audio_info audio_info = { };
     struct lms_video_info video_info = { };
-    int r, stream_type = STREAM_TYPE_AUDIO;
+    int r, stream_type = LMS_STREAM_TYPE_AUDIO;
     MP4FileHandle mp4_fh;
     u_int32_t num_tracks;
 
@@ -113,7 +107,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     /* check if the file contains a video track */
     num_tracks = MP4GetNumberOfTracks(mp4_fh, MP4_VIDEO_TRACK_TYPE, 0);
     if (num_tracks > 0)
-        stream_type = STREAM_TYPE_VIDEO;
+        stream_type = LMS_STREAM_TYPE_VIDEO;
 
     MP4GetMetadataName(mp4_fh, &info.title.str);
     if (info.title.str)
@@ -122,7 +116,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     if (info.artist.str)
         info.artist.len = strlen(info.artist.str);
 
-    if (stream_type == STREAM_TYPE_AUDIO) {
+    if (stream_type == LMS_STREAM_TYPE_AUDIO) {
         u_int16_t total_tracks;
 
         MP4GetMetadataAlbum(mp4_fh, &info.album.str);
@@ -163,7 +157,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     fprintf(stderr, "\tgenre='%s'\n", info.genre.str);
 #endif
 
-    if (stream_type == STREAM_TYPE_AUDIO) {
+    if (stream_type == LMS_STREAM_TYPE_AUDIO) {
         audio_info.id = finfo->id;
         audio_info.title = info.title;
         audio_info.artist = info.artist;
