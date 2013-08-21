@@ -44,12 +44,6 @@
 #define NSEC100_PER_SEC  10000000ULL
 #define MSEC_PER_SEC  1000ULL
 
-enum StreamTypes {
-    STREAM_TYPE_UNKNOWN = 0,
-    STREAM_TYPE_AUDIO,
-    STREAM_TYPE_VIDEO
-};
-
 enum AttributeTypes {
     ATTR_TYPE_UNICODE = 0,
     ATTR_TYPE_BYTES,
@@ -93,17 +87,10 @@ static const char *_authors[] = {
 };
 
 struct stream {
-    int id;
-    enum StreamTypes type;
-    struct stream *next;
-    union {
-        struct {
-            uint16_t codec_id;
-            uint16_t channels;
-            uint32_t sampling_rate;
-            uint32_t byterate;
-        } audio;
-    };
+    struct lms_stream base;
+    struct {
+        unsigned int sampling_rate;
+    } priv;
 };
 
 /* TODO: Add the gazillion of possible codecs -- possibly a task to gperf */
@@ -297,27 +284,27 @@ _parse_stream_properties(int fd, struct stream **pstream)
         goto done;
 
     if (memcmp(props.stream_type, stream_type_audio_guid, 16) == 0)
-        s->type = STREAM_TYPE_AUDIO;
+        s->base.type = LMS_STREAM_TYPE_AUDIO;
     else if (memcmp(props.stream_type, stream_type_video_guid, 16) == 0)
-        s->type = STREAM_TYPE_VIDEO;
+        s->base.type = LMS_STREAM_TYPE_VIDEO;
     else {
         /* ignore stream */
         goto done;
     }
 
-    s->id = le16toh(props.flags) & 0x7F;
+    s->base.stream_id = le16toh(props.flags) & 0x7F;
     /* Not a valid stream */
-    if (!s->id)
+    if (!s->base.stream_id)
         goto done;
 
-    if (s->type == STREAM_TYPE_AUDIO) {
+    if (s->base.type == LMS_STREAM_TYPE_AUDIO) {
         if (le32toh(props.type_specific_len) < 18)
             goto done;
 
-        s->audio.codec_id = _read_word(fd);
-        s->audio.channels = _read_word(fd);
-        s->audio.sampling_rate = _read_dword(fd);
-        s->audio.byterate = _read_dword(fd);
+        s->base.codec = _codec_id_to_str(_read_word(fd));
+        s->base.audio.channels = _read_word(fd);
+        s->priv.sampling_rate = _read_dword(fd);
+        s->base.audio.bitrate = _read_dword(fd) * 8;
         r += 12;
     }
 
@@ -477,7 +464,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     int r, fd, num_objects, i;
     char guid[16];
     unsigned int size;
-    int stream_type = STREAM_TYPE_UNKNOWN;
+    enum lms_stream_type stream_type = LMS_STREAM_TYPE_UNKNOWN;
     struct stream *streams = NULL;
 
     fd = open(finfo->path, O_RDONLY);
@@ -521,10 +508,10 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             if (!s)
                 continue;
 
-            if (stream_type != STREAM_TYPE_VIDEO)
-                stream_type = s->type;
+            if (stream_type != LMS_STREAM_TYPE_VIDEO)
+                stream_type = s->base.type;
 
-            s->next = streams;
+            s->base.next = (struct lms_stream *) streams;
             streams = s;
         } else if (memcmp(guid, content_description_guid, 16) == 0)
             _parse_content_description(plugin->cs_conv, fd, &info);
@@ -541,13 +528,13 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     }
 
     /* try to define stream type by extension */
-    if (stream_type == STREAM_TYPE_UNKNOWN) {
+    if (stream_type == LMS_STREAM_TYPE_UNKNOWN) {
         long ext_idx = ((long)match) - 1;
         if (strcmp(_exts[ext_idx].str, ".wma") == 0)
-            stream_type = STREAM_TYPE_AUDIO;
+            stream_type = LMS_STREAM_TYPE_AUDIO;
         /* consider wmv and asf as video */
         else
-            stream_type = STREAM_TYPE_VIDEO;
+            stream_type = LMS_STREAM_TYPE_VIDEO;
     }
 
     lms_string_size_strip_and_free(&info.title);
@@ -572,7 +559,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
     audio_info.container = _container;
 
-    if (stream_type == STREAM_TYPE_AUDIO) {
+    if (stream_type == LMS_STREAM_TYPE_AUDIO) {
         audio_info.id = finfo->id;
         audio_info.title = info.title;
         audio_info.artist = info.artist;
@@ -580,10 +567,10 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.genre = info.genre;
         audio_info.trackno = info.trackno;
 
-        audio_info.channels = streams->audio.channels;
-        audio_info.bitrate = streams->audio.byterate * 8;
-        audio_info.sampling_rate = streams->audio.sampling_rate;
-        audio_info.codec = _codec_id_to_str(streams->audio.codec_id);
+        audio_info.channels = streams->base.audio.channels;
+        audio_info.bitrate = streams->base.audio.bitrate;
+        audio_info.sampling_rate = streams->priv.sampling_rate;
+        audio_info.codec = streams->base.codec;
 
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     } else {
@@ -596,7 +583,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 done:
     while (streams) {
         struct stream *s = streams;
-        streams = s->next;
+        streams = (struct stream *) s->base.next;
         free(s);
     }
 
