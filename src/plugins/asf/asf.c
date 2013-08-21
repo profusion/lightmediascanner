@@ -577,6 +577,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         video_info.id = finfo->id;
         video_info.title = info.title;
         video_info.artist = info.artist;
+        video_info.streams = (struct lms_stream *) streams;
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 
