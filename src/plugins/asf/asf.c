@@ -54,12 +54,23 @@ enum AttributeTypes {
     ATTR_TYPE_GUID
 };
 
+struct stream {
+    struct lms_stream base;
+    struct {
+        unsigned int sampling_rate;
+    } priv;
+};
+
 struct asf_info {
     struct lms_string_size title;
     struct lms_string_size artist;
     struct lms_string_size album;
     struct lms_string_size genre;
+    enum lms_stream_type type;
+    unsigned int length;
     unsigned char trackno;
+
+    struct stream *streams;
 };
 
 struct plugin {
@@ -84,13 +95,6 @@ static const char *_cats[] = {
 static const char *_authors[] = {
     "Andre Moreira Magalhaes",
     NULL
-};
-
-struct stream {
-    struct lms_stream base;
-    struct {
-        unsigned int sampling_rate;
-    } priv;
 };
 
 /* TODO: Add the gazillion of possible codecs -- possibly a task to gperf */
@@ -225,8 +229,7 @@ _read_string(int fd, size_t count, char **str, unsigned int *len)
 }
 
 static int
-_parse_file_properties(lms_charset_conv_t *cs_conv, int fd,
-                       struct lms_audio_info *info)
+_parse_file_properties(int fd, struct asf_info *info)
 {
     struct {
         char fileid[16];
@@ -253,8 +256,9 @@ _parse_file_properties(lms_charset_conv_t *cs_conv, int fd,
 
     /* ASF spec 01.20.06 sec. 3.2: we need to subtract the preroll value from
      * the duration in order to obtain the real duration */
-    info->length = (unsigned int)((le64toh(props.play_duration) / NSEC100_PER_SEC)
-                                  - le64toh(props.preroll) / MSEC_PER_SEC);
+    info->length = (unsigned int)(
+        (le64toh(props.play_duration) / NSEC100_PER_SEC) -
+        le64toh(props.preroll) / MSEC_PER_SEC);
 
     return r;
 }
@@ -517,6 +521,24 @@ _match(struct plugin *p, const char *path, int len, int base)
       return (void*)(i + 1);
 }
 
+static void streams_free(struct stream *streams)
+{
+    while (streams) {
+        struct stream *s = streams;
+        streams = (struct stream *) s->base.next;
+
+        switch (s->base.type) {
+        case LMS_STREAM_TYPE_VIDEO:
+            free(s->base.video.aspect_ratio.str);
+            break;
+        default:
+            break;
+        }
+
+        free(s);
+    }
+}
+
 /* TODO:
  *   Parse the "Extended Stream Properties Object" (sec. 4.1). It contains some
  *   missing fields: bitrate and language
@@ -540,14 +562,10 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct asf_info info = { };
-    struct lms_audio_info audio_info = { };
-    struct lms_video_info video_info = { };
+    struct asf_info info = { .type = LMS_STREAM_TYPE_UNKNOWN };
     int r, fd, num_objects, i;
     char guid[16];
     unsigned int size;
-    enum lms_stream_type stream_type = LMS_STREAM_TYPE_UNKNOWN;
-    struct stream *streams = NULL;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -576,29 +594,30 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         size = _read_qword(fd);
 
         if (memcmp(guid, file_properties_guid, 16) == 0) {
-            r = _parse_file_properties(plugin->cs_conv, fd, &audio_info);
+            r = _parse_file_properties(fd, &info);
             if (r < 0)
                 goto done;
             lseek(fd, size - (24 + r), SEEK_CUR);
         } else if (memcmp(guid, stream_properties_guid, 16) == 0) {
-            struct stream *s;
+            struct stream *s = NULL;
             r = _parse_stream_properties(fd, &s);
             if (r < 0)
                 goto done;
 
             lseek(fd, size - (24 + r), SEEK_CUR);
-            if (!s)
-                continue;
 
-            if (stream_type != LMS_STREAM_TYPE_VIDEO)
-                stream_type = s->base.type;
+            if (s) {
+                if (info.type != LMS_STREAM_TYPE_VIDEO)
+                    info.type = s->base.type;
 
-            s->base.next = (struct lms_stream *) streams;
-            streams = s;
+                s->base.next = (struct lms_stream *) info.streams;
+                info.streams = s;
+            }
         } else if (memcmp(guid, content_description_guid, 16) == 0)
             _parse_content_description(plugin->cs_conv, fd, &info);
         else if (memcmp(guid, extended_content_description_guid, 16) == 0)
-            _parse_extended_content_description_object(plugin->cs_conv, fd, &info);
+            _parse_extended_content_description_object(plugin->cs_conv, fd,
+                                                       &info);
         else if (memcmp(guid, content_encryption_object_guid, 16) == 0 ||
                  memcmp(guid, extended_content_encryption_object_guid, 16) == 0) {
             /* ignore DRM'd files */
@@ -610,13 +629,13 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     }
 
     /* try to define stream type by extension */
-    if (stream_type == LMS_STREAM_TYPE_UNKNOWN) {
+    if (info.type == LMS_STREAM_TYPE_UNKNOWN) {
         long ext_idx = ((long)match) - 1;
         if (strcmp(_exts[ext_idx].str, ".wma") == 0)
-            stream_type = LMS_STREAM_TYPE_AUDIO;
+            info.type = LMS_STREAM_TYPE_AUDIO;
         /* consider wmv and asf as video */
         else
-            stream_type = LMS_STREAM_TYPE_VIDEO;
+            info.type = LMS_STREAM_TYPE_VIDEO;
     }
 
     lms_string_size_strip_and_free(&info.title);
@@ -630,54 +649,39 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
                                                 &_exts[((long) match) - 1],
                                                 ctxt->cs_conv);
 
-#if 0
-    fprintf(stderr, "file %s info\n", finfo->path);
-    fprintf(stderr, "\ttitle='%s'\n", info.title.str);
-    fprintf(stderr, "\tartist='%s'\n", info.artist.str);
-    fprintf(stderr, "\talbum='%s'\n", info.album.str);
-    fprintf(stderr, "\tgenre='%s'\n", info.genre.str);
-    fprintf(stderr, "\ttrackno=%d\n", info.trackno);
-#endif
+    if (info.type == LMS_STREAM_TYPE_AUDIO) {
+        struct lms_audio_info audio_info = { };
 
-    audio_info.container = _container;
-
-    if (stream_type == LMS_STREAM_TYPE_AUDIO) {
         audio_info.id = finfo->id;
         audio_info.title = info.title;
         audio_info.artist = info.artist;
         audio_info.album = info.album;
         audio_info.genre = info.genre;
         audio_info.trackno = info.trackno;
+        audio_info.length = info.length;
+        audio_info.container = _container;
 
-        audio_info.channels = streams->base.audio.channels;
-        audio_info.bitrate = streams->base.audio.bitrate;
-        audio_info.sampling_rate = streams->priv.sampling_rate;
-        audio_info.codec = streams->base.codec;
-
+        /* ignore additional streams, use only the first one */
+        if (info.streams) {
+            struct stream *s = info.streams;
+            audio_info.channels = s->base.audio.channels;
+            audio_info.bitrate = s->base.audio.bitrate;
+            audio_info.sampling_rate = s->priv.sampling_rate;
+            audio_info.codec = s->base.codec;
+        }
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     } else {
+        struct lms_video_info video_info = { };
+
         video_info.id = finfo->id;
         video_info.title = info.title;
         video_info.artist = info.artist;
-        video_info.streams = (struct lms_stream *) streams;
+        video_info.streams = (struct lms_stream *) info.streams;
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 
 done:
-    while (streams) {
-        struct stream *s = streams;
-        streams = (struct stream *) s->base.next;
-
-        switch (s->base.type) {
-        case LMS_STREAM_TYPE_VIDEO:
-            free(s->base.video.aspect_ratio.str);
-            break;
-        default:
-            break;
-        }
-
-        free(s);
-    }
+    streams_free(info.streams);
 
     free(info.title.str);
     free(info.artist.str);
