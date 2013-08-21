@@ -517,6 +517,26 @@ _match(struct plugin *p, const char *path, int len, int base)
       return (void*)(i + 1);
 }
 
+/* TODO:
+ *   Parse the "Extended Stream Properties Object" (sec. 4.1). It contains some
+ *   missing fields: bitrate and language
+ *
+ *   It may also contain the "Stream Properties Object" embedded in it.
+ *   For language we also need to parse "Language List Object" (sec 4.6) which
+ *   contains an array with all the languages used (they are in UTF-16, so they
+ *   need to be properly converted).
+ *
+ *   Oh, well... there's also the optional "Stream Bitrate Properties Object"
+ *   which also may contain the bitrate. This property must be very important so
+ *   they duplicated it everywhere.
+ *
+ *   Apparently the length can also be obtained from the "Extended Stream
+ *   Properties Object": start_time, end_time (paying attention to the preroll
+ *   field in the header).
+ *
+ *   Knowing the length, frame rate can be calculated with the "AverageTime Per
+ *   Frame" field of the "Extended Stream Properties Object"
+ */
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
