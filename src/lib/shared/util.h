@@ -27,6 +27,9 @@
 #include <lightmediascanner_utils.h>
 #include <lightmediascanner_charset_conv.h>
 
+#define NSEC100_PER_SEC  10000000ULL
+#define MSEC_PER_SEC  1000ULL
+
 #define get_unaligned(ptr)			\
     ({						\
 	struct __attribute__((packed)) {	\

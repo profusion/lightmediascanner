@@ -41,9 +41,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define NSEC100_PER_SEC  10000000ULL
-#define MSEC_PER_SEC  1000ULL
-
 enum AttributeTypes {
     ATTR_TYPE_UNICODE = 0,
     ATTR_TYPE_BYTES,
