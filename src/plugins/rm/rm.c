@@ -42,12 +42,6 @@
 #include <string.h>
 #include <unistd.h>
 
-enum StreamTypes {
-    STREAM_TYPE_UNKNOWN = 0,
-    STREAM_TYPE_AUDIO,
-    STREAM_TYPE_VIDEO
-};
-
 struct rm_info {
     struct lms_string_size title;
     struct lms_string_size artist;
@@ -58,7 +52,7 @@ struct rm_info {
 
     uint16_t sampling_rate;
     uint16_t channels;
-    enum StreamTypes stream_type; /* we only care for the first stream */
+    enum lms_stream_type stream_type; /* we only care for the first stream */
 };
 
 struct rm_file_header {
@@ -344,7 +338,7 @@ _parse_mdpr_header(int fd, struct rm_info *info, bool *has_mdpr)
 
     *has_mdpr = _parse_mdpr_codec_header(fd, info);
     if (*has_mdpr)
-        info->stream_type = STREAM_TYPE_AUDIO;
+        info->stream_type = LMS_STREAM_TYPE_AUDIO;
 
 done:
     return lseek(fd, 0, SEEK_CUR) - pos1;
@@ -397,7 +391,7 @@ _match(struct plugin *p, const char *path, int len, int base)
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
-    struct rm_info info = { .stream_type = STREAM_TYPE_UNKNOWN };
+    struct rm_info info = { .stream_type = LMS_STREAM_TYPE_UNKNOWN };
     struct lms_audio_info audio_info = { };
     struct lms_video_info video_info = { };
     int r, fd;
@@ -450,13 +444,13 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     } while (!has_cont && !has_prop && !has_mdpr);
 
     /* try to define stream type by extension */
-    if (info.stream_type == STREAM_TYPE_UNKNOWN) {
+    if (info.stream_type == LMS_STREAM_TYPE_UNKNOWN) {
         long ext_idx = ((long)match) - 1;
         if (strcmp(_exts[ext_idx].str, ".ra") == 0)
-            info.stream_type = STREAM_TYPE_AUDIO;
+            info.stream_type = LMS_STREAM_TYPE_AUDIO;
         /* consider rv, rm, rmj and rmvb as video */
         else
-            info.stream_type = STREAM_TYPE_VIDEO;
+            info.stream_type = LMS_STREAM_TYPE_VIDEO;
     }
 
     lms_string_size_strip_and_free(&info.title);
@@ -479,7 +473,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     fprintf(stderr, "\tartist=%s\n", info.artist);
 #endif
 
-    if (info.stream_type == STREAM_TYPE_AUDIO) {
+    if (info.stream_type == LMS_STREAM_TYPE_AUDIO) {
         audio_info.id = finfo->id;
         audio_info.title = info.title;
         audio_info.artist = info.artist;
