@@ -350,6 +350,7 @@ _parse_stream_properties(int fd, struct stream **pstream)
             /* other fields are ignored */
         } __attribute__((packed)) video;
         int r2 = read(fd, &video, sizeof(video));
+        unsigned int num, den;
 
         if (r2 < 0)
             goto done;
@@ -362,6 +363,11 @@ _parse_stream_properties(int fd, struct stream **pstream)
         s->base.codec = _video_codec_id_to_str(video.compression_id);
         s->base.video.width = get_le32(&video.width);
         s->base.video.height = get_le32(&video.height);
+
+        reduce_gcd(s->base.video.width, s->base.video.height, &num, &den);
+        asprintf(&s->base.video.aspect_ratio.str, "%u:%u", num, den);
+        s->base.video.aspect_ratio.len = s->base.video.aspect_ratio.str ?
+            strlen(s->base.video.aspect_ratio.str) : 0;
     }
 
 done:
@@ -641,6 +647,15 @@ done:
     while (streams) {
         struct stream *s = streams;
         streams = (struct stream *) s->base.next;
+
+        switch (s->base.type) {
+        case LMS_STREAM_TYPE_VIDEO:
+            free(s->base.video.aspect_ratio.str);
+            break;
+        default:
+            break;
+        }
+
         free(s);
     }
 
