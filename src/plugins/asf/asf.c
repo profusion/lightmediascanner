@@ -98,6 +98,7 @@ static const struct {
     uint16_t id;
     struct lms_string_size name;
 } _audio_codecs[] = {
+    /* id == 0  is special, check callers if it's needed */
     { 0x0160, LMS_STATIC_STRING_SIZE("wmav1") },
     { 0x0161, LMS_STATIC_STRING_SIZE("wmav2") },
     { 0x0162, LMS_STATIC_STRING_SIZE("wmavpro") },
@@ -110,6 +111,19 @@ static const struct {
     { 0x0055, LMS_STATIC_STRING_SIZE("mp3") },
     { }
 };
+
+/* TODO: Add the gazillion of possible codecs -- possibly a task to gperf */
+static const struct {
+    uint8_t id[4];
+    struct lms_string_size name;
+} _video_codecs[] = {
+    /* id == 0  is special, check callers if it's needed */
+    { "WMV1", LMS_STATIC_STRING_SIZE("wmv1") },
+    { "WMV2", LMS_STATIC_STRING_SIZE("wmv2") },
+    { "WMV3", LMS_STATIC_STRING_SIZE("wmv3") },
+    { }
+};
+
 
 /* ASF GUIDs
  *
@@ -257,6 +271,18 @@ _audio_codec_id_to_str(uint16_t id)
     return _audio_codecs[i].name;
 }
 
+static struct lms_string_size
+_video_codec_id_to_str(uint8_t id[4])
+{
+    unsigned int i;
+
+    for (i = 0; _video_codecs[i].name.str != NULL; i++)
+        if (memcmp(id, _video_codecs[i].id, 4) == 0)
+            return _video_codecs[i].name;
+
+    return _video_codecs[i].name;
+}
+
 static int
 _parse_stream_properties(int fd, struct stream **pstream)
 {
@@ -268,7 +294,7 @@ _parse_stream_properties(int fd, struct stream **pstream)
         uint32_t error_correction_data_len;
         uint16_t flags;
         uint32_t reserved; /* don't use, unaligned */
-    }  __attribute__((packed)) props;
+    } __attribute__((packed)) props;
 
     int r;
     struct stream *s;
@@ -281,7 +307,7 @@ _parse_stream_properties(int fd, struct stream **pstream)
 
     r = read(fd, &props, sizeof(props));
     if (r != sizeof(props))
-        goto done;
+        goto fail;
 
     if (memcmp(props.stream_type, stream_type_audio_guid, 16) == 0)
         s->base.type = LMS_STREAM_TYPE_AUDIO;
@@ -289,13 +315,13 @@ _parse_stream_properties(int fd, struct stream **pstream)
         s->base.type = LMS_STREAM_TYPE_VIDEO;
     else {
         /* ignore stream */
-        goto done;
+        goto fail;
     }
 
     s->base.stream_id = le16toh(props.flags) & 0x7F;
     /* Not a valid stream */
     if (!s->base.stream_id)
-        goto done;
+        goto fail;
 
     if (s->base.type == LMS_STREAM_TYPE_AUDIO) {
         if (le32toh(props.type_specific_len) < 18)
@@ -306,13 +332,43 @@ _parse_stream_properties(int fd, struct stream **pstream)
         s->priv.sampling_rate = _read_dword(fd);
         s->base.audio.bitrate = _read_dword(fd) * 8;
         r += 12;
+    } else {
+        struct {
+            uint32_t width_unused;
+            uint32_t height_unused;
+            uint8_t reserved;
+            uint16_t data_size_unused;
+            /* data */
+            uint32_t size;
+            uint32_t width;
+            uint32_t height;
+            uint16_t reseved2;
+            uint16_t bits_per_pixel;
+            uint8_t compression_id[4];
+            uint32_t image_size;
+
+            /* other fields are ignored */
+        } __attribute__((packed)) video;
+        int r2 = read(fd, &video, sizeof(video));
+
+        if (r2 < 0)
+            goto done;
+
+        r += r2;
+        if ((unsigned int) r2 < get_le32(&video.size) -
+            (sizeof(video) - offsetof(typeof(video), width)))
+            goto done;
+
+        s->base.codec = _video_codec_id_to_str(video.compression_id);
+        s->base.video.width = get_le32(&video.width);
+        s->base.video.height = get_le32(&video.height);
     }
 
+done:
     *pstream = s;
-
     return r;
 
-done:
+fail:
     free(s);
     return r;
 }
