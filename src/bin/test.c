@@ -358,7 +358,7 @@ show(lms_t *lms, const char *orig_path)
     char path[PATH_MAX];
     const char *db_path;
     sqlite3 *db;
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int r, len;
 
     if (!realpath(orig_path, path)) {
@@ -429,9 +429,9 @@ show(lms_t *lms, const char *orig_path)
         r = 0;
     }
 
-    sqlite3_reset(stmt);
-    sqlite3_clear_bindings(stmt);
-  close_and_exit:
+close_and_exit:
+    if (stmt)
+        sqlite3_finalize(stmt);
     sqlite3_close(db);
 
     return r;
