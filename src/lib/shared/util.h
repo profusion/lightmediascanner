@@ -39,6 +39,16 @@
     })
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
+static inline uint64_t get_le64(const void *ptr)
+{
+	return get_unaligned((const uint64_t *) ptr);
+}
+
+static inline uint64_t get_be64(const void *ptr)
+{
+	return bswap_64(get_unaligned((const uint64_t *) ptr));
+}
+
 static inline uint32_t get_le32(const void *ptr)
 {
 	return get_unaligned((const uint32_t *) ptr);
@@ -60,6 +70,15 @@ static inline uint16_t get_be16(const void *ptr)
 }
 
 #elif __BYTE_ORDER == __BIG_ENDIAN
+static inline uint64_t get_le64(const void *ptr)
+{
+	return bswap_64(get_unaligned((const uint64_t *) ptr));
+}
+
+static inline uint64_t get_be64(const void *ptr)
+{
+	return get_unaligned((const uint64_t *) ptr);
+}
 
 static inline uint32_t get_le32(const void *ptr)
 {
