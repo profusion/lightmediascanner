@@ -55,6 +55,8 @@ struct stream {
     struct lms_stream base;
     struct {
         unsigned int sampling_rate;
+        unsigned int bitrate;
+        double framerate;
     } priv;
 };
 
@@ -141,7 +143,9 @@ static const struct {
  * See http://www.microsoft.com/windows/windowsmedia/forpros/format/asfspec.aspx
  */
 static const char header_guid[16] = "\x30\x26\xB2\x75\x8E\x66\xCF\x11\xA6\xD9\x00\xAA\x00\x62\xCE\x6C";
-static const char header_extension_guid[16] = "\xB5\x03\xBF\x5F\x2E\xA9\xCF\x11\x00\xC0\x0C\x20\x53\x65";
+static const char header_extension_guid[16] = "\xB5\x03\xBF\x5F\x2E\xA9\xCF\x11\x8E\xE3\x00\xC0\x0C\x20\x53\x65";
+static const char extended_stream_properties_guid[16] = "\xCB\xA5\xE6\x14\x72\xC6\x32\x43\x83\x99\xA9\x69\x52\x06\x5B\x5A";
+static const char language_list_guid[16] = "\xA9\x46\x43\x7C\xE0\xEF\xFC\x4B\xB2\x29\x39\x3E\xDE\x41\x5C\x85";
 static const char file_properties_guid[16] = "\xA1\xDC\xAB\x8C\x47\xA9\xCF\x11\x8E\xE4\x00\xC0\x0C\x20\x53\x65";
 static const char stream_properties_guid[16] = "\x91\x07\xDC\xB7\xB7\xA9\xCF\x11\x8E\xE6\x00\xC0\x0C\x20\x53\x65";
 static const char stream_type_audio_guid[16] = "\x40\x9E\x69\xF8\x4D\x5B\xCF\x11\xA8\xFD\x00\x80\x5F\x5C\x44\x2B";
@@ -284,8 +288,59 @@ _video_codec_id_to_str(uint8_t id[4])
     return _video_codecs[i].name;
 }
 
+static struct stream * _stream_get_or_create(struct asf_info *info,
+                                             unsigned int stream_id)
+{
+    struct stream *s;
+
+    for (s = info->streams; s; s = (struct stream *) s->base.next) {
+        if (s->base.stream_id == stream_id)
+            return s;
+    }
+
+    s = calloc(1, sizeof(*s));
+    if (!s)
+        return NULL;
+
+    /* The Stream Properties Object can be anywhere inside the Header Object:
+     * before the Header Extension Object, after it or embedded into the
+     * Extended Stream Properties, inside the Header Extension Object.
+     *
+     * When parsing we either create a new stream and prepend it to the list or
+     * we return the one already created by a previous object (see the loop
+     * above).
+     *
+     * Note that the stream type is only available in the Stream Properties
+     * Object. A file with an Extended Stream Properties Object referring to a
+     * stream that doesn't have a corresponding Stream Properties is invalid. We
+     * let it into the list, but it won't have the stream_type set. In this case
+     * LMS will end up ignoring the stream when we try to add the file in the
+     * database -- this is why we set type to -1 here */
+    s->base.stream_id = stream_id;
+    s->base.type = -1;
+    s->base.next = (struct lms_stream *) info->streams;
+    info->streams = s;
+
+    return s;
+}
+
+static void _stream_copy_extension_properties(struct stream *s)
+{
+    switch (s->base.type) {
+    case LMS_STREAM_TYPE_AUDIO:
+        s->base.audio.bitrate = s->priv.bitrate;
+        break;
+    case LMS_STREAM_TYPE_VIDEO:
+        s->base.video.bitrate = s->priv.bitrate;
+        s->base.video.framerate = s->priv.framerate;
+        break;
+    default:
+        break;
+    }
+}
+
 static int
-_parse_stream_properties(int fd, struct stream **pstream)
+_parse_stream_properties(int fd, struct asf_info *info)
 {
     struct {
         char stream_type[16];
@@ -296,33 +351,33 @@ _parse_stream_properties(int fd, struct stream **pstream)
         uint16_t flags;
         uint32_t reserved; /* don't use, unaligned */
     } __attribute__((packed)) props;
-
-    int r;
+    unsigned int stream_id;
     struct stream *s;
-
-    *pstream = NULL;
-
-    s = calloc(1, sizeof(struct stream));
-    if (!s)
-        return -ENOMEM;
+    int r, type;
 
     r = read(fd, &props, sizeof(props));
     if (r != sizeof(props))
-        goto fail;
+        return r;
+
+    stream_id = le16toh(props.flags) & 0x7F;
+
+    /* Not a valid stream */
+    if (!stream_id)
+        return r;
 
     if (memcmp(props.stream_type, stream_type_audio_guid, 16) == 0)
-        s->base.type = LMS_STREAM_TYPE_AUDIO;
+        type = LMS_STREAM_TYPE_AUDIO;
     else if (memcmp(props.stream_type, stream_type_video_guid, 16) == 0)
-        s->base.type = LMS_STREAM_TYPE_VIDEO;
-    else {
+        type = LMS_STREAM_TYPE_VIDEO;
+    else
         /* ignore stream */
-        goto fail;
-    }
+        return r;
 
-    s->base.stream_id = le16toh(props.flags) & 0x7F;
-    /* Not a valid stream */
-    if (!s->base.stream_id)
-        goto fail;
+    s = _stream_get_or_create(info, stream_id);
+    if (!s)
+        return -ENOMEM;
+
+    s->base.type = type;
 
     if (s->base.type == LMS_STREAM_TYPE_AUDIO) {
         if (le32toh(props.type_specific_len) < 18)
@@ -332,7 +387,6 @@ _parse_stream_properties(int fd, struct stream **pstream)
         s->base.audio.channels = _read_word(fd);
         s->priv.sampling_rate = _read_dword(fd);
         s->base.audio.bitrate = _read_dword(fd) * 8;
-        r += 12;
     } else {
         struct {
             uint32_t width_unused;
@@ -350,14 +404,13 @@ _parse_stream_properties(int fd, struct stream **pstream)
 
             /* other fields are ignored */
         } __attribute__((packed)) video;
-        int r2 = read(fd, &video, sizeof(video));
         unsigned int num, den;
 
-        if (r2 < 0)
+        r = read(fd, &video, sizeof(video));
+        if (r != sizeof(video))
             goto done;
 
-        r += r2;
-        if ((unsigned int) r2 < get_le32(&video.size) -
+        if ((unsigned int) r < get_le32(&video.size) -
             (sizeof(video) - offsetof(typeof(video), width)))
             goto done;
 
@@ -371,30 +424,88 @@ _parse_stream_properties(int fd, struct stream **pstream)
             strlen(s->base.video.aspect_ratio.str) : 0;
     }
 
-done:
-    *pstream = s;
-    return r;
+    _stream_copy_extension_properties(s);
 
-fail:
-    free(s);
+done:
+    /* If there's any video stream, consider the file as video */
+    if (info->type != LMS_STREAM_TYPE_VIDEO)
+        info->type = s->base.type;
+
     return r;
 }
 
-static void
-_parse_content_description(lms_charset_conv_t *cs_conv, int fd, struct asf_info *info)
+static int _parse_extended_stream_properties(lms_charset_conv_t *cs_conv,
+                                             int fd, struct asf_info *info)
+{
+    struct {
+        uint64_t start_time;
+        uint64_t end_time;
+        uint32_t bitrate;
+        uint32_t unused[7];
+        uint16_t stream_id;
+        uint16_t lang_id;
+        uint64_t avg_time_per_frame;
+        uint16_t stream_name_count;
+        uint16_t payload_extension_system_count;
+    } __attribute__((packed)) props;
+    struct stream *s;
+    unsigned int stream_id;
+    uint16_t n;
+    int r;
+
+    r = read(fd, &props, sizeof(props));
+    if (r != sizeof(props))
+        return r;
+
+    stream_id = get_le16(&props.stream_id);
+    s = _stream_get_or_create(info, stream_id);
+
+    s->priv.bitrate = get_le32(&props.bitrate);
+    s->priv.framerate = (NSEC100_PER_SEC /
+                         (double) get_le64(&props.avg_time_per_frame));
+    for (n = get_le16(&props.stream_name_count); n; n--) {
+        uint16_t j;
+        lseek(fd, 2, SEEK_CUR);
+        j = _read_word(fd);
+        lseek(fd, j, SEEK_CUR);
+    }
+    for (n = get_le16(&props.payload_extension_system_count); n; n--) {
+        uint32_t j;
+        lseek(fd, 18, SEEK_CUR);
+        j = _read_dword(fd);
+        lseek(fd, j, SEEK_CUR);
+    }
+
+    return 0;
+}
+
+/* Lazy implementation, let the parsing of subframes to the caller. Techically
+ * this is wrong, since it might parse objects in the extension header that
+ * should be in the header object, however this should parse ok all good files
+ * and eventually the bad ones. */
+static int _parse_header_extension(lms_charset_conv_t *cs_conv, int fd,
+                                   struct asf_info *info)
+{
+    lseek(fd, 22, SEEK_CUR);
+    return 0;
+}
+
+static int
+_parse_content_description(lms_charset_conv_t *cs_conv, int fd,
+                           struct asf_info *info)
 {
     int title_length = _read_word(fd);
     int artist_length = _read_word(fd);
-    int copyright_length = _read_word(fd);
-    int comment_length = _read_word(fd);
-    int rating_length = _read_word(fd);
+
+    lseek(fd, 6, SEEK_CUR);
 
     _read_string(fd, title_length, &info->title.str, &info->title.len);
     lms_charset_conv_force(cs_conv, &info->title.str, &info->title.len);
     _read_string(fd, artist_length, &info->artist.str, &info->artist.len);
     lms_charset_conv_force(cs_conv, &info->artist.str, &info->artist.len);
+
     /* ignore copyright, comment and rating */
-    lseek(fd, copyright_length + comment_length + rating_length, SEEK_CUR);
+    return 1;
 }
 
 static void
@@ -457,13 +568,15 @@ _skip_attribute_data(int fd, int kind, int attr_type, int attr_size)
     }
 }
 
-static void
-_parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, struct asf_info *info)
+static int
+_parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd,
+                                           struct asf_info *info)
 {
     int count = _read_word(fd);
     char *attr_name;
     unsigned int attr_name_len;
     int attr_type, attr_size;
+
     while (count--) {
         attr_name = NULL;
         _parse_attribute_name(fd,
@@ -504,6 +617,8 @@ _parse_extended_content_description_object(lms_charset_conv_t *cs_conv, int fd, 
             _skip_attribute_data(fd, 0, attr_type, attr_size);
         free(attr_name);
     }
+
+    return 1;
 }
 
 static void *
@@ -536,33 +651,18 @@ static void streams_free(struct stream *streams)
     }
 }
 
-/* TODO:
- *   Parse the "Extended Stream Properties Object" (sec. 4.1). It contains some
- *   missing fields: bitrate and language
- *
- *   It may also contain the "Stream Properties Object" embedded in it.
- *   For language we also need to parse "Language List Object" (sec 4.6) which
- *   contains an array with all the languages used (they are in UTF-16, so they
- *   need to be properly converted).
- *
- *   Oh, well... there's also the optional "Stream Bitrate Properties Object"
- *   which also may contain the bitrate. This property must be very important so
- *   they duplicated it everywhere.
- *
- *   Apparently the length can also be obtained from the "Extended Stream
- *   Properties Object": start_time, end_time (paying attention to the preroll
- *   field in the header).
- *
- *   Knowing the length, frame rate can be calculated with the "AverageTime Per
- *   Frame" field of the "Extended Stream Properties Object"
- */
+/* TODO: Parse "Language List Object" (sec 4.6) which contains an array with all
+ * the languages used (they are in UTF-16, so they need to be properly
+ * converted). */
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
     struct asf_info info = { .type = LMS_STREAM_TYPE_UNKNOWN };
-    int r, fd, num_objects, i;
+    int r, fd;
     char guid[16];
     unsigned int size;
+    unsigned long long hdrsize;
+    off_t pos_end, pos = 0;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -575,54 +675,54 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         r = -2;
         goto done;
     }
+
     if (memcmp(guid, header_guid, 16) != 0) {
         fprintf(stderr, "ERROR: invalid header (%s).\n", finfo->path);
         r = -3;
         goto done;
     }
 
-    size = _read_qword(fd);
-    num_objects = _read_dword(fd);
+    hdrsize = _read_qword(fd);
+    pos_end = lseek(fd, 6, SEEK_CUR) - 24 + hdrsize;
 
-    lseek(fd, 2, SEEK_CUR);
+    while (1) {
+        if (!pos)
+            pos = lseek(fd, 0, SEEK_CUR);
+        if (pos > pos_end - 24)
+            break;
 
-    for (i = 0; i < num_objects; ++i) {
         read(fd, &guid, 16);
         size = _read_qword(fd);
 
-        if (memcmp(guid, file_properties_guid, 16) == 0) {
+        if (memcmp(guid, header_extension_guid, 16) == 0)
+            r = _parse_header_extension(plugin->cs_conv, fd, &info);
+        else if (memcmp(guid, extended_stream_properties_guid, 16) == 0)
+            r = _parse_extended_stream_properties(plugin->cs_conv, fd, &info);
+        else if (memcmp(guid, file_properties_guid, 16) == 0)
             r = _parse_file_properties(fd, &info);
-            if (r < 0)
-                goto done;
-            lseek(fd, size - (24 + r), SEEK_CUR);
-        } else if (memcmp(guid, stream_properties_guid, 16) == 0) {
-            struct stream *s = NULL;
-            r = _parse_stream_properties(fd, &s);
-            if (r < 0)
-                goto done;
-
-            lseek(fd, size - (24 + r), SEEK_CUR);
-
-            if (s) {
-                if (info.type != LMS_STREAM_TYPE_VIDEO)
-                    info.type = s->base.type;
-
-                s->base.next = (struct lms_stream *) info.streams;
-                info.streams = s;
-            }
-        } else if (memcmp(guid, content_description_guid, 16) == 0)
-            _parse_content_description(plugin->cs_conv, fd, &info);
+        else if (memcmp(guid, stream_properties_guid, 16) == 0)
+            r = _parse_stream_properties(fd, &info);
+        else if (memcmp(guid, language_list_guid, 16) == 0)
+            r = 1;
+        else if (memcmp(guid, content_description_guid, 16) == 0)
+            r = _parse_content_description(plugin->cs_conv, fd, &info);
         else if (memcmp(guid, extended_content_description_guid, 16) == 0)
-            _parse_extended_content_description_object(plugin->cs_conv, fd,
-                                                       &info);
+            r = _parse_extended_content_description_object(plugin->cs_conv, fd,
+                                                           &info);
         else if (memcmp(guid, content_encryption_object_guid, 16) == 0 ||
-                 memcmp(guid, extended_content_encryption_object_guid, 16) == 0) {
+                 memcmp(guid, extended_content_encryption_object_guid, 16) == 0)
             /* ignore DRM'd files */
-            fprintf(stderr, "ERROR: ignoring DRM'd file %s\n", finfo->path);
             r = -4;
+        else
+            r = 1;
+
+        if (r < 0)
             goto done;
-        } else
-            lseek(fd, size - 24, SEEK_CUR);
+
+        if (r > 0)
+            pos = lseek(fd, pos + size, SEEK_SET);
+        else
+            pos = 0;
     }
 
     /* try to define stream type by extension */
