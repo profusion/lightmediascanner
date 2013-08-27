@@ -74,6 +74,8 @@ extern "C" {
         int64_t id;
         struct lms_string_size title;
         struct lms_string_size artist;
+        struct lms_string_size dlna_profile;
+        struct lms_string_size dlna_mime;
         unsigned int date;
         unsigned short width;
         unsigned short height;

@@ -88,8 +88,29 @@ _db_table_updater_images_0(sqlite3 *db, const char *table, unsigned int current_
     return ret;
 }
 
+static int
+_db_table_updater_images_1(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run)
+{
+    int ret;
+    char *err;
+
+    ret = sqlite3_exec(
+        db, "BEGIN TRANSACTION;"
+        "ALTER TABLE images ADD COLUMN dlna_profile TEXT DEFAULT NULL;"
+        "ALTER TABLE images ADD COLUMN dlna_mime TEXT DEFAULT NULL;"
+        "COMMIT;",
+        NULL, NULL, &err);
+    if (ret != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could add columns to images table: %s\n", err);
+        sqlite3_free(err);
+    }
+
+    return ret;
+}
+
 static lms_db_table_updater_t _db_table_updater_images[] = {
-    _db_table_updater_images_0
+    _db_table_updater_images_0,
+    _db_table_updater_images_1
 };
 
 
@@ -170,8 +191,8 @@ lms_db_image_start(lms_db_image_t *ldi)
     ldi->insert = lms_db_compile_stmt(ldi->db,
         "INSERT OR REPLACE INTO images ("
         "id, title, artist, date, width, height, orientation, "
-        "gps_lat, gps_long, gps_alt) VALUES ("
-        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        "gps_lat, gps_long, gps_alt, dlna_profile, dlna_mime) VALUES ("
+        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!ldi->insert)
         return -2;
 
@@ -261,6 +282,15 @@ _db_insert(lms_db_image_t *ldi, const struct lms_image_info *info)
         goto done;
 
     ret = lms_db_bind_double(stmt, 10, info->gps.altitude);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_text(stmt, 11, info->dlna_profile.str,
+                           info->dlna_profile.len);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_text(stmt, 12, info->dlna_mime.str, info->dlna_mime.len);
     if (ret != 0)
         goto done;
 
