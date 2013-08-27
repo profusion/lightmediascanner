@@ -59,6 +59,7 @@ define([CHECK_MODULE_OGG],
         else
             AC_LMS_CHECK_PKG(VORBIS, vorbis, [], [OGG=false])
         fi
+	AC_LMS_CHECK_PKG(THEORADEC, theoradec, [], [OGG=false])
 ])
 
 AM_CONDITIONAL(HAVE_MP4V2, false)

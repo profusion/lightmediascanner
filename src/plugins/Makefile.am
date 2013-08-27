@@ -60,7 +60,7 @@ endif
 if USE_MODULE_OGG
 pkg_LTLIBRARIES += ogg/ogg.la
 ogg_ogg_la_SOURCES = ogg/ogg.c
-ogg_ogg_la_LIBADD = $(PLUGINS_LIBADD) $(VORBIS_LIBS)
+ogg_ogg_la_LIBADD = $(PLUGINS_LIBADD) $(VORBIS_LIBS) $(THEORADEC_LIBS)
 noinst_HEADERS += ogg/lms_ogg_private.h
 
 if USE_TREMOR

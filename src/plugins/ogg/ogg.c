@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <theora/theoradec.h>
 
 #include "lms_ogg_private.h"
 
@@ -58,6 +59,11 @@ struct stream {
             vorbis_comment vc;
             vorbis_info vi;
         } audio;
+        struct {
+            th_comment tc;
+            th_info ti;
+            th_setup_info *tsi;
+        } video;
     };
 };
 
@@ -78,6 +84,8 @@ struct ogg_info {
 static const struct lms_string_size _container = LMS_STATIC_STRING_SIZE("ogg");
 static const struct lms_string_size _audio_codec =
     LMS_STATIC_STRING_SIZE("vorbis");
+static const struct lms_string_size _video_codec =
+    LMS_STATIC_STRING_SIZE("theora");
 
 static long int
 _id3_tag_size(FILE *file)
@@ -164,12 +172,17 @@ static void _stream_free(struct stream *s)
 {
     switch (s->base.type) {
     case LMS_STREAM_TYPE_UNKNOWN:
-    case LMS_STREAM_TYPE_VIDEO:
     case LMS_STREAM_TYPE_SUBTITLE:
         break;
     case LMS_STREAM_TYPE_AUDIO:
         vorbis_comment_clear(&s->audio.vc);
         vorbis_info_clear(&s->audio.vi);
+        break;
+    case LMS_STREAM_TYPE_VIDEO:
+        th_comment_clear(&s->video.tc);
+        th_info_clear(&s->video.ti);
+        th_setup_free(s->video.tsi);
+        free(s->base.video.aspect_ratio.str);
         break;
     }
 
@@ -214,37 +227,137 @@ static int _stream_handle_page(struct stream *s, ogg_page *page)
     do {
         r = ogg_stream_packetout(s->os, &packet);
         if (r == 0)
-            return 0;
+            return 1;
         if (r == -1)
             return -1;
 
         switch (s->base.type) {
         case LMS_STREAM_TYPE_UNKNOWN:
-            vorbis_info_init(&s->audio.vi);
-            vorbis_comment_init(&s->audio.vc);
-            r = vorbis_synthesis_headerin(&s->audio.vi, &s->audio.vc, &packet);
-            if (r != 0)
-                return -1;
+            th_info_init(&s->video.ti);
+            th_comment_init(&s->video.tc);
+            s->video.tsi = NULL;
+            if (th_decode_headerin(&s->video.ti, &s->video.tc, &s->video.tsi,
+                                   &packet) != TH_ENOTFORMAT) {
+                s->base.type = LMS_STREAM_TYPE_VIDEO;
+                s->remain_headers = 2;
+            } else {
+                th_info_clear(&s->video.ti);
+                th_comment_clear(&s->video.tc);
+                if (s->video.tsi)
+                    th_setup_free(s->video.tsi);
+                vorbis_info_init(&s->audio.vi);
+                vorbis_comment_init(&s->audio.vc);
+                if (vorbis_synthesis_headerin(&s->audio.vi, &s->audio.vc,
+                                              &packet) != 0) {
+                    vorbis_info_clear(&s->audio.vi);
+                    vorbis_comment_clear(&s->audio.vc);
+                    s->remain_headers = -1;
+                    return 1;
+                }
 
-            s->base.type = LMS_STREAM_TYPE_AUDIO;
-            s->remain_headers = 2;
+                s->base.type = LMS_STREAM_TYPE_AUDIO;
+                s->remain_headers = 2;
+            }
+            break;
+        case LMS_STREAM_TYPE_VIDEO:
+            assert(s->remain_headers > 0);
+            r = th_decode_headerin(&s->video.ti, &s->video.tc, &s->video.tsi,
+                                   &packet);
+            if (r < 0) {
+                s->remain_headers = -1;
+                return 1;
+            }
+
+            s->remain_headers--;
+            if (!s->remain_headers)
+                return 0;
             break;
         case LMS_STREAM_TYPE_AUDIO:
             assert(s->remain_headers > 0);
             r = vorbis_synthesis_headerin(&s->audio.vi, &s->audio.vc, &packet);
-            if (r != 0)
-                return -1;
+            if (r != 0) {
+                s->remain_headers = -1;
+                return 1;
+            }
 
             s->remain_headers--;
             if (!s->remain_headers)
                 return 0;
             break;
         default:
-            return 0;
+            s->remain_headers = -1;
+            return 1;
         }
     } while (1);
 
-    return 0;
+    return 1;
+}
+
+static void _parse_theora_and_vorbis_streams(struct ogg_info *info,
+                                             struct stream *video_stream)
+{
+    struct stream *s, *prev, *next;
+    const char *tag;
+
+    /* filter unknown or incomplete streams */
+
+    for (s = info->streams, next = NULL; s; s = next) {
+        next = (struct stream *) s->base.next;
+        if (s->base.type != LMS_STREAM_TYPE_UNKNOWN && s->remain_headers == 0)
+            break;
+        _stream_free(s);
+    }
+
+    info->streams = s;
+    if (!s)
+        return;
+
+    for (prev = s, s = next; s; s = next) {
+        next = (struct stream *) s->base.next;
+        if (s->base.type != LMS_STREAM_TYPE_UNKNOWN && s->remain_headers == 0) {
+            prev = s;
+        } else {
+            prev->base.next = (struct lms_stream *) next;
+            _stream_free(s);
+        }
+    }
+
+    /* add information to each stream */
+    for (s = info->streams; s; s = (struct stream *) s->base.next) {
+        if (s->base.type == LMS_STREAM_TYPE_AUDIO) {
+            s->base.codec = _audio_codec;
+            s->base.audio.channels = s->audio.vi.channels;
+            s->base.audio.bitrate = s->audio.vi.bitrate_nominal;
+        } else if (s->base.type == LMS_STREAM_TYPE_VIDEO) {
+            unsigned int num, den;
+
+            s->base.codec = _video_codec;
+            s->base.video.bitrate = s->video.ti.target_bitrate;
+            s->base.video.width = s->video.ti.frame_width;
+            s->base.video.height = s->video.ti.frame_height;
+            num = s->video.ti.fps_numerator;
+            den = s->video.ti.fps_denominator;
+            if (num && den)
+                s->base.video.framerate = (double)(num) / den;
+
+            num = s->video.ti.aspect_numerator;
+            den = s->video.ti.aspect_denominator;
+            if (num && den) {
+                reduce_gcd(num, den, &num, &den);
+                asprintf(&s->base.video.aspect_ratio.str, "%u:%u", num, den);
+                s->base.video.aspect_ratio.len =
+                    s->base.video.aspect_ratio.str ?
+                    strlen(s->base.video.aspect_ratio.str) : 0;
+            }
+        }
+    }
+
+    /* query the first video stream about relevant metdata */
+    tag = th_comment_query(&video_stream->video.tc, (char *) "TITLE", 0);
+    _set_lms_info(&info->title, tag);
+
+    tag = th_comment_query(&video_stream->video.tc, (char *) "ARTIST", 0);
+    _set_lms_info(&info->artist, tag);
 }
 
 static void _parse_vorbis_stream(struct ogg_info *info, struct stream *s)
@@ -277,11 +390,11 @@ static int _parse_ogg(const char *filename, struct ogg_info *info)
     FILE *fp;
     ogg_page page;
     ogg_sync_state *osync;
-    int r;
+    int r = 0;
     /* no numeration in the protocol, start arbitrarily from 1 */
     int id = 0;
     /* the 1st audio stream, the one used if audio */
-    struct stream *s, *audio_stream = NULL;
+    struct stream *s, *audio_stream = NULL, *video_stream = NULL;
 
     if (!filename)
         return -1;
@@ -299,12 +412,13 @@ static int _parse_ogg(const char *filename, struct ogg_info *info)
 
         s = _info_find_stream(info, serial);
 
-        /* A new page for a stream that has all the headers already: stop
-         * parsing */
-        if (s && s->remain_headers == 0)
-            break;
-
-        if (!s) {
+        /* A new page for a stream that has all the headers already */
+        if (s) {
+            if (s->remain_headers == 0)
+                break;
+            else if (s->remain_headers < 0)
+                continue;
+        } else {
             /* We didn't find the stream, but we are not at its start page
              * neither: it's an unknown stream, go to the next one */
             if (!ogg_page_bos(&page))
@@ -320,21 +434,23 @@ static int _parse_ogg(const char *filename, struct ogg_info *info)
         r = _stream_handle_page(s, &page);
         if (r < 0)
             goto done;
+        if (r > 0)
+            continue;
 
-        if (s->remain_headers == 0 && !audio_stream &&
-            s->base.type == LMS_STREAM_TYPE_AUDIO) {
-            info->type = s->base.type;
-            audio_stream = s;
+        if (s->remain_headers == 0) {
+            if (s->base.type == LMS_STREAM_TYPE_AUDIO && !audio_stream)
+                audio_stream = s;
+            else if (s->base.type == LMS_STREAM_TYPE_VIDEO && !video_stream)
+                video_stream = s;
         }
     }
 
-    if (audio_stream)
+    if (video_stream) {
+        _parse_theora_and_vorbis_streams(info, video_stream);
+        info->type = LMS_STREAM_TYPE_VIDEO;
+    } else if (audio_stream) {
         _parse_vorbis_stream(info, audio_stream);
-
-    while (info->streams) {
-        s = info->streams;
-        info->streams = (struct stream *) s->base.next;
-        _stream_free(s);
+        info->type = LMS_STREAM_TYPE_AUDIO;
     }
 
 done:
@@ -364,6 +480,7 @@ static const char *_authors[] = {
 struct plugin {
     struct lms_plugin plugin;
     lms_db_audio_t *audio_db;
+    lms_db_video_t *video_db;
 };
 
 static void *
@@ -421,9 +538,23 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
         audio_info.bitrate = info.bitrate;
 
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
+    } else if (info.type == LMS_STREAM_TYPE_VIDEO) {
+        struct lms_video_info video_info = { };
+
+        video_info.id = finfo->id;
+        video_info.title = info.title;
+        video_info.artist = info.artist;
+        video_info.streams = (struct lms_stream *) info.streams;
+        r = lms_db_video_add(plugin->video_db, &video_info);
     }
 
 done:
+    while (info.streams) {
+        struct stream *s = info.streams;
+        info.streams = (struct stream *) s->base.next;
+        _stream_free(s);
+    }
+
     free(info.title.str);
     free(info.artist.str);
     free(info.album.str);
@@ -438,6 +569,9 @@ _setup(struct plugin *plugin, struct lms_context *ctxt)
     plugin->audio_db = lms_db_audio_new(ctxt->db);
     if (!plugin->audio_db)
         return -1;
+    plugin->video_db = lms_db_video_new(ctxt->db);
+    if (!plugin->video_db)
+        return -1;
 
     return 0;
 }
@@ -445,15 +579,19 @@ _setup(struct plugin *plugin, struct lms_context *ctxt)
 static int
 _start(struct plugin *plugin, struct lms_context *ctxt)
 {
-    return lms_db_audio_start(plugin->audio_db);
+    int r;
+    r = lms_db_audio_start(plugin->audio_db);
+    r |= lms_db_video_start(plugin->video_db);
+    return r;
 }
 
 static int
 _finish(struct plugin *plugin, struct lms_context *ctxt)
 {
     if (plugin->audio_db)
-        return lms_db_audio_free(plugin->audio_db);
-
+        lms_db_audio_free(plugin->audio_db);
+    if (plugin->video_db)
+        lms_db_video_free(plugin->video_db);
     return 0;
 }
 
