@@ -42,6 +42,38 @@
 #include <string.h>
 #include <strings.h>
 
+static const struct lms_string_size dlna_mime =
+    LMS_STATIC_STRING_SIZE("image/png");
+static const struct lms_string_size dlna_sm_ico =
+    LMS_STATIC_STRING_SIZE("PNG_SM_ICO");
+static const struct lms_string_size dlna_lrg_ico =
+    LMS_STATIC_STRING_SIZE("PNG_LRG_ICO");
+static const struct lms_string_size dlna_tn =
+    LMS_STATIC_STRING_SIZE("PNG_TN");
+static const struct lms_string_size dlna_lrg =
+    LMS_STATIC_STRING_SIZE("PNG_LRG");
+
+static void
+_fill_dlna_profile(struct lms_image_info *info)
+{
+    const unsigned short w = info->width;
+    const unsigned short h = info->height;
+
+    info->dlna_mime = dlna_mime;
+
+    if (w == 0 || h == 0)
+        return;
+
+    if (w == 48 && h == 48)
+        info->dlna_profile = dlna_sm_ico;
+    else if (w == 120 && h == 120)
+        info->dlna_profile = dlna_lrg_ico;
+    else if (w <= 160 && h <= 160)
+        info->dlna_profile = dlna_tn;
+    else if (w <= 4096 && h <= 4096)
+        info->dlna_profile = dlna_lrg;
+}
+
 static inline unsigned int
 _chunk_to_uint(unsigned char *buf)
 {
@@ -149,6 +181,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
     if (info.artist.str)
       lms_charset_conv(ctxt->cs_conv, &info.artist.str, &info.artist.len);
+
+    _fill_dlna_profile(&info);
 
     info.id = finfo->id;
     r = lms_db_image_add(plugin->img_db, &info);
