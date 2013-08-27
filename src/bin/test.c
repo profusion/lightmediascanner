@@ -29,6 +29,7 @@
 #include <limits.h>
 #include <sqlite3.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 static int color = 0;
 static const char short_options[] = "s:S:p:P::c:i:t:m:v::h";
@@ -304,6 +305,7 @@ progress(lms_t *lms, const char *path, int path_len, lms_progress_status_t statu
 static int
 work(lms_t *lms, int method, int verbose, const char *path)
 {
+    struct stat st;
     int r;
 
     if (verbose) {
@@ -325,6 +327,10 @@ work(lms_t *lms, int method, int verbose, const char *path)
         return r;
     }
 
+    if (stat(path, &st) != 0) {
+        printf("PROCESS skipped for '%s': doesn't exist.\n", path);
+        return 0;
+    }
 
     if (verbose) {
         lms_set_progress_callback(lms, progress, "PROGRESS", NULL);
@@ -362,9 +368,13 @@ show(lms_t *lms, const char *orig_path)
     int r, len;
 
     if (!realpath(orig_path, path)) {
-        fprintf(stderr, "ERROR: could not realpath(\"%s\"): %s\n",
-                orig_path, strerror(errno));
-        return -1;
+        len = strlen(orig_path);
+        if (len + 1 < PATH_MAX)
+            memcpy(path, orig_path, len + 1);
+        else {
+            fprintf(stderr, "ERROR: path is too long: %s\n", orig_path);
+            return -1;
+        }
     }
 
     len = strlen(path);

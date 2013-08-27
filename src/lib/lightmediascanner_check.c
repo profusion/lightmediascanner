@@ -785,9 +785,18 @@ _db_files_loop(void *db_ptr, struct cinfo *info, check_row_callback_t check_row)
 }
 
 static int
+_is_file(const char *path)
+{
+    struct stat st;
+    if (stat(path, &st) != 0)
+        return 0;
+    return S_ISREG(st.st_mode);
+}
+
+static int
 _check(struct pinfo *pinfo, int len, char *path)
 {
-    char query[PATH_SIZE + 2];
+    char query[PATH_SIZE + 3];
     struct master_db *db;
     int ret;
 
@@ -795,10 +804,14 @@ _check(struct pinfo *pinfo, int len, char *path)
     if (!db)
         return -1;
 
-    memcpy(query, path, len);
-    query[len] = '%';
-    query[len + 1] = '\0';
-    ret = lms_db_get_files(db->get_files, query, len + 1);
+    if (_is_file(path))
+        memcpy(query, path, len + 1);
+    else {
+        memcpy(query, path, len);
+        memcpy(query + len, "/%", sizeof("/%"));
+        len += sizeof("/%") - 1;
+    }
+    ret = lms_db_get_files(db->get_files, query, len);
     if (ret != 0)
         goto end;
 
@@ -843,10 +856,14 @@ _check_single_process(struct sinfo *sinfo, int len, char *path)
     if (!db)
         return -1;
 
-    memcpy(query, path, len);
-    query[len] = '%';
-    query[len + 1] = '\0';
-    ret = lms_db_get_files(db->get_files, query, len + 1);
+    if (_is_file(path))
+        memcpy(query, path, len + 1);
+    else {
+        memcpy(query, path, len);
+        memcpy(query + len, "/%", sizeof("/%"));
+        len += sizeof("/%") - 1;
+    }
+    ret = lms_db_get_files(db->get_files, query, len);
     if (ret != 0)
         goto end;
 
@@ -928,14 +945,14 @@ _lms_check_check_valid(lms_t *lms, const char *path)
 }
 
 /**
- * Check consistency of given directory.
+ * Check consistency of given directory or file.
  *
  * This will update media in the given directory or its children. If files
  * are missing, they'll be marked as deleted (dtime is set), if they were
  * marked as deleted and are now present, they are unmarked (dtime is unset).
  *
  * @param lms previously allocated Light Media Scanner instance.
- * @param top_path top directory to scan.
+ * @param top_path top directory or file to scan.
  *
  * @return On success 0 is returned.
  */
@@ -958,9 +975,13 @@ lms_check(lms_t *lms, const char *top_path)
     }
 
     if (realpath(top_path, path) == NULL) {
-        perror("realpath");
-        r = -6;
-        goto close_pipes;
+        int len = strlen(top_path);
+        if (len + 1 < PATH_SIZE)
+            memcpy(path, top_path, len + 1);
+        else {
+            fprintf(stderr, "ERROR: path is too long: %s\n", top_path);
+            return -5;
+        }
     }
 
     lms->is_processing = 1;
@@ -969,14 +990,13 @@ lms_check(lms_t *lms, const char *top_path)
     lms->is_processing = 0;
     lms->stop_processing = 0;
 
-  close_pipes:
     lms_close_pipes(&pinfo);
   end:
     return r;
 }
 
 /**
- * Check consistency of given directory *without fork()-ing* into child process.
+ * Check consistency of given directory or file *without fork()-ing* into child process.
  *
  * This will update media in the given directory or its children. If files
  * are missing, they'll be marked as deleted (dtime is set), if they were
@@ -984,7 +1004,7 @@ lms_check(lms_t *lms, const char *top_path)
  * Note that if a parser hangs in the check process, this call will also hang.
  *
  * @param lms previously allocated Light Media Scanner instance.
- * @param top_path top directory to scan.
+ * @param top_path top directory or file to scan.
  *
  * @return On success 0 is returned.
  */
@@ -1004,8 +1024,13 @@ lms_check_single_process(lms_t *lms, const char *top_path)
     sinfo.total_committed = 0;
 
     if (realpath(top_path, path) == NULL) {
-        perror("realpath");
-        return -6;
+        int len = strlen(top_path);
+        if (len + 1 < PATH_SIZE)
+            memcpy(path, top_path, len + 1);
+        else {
+            fprintf(stderr, "ERROR: path is too long: %s\n", top_path);
+            return -5;
+        }
     }
 
     lms->is_processing = 1;

@@ -906,11 +906,17 @@ _process_unknown(struct cinfo *info, int base, char *path, const char *name, pro
         return -2;
     }
 
-    if (S_ISREG(st.st_mode))
-        return process_file(info, base, path, name);
-    else if (S_ISDIR(st.st_mode))
-        return _process_dir(info, base, path, name, process_file);
-    else {
+    if (S_ISREG(st.st_mode)) {
+        int r = process_file(info, base, path, name);
+        if (r >= 0) /* if success and ignore non-fatal errors */
+            return 0;
+        return r;
+    } else if (S_ISDIR(st.st_mode)) {
+        int r = _process_dir(info, base, path, name, process_file);
+        if (r >= 0) /* ignore non-fatal errors */
+            return 0;
+        return r;
+    } else {
         fprintf(stderr,
                 "INFO: %s is neither a directory nor a regular file.\n", path);
         return -3;
@@ -1030,7 +1036,7 @@ _process_trigger(struct cinfo *info, const char *top_path, process_file_callback
 
     lms->is_processing = 1;
     lms->stop_processing = 0;
-    r = _process_dir(info, len, path, bname, process_file);
+    r = _process_unknown(info, len, path, bname, process_file);
     lms->is_processing = 0;
     lms->stop_processing = 0;
     free(bname);
@@ -1039,12 +1045,12 @@ _process_trigger(struct cinfo *info, const char *top_path, process_file_callback
 }
 
 /**
- * Process the given directory.
+ * Process the given directory or file.
  *
  * This will add or update media found in the given directory or its children.
  *
  * @param lms previously allocated Light Media Scanner instance.
- * @param top_path top directory to scan.
+ * @param top_path top directory or file to scan.
  *
  * @return On success 0 is returned.
  */
@@ -1080,13 +1086,13 @@ lms_process(lms_t *lms, const char *top_path)
 }
 
 /**
- * Process the given directory *without fork()-ing* into child process.
+ * Process the given directory or file *without fork()-ing* into child process.
  *
  * This will add or update media found in the given directory or its children.
  * Note that if a parser hangs during the process, this call will also hang.
  *
  * @param lms previously allocated Light Media Scanner instance.
- * @param top_path top directory to scan.
+ * @param top_path top directory or file to scan.
  *
  * @return On success 0 is returned.
  */
