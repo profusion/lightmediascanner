@@ -119,6 +119,25 @@ AC_LMS_OPTIONAL_MODULE([flac], true, [CHECK_MODULE_FLAC])
 AC_LMS_OPTIONAL_MODULE([wave], true)
 
 
+AC_ARG_ENABLE([daemon],
+        [AC_HELP_STRING([--disable-daemon],
+                [Disable DBus scanner daemon. @<:@default=enable@:>@])],
+        [build_daemon=${enableval}], [build_daemon=yes])
+
+dbusservicedir="${datadir}/dbus-1/services"
+AC_ARG_WITH([dbus-services],
+        [AC_HELP_STRING([--with-dbus-services=DBUS_SERVICES],
+                [Specify a directory to store dbus service files.])],
+        [dbusservicedir=$withval])
+AC_SUBST(dbusservicedir)
+
+dbusdir=""
+if test "$build_daemon" = "yes"; then
+        PKG_CHECK_MODULES(GIO, [gio-2.0 >= 2.32])
+fi
+AM_CONDITIONAL([BUILD_DAEMON], [test "$build_daemon" = "yes"])
+
+
 #####################################################################
 # Default CFLAGS and LDFLAGS
 #####################################################################
@@ -178,6 +197,7 @@ AC_SUBST([GCLDFLAGS], $with_ldflags)
 AC_OUTPUT([
 lightmediascanner.pc
 lightmediascanner.spec
+org.lightmediascanner.service
 Makefile
 m4/Makefile
 src/Makefile
@@ -213,3 +233,4 @@ Summary:
 SUMMARY_EOF
 
 echo -e " * modules........: $MODS $UNUSED_MODS"
+echo -e " * daemon.........: ${build_daemon}"

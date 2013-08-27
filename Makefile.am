@@ -24,3 +24,8 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lightmediascanner.pc
 
 ACLOCAL_AMFLAGS = -I m4
+
+if BUILD_DAEMON
+servicedir = @dbusservicedir@
+service_DATA = org.lightmediascanner.service
+endif

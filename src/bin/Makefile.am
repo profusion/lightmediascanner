@@ -21,3 +21,21 @@ list_parsers_SOURCES = list-parsers.c
 list_parsers_LDADD = $(top_builddir)/src/lib/liblightmediascanner.la \
 	@SQLITE3_LIBS@
 list_parsers_DEPENDENCIES = $(top_builddir)/src/lib/liblightmediascanner.la
+
+
+if BUILD_DAEMON
+bin_PROGRAMS = lightmediascannerd lightmediascannerctl
+
+lightmediascannerd_SOURCES = lightmediascannerd.c
+lightmediascannerd_CPPFLAGS = $(AM_CPPFLAGS) @GIO_CFLAGS@
+lightmediascannerd_LDADD = \
+	$(top_builddir)/src/lib/liblightmediascanner.la \
+	@SQLITE3_LIBS@ \
+	@GIO_LIBS@
+lightmediascannerd_DEPENDENCIES = \
+	$(top_builddir)/src/lib/liblightmediascanner.la
+
+lightmediascannerctl_SOURCES = lightmediascannerctl.c
+lightmediascannerctl_CPPFLAGS = $(AM_CPPFLAGS) @GIO_CFLAGS@
+lightmediascannerctl_LDADD = @GIO_LIBS@
+endif
