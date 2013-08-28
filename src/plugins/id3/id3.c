@@ -29,6 +29,7 @@
  * Reference:
  *   http://www.mp3-tech.org/programmer/frame_header.html
  *   http://www.mpgedit.org/mpgedit/mpeg_format/MP3Format.html
+ *   http://id3.org/id3v2.3.0
  */
 
 #include <lightmediascanner_plugin.h>
@@ -183,6 +184,20 @@ _to_uint(const char *data, int data_size)
 
     for (i = 0; i <= last; i++)
         sum |= ((unsigned char) data[i]) << ((last - i) * 8);
+
+    return sum;
+}
+
+static unsigned int
+_to_uint_max7b(const char *data, int data_size)
+{
+    unsigned int sum = 0;
+    unsigned int last, i;
+
+    last = data_size > 4 ? 3 : data_size - 1;
+
+    for (i = 0; i <= last; i++)
+        sum |= ((unsigned char) data[i]) << ((last - i) * 7);
 
     return sum;
 }
@@ -343,7 +358,7 @@ found:
  * after ID3 because of a sync value, @syncframe_offset is set to its
  * correspondent offset */
 static long
-_find_id3v2(int fd, off_t *syncframe_offset)
+_find_id3v2(int fd, off_t *sync_offset)
 {
     static const char pattern[3] = "ID3";
     char buffer[3];
@@ -377,7 +392,7 @@ _find_id3v2(int fd, off_t *syncframe_offset)
         /* (1) previous partial match */
         if (prev_part_match_sync) {
             if (_is_id3v2_second_synch_byte(buffer[0])) {
-                *syncframe_offset = buffer_offset - 1;
+                *sync_offset = buffer_offset - 1;
                 return -1;
             }
             prev_part_match_sync = 0;
@@ -420,7 +435,7 @@ _find_id3v2(int fd, off_t *syncframe_offset)
                 if (q < p_end) {
                     if (_is_id3v2_second_synch_byte(*q)) {
                         /* (2) synch pattern contained in current buffer */
-                        *syncframe_offset = buffer_offset + (p - buffer);
+                        *sync_offset = buffer_offset + (p - buffer);
                         return -1;
                     }
                 } else
@@ -709,7 +724,8 @@ _parse_id3v2_frame(struct id3v2_frame_header *fh, const char *frame_data, struct
 }
 
 static int
-_parse_id3v2(int fd, long id3v2_offset, struct id3_info *info, lms_charset_conv_t **cs_convs)
+_parse_id3v2(int fd, long id3v2_offset, struct id3_info *info,
+             lms_charset_conv_t **cs_convs, off_t *ptag_size)
 {
     char header_data[10], frame_header_data[10];
     unsigned int tag_size, major_version, frame_data_pos, frame_data_length, frame_header_size;
@@ -723,9 +739,11 @@ _parse_id3v2(int fd, long id3v2_offset, struct id3_info *info, lms_charset_conv_
     if (read(fd, header_data, ID3V2_HEADER_SIZE) != ID3V2_HEADER_SIZE)
         return -1;
 
-    tag_size = _to_uint(header_data + 6, 4);
+    tag_size = _to_uint_max7b(header_data + 6, 4);
     if (tag_size == 0)
         return -1;
+
+    *ptag_size = tag_size + ID3V2_HEADER_SIZE;
 
     /* parse frames */
     major_version = header_data[3];
@@ -742,8 +760,12 @@ _parse_id3v2(int fd, long id3v2_offset, struct id3_info *info, lms_charset_conv_
 
         if (read(fd, extended_header_data, 4) != 4)
             return -1;
+
         extended_header_size = _to_uint(extended_header_data, 4);
         lseek(fd, extended_header_size - 4, SEEK_CUR);
+
+        *ptag_size += extended_header_size;
+
         frame_data_pos += extended_header_size;
         frame_data_length -= extended_header_size;
     }
@@ -882,7 +904,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     struct lms_audio_info audio_info = { };
     int r, fd;
     long id3v2_offset;
-    off_t syncframe_offset = 0;
+    off_t sync_offset = 0;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -890,13 +912,18 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         return -1;
     }
 
-    id3v2_offset = _find_id3v2(fd, &syncframe_offset);
+    id3v2_offset = _find_id3v2(fd, &sync_offset);
     if (id3v2_offset >= 0) {
+        off_t id3v2_size = 3;
+
+        sync_offset = id3v2_offset;
+
 #if 0
         fprintf(stderr, "id3v2 tag found in file %s with offset %ld\n",
                 finfo->path, id3v2_offset);
 #endif
-        if (_parse_id3v2(fd, id3v2_offset, &info, plugin->cs_convs) != 0 ||
+        if (_parse_id3v2(fd, id3v2_offset, &info, plugin->cs_convs,
+                         &id3v2_size) != 0 ||
             !info.title.str || !info.artist.str ||
             !info.album.str || !info.genre.str ||
             info.trackno == -1) {
@@ -906,9 +933,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             id3v2_offset = -1;
         }
 
-        /* Even if later we failed to parse the ID3, we want to look for sync
-         * frame only where we were left */
-        syncframe_offset = lseek(fd, 0, SEEK_CUR);
+        /* Even if we later failed to parse the ID3, we want to look for sync
+         * frame only after the tag */
+        sync_offset += id3v2_size;
     }
 
     if (id3v2_offset < 0) {
@@ -964,7 +991,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     audio_info.genre = info.genre;
     audio_info.trackno = info.trackno;
 
-    _parse_mpeg_header(fd, syncframe_offset, &audio_info);
+    _parse_mpeg_header(fd, sync_offset, &audio_info);
 
     r = lms_db_audio_add(plugin->audio_db, &audio_info);
 
