@@ -25,6 +25,10 @@
  * @brief
  *
  * id3 file parser.
+ *
+ * Reference:
+ *   http://www.mp3-tech.org/programmer/frame_header.html
+ *   http://www.mpgedit.org/mpgedit/mpeg_format/MP3Format.html
  */
 
 #include <lightmediascanner_plugin.h>
@@ -307,7 +311,7 @@ _parse_mpeg_header(int fd, off_t off, struct lms_audio_info *audio_info)
         p = buffer;
         p_end = buffer + nread;
         while (p < p_end && (p = memchr(p, 0xFF, p_end - p))) {
-            /* poor man's ring buffer since the the needle is small (4 bytes) */
+            /* poor man's ring buffer since the needle is small (4 bytes) */
             if (p > p_end - MPEG_HEADER_SIZE) {
                 memcpy(buffer, p, p_end - p);
                 break;
@@ -322,7 +326,6 @@ _parse_mpeg_header(int fd, off_t off, struct lms_audio_info *audio_info)
     } while(1);
 
 found:
-
     if (_fill_mpeg_header(&hdr, p) < 0) {
         fprintf(stderr, "Invalid field in file, ignoring.\n");
         return 0;
