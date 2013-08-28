@@ -100,6 +100,7 @@ extern "C" {
         struct lms_string_size container;
         struct lms_string_size codec;
         struct lms_string_size dlna_profile;
+        struct lms_string_size dlna_mime;
         unsigned int playcnt;
         unsigned int length;
         unsigned int sampling_rate;

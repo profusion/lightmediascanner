@@ -169,6 +169,7 @@ _db_table_updater_audios_3(sqlite3 *db, const char *table,
         "ALTER TABLE audios ADD COLUMN sampling_rate INTEGER DEFAULT NULL;"
         "ALTER TABLE audios ADD COLUMN bitrate INTEGER DEFAULT NULL;"
         "ALTER TABLE audios ADD COLUMN dlna_profile TEXT DEFAULT NULL;"
+        "ALTER TABLE audios ADD COLUMN dlna_mime TEXT DEFAULT NULL;"
         "COMMIT;",
         NULL, NULL, &err);
     if (ret != SQLITE_OK) {
@@ -384,9 +385,9 @@ lms_db_audio_start(lms_db_audio_t *lda)
         lda->db, "INSERT OR REPLACE INTO audios "
         "(id, title, album_id, artist_id, genre_id, "
         "trackno, rating, playcnt, length, "
-        "container, codec, channels, sampling_rate, bitrate, dlna_profile) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "
-        "?, ?, ?, ?, ?, ?)");
+        "container, codec, channels, sampling_rate, bitrate, dlna_profile, "
+        "dlna_mime) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!lda->insert_audio)
         return -2;
 
@@ -692,8 +693,8 @@ _db_insert_audio(lms_db_audio_t *lda, const struct lms_audio_info *info, int64_t
     INSERT_AUDIO_BIND(int, info->sampling_rate);
     INSERT_AUDIO_BIND(int, info->bitrate);
 
-    /* TODO: Calculate dlna_profile ourselves */
     INSERT_AUDIO_BIND(text, info->dlna_profile.str, info->dlna_profile.len);
+    INSERT_AUDIO_BIND(text, info->dlna_mime.str, info->dlna_mime.len);
 
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
