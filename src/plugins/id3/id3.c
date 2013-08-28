@@ -756,16 +756,18 @@ _parse_id3v2(int fd, long id3v2_offset, struct id3_info *info,
     if (extended_header) {
         /* skip extended header */
         unsigned int extended_header_size;
-        char extended_header_data[4];
+        char extended_header_data[6];
+        bool crc;
 
         if (read(fd, extended_header_data, 4) != 4)
             return -1;
 
         extended_header_size = _to_uint(extended_header_data, 4);
-        lseek(fd, extended_header_size - 4, SEEK_CUR);
+        crc = extended_header_data[5] & 0x8000;
 
-        *ptag_size += extended_header_size;
+        *ptag_size += extended_header_size + (crc * 4);
 
+        lseek(fd, extended_header_size - 6, SEEK_CUR);
         frame_data_pos += extended_header_size;
         frame_data_length -= extended_header_size;
     }
