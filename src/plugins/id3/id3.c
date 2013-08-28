@@ -48,6 +48,96 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#define DECL_STR(cname, str)                                            \
+    static const struct lms_string_size cname = LMS_STATIC_STRING_SIZE(str)
+
+DECL_STR(_codec_mpeg1layer1, "mpeg1layer1");
+DECL_STR(_codec_mpeg1layer2, "mpeg1layer2");
+DECL_STR(_codec_mpeg1layer3, "mpeg1layer3");
+DECL_STR(_codec_mpeg2layer1, "mpeg2layer1");
+DECL_STR(_codec_mpeg2layer2, "mpeg2layer2");
+DECL_STR(_codec_mpeg2layer3, "mpeg2layer3");
+DECL_STR(_codec_mpeg2_5layer1, "mpeg2.5layer1");
+DECL_STR(_codec_mpeg2_5layer2, "mpeg2.5layer2");
+DECL_STR(_codec_mpeg2_5layer3, "mpeg2.5layer3");
+DECL_STR(_codec_mpeg2aac_main, "mpeg2aac-main");
+DECL_STR(_codec_mpeg2aac_lc, "mpeg2aac-lc");
+DECL_STR(_codec_mpeg2aac_ssr, "mpeg2aac-ssr");
+DECL_STR(_codec_mpeg2aac_ltp, "mpeg2aac-ltp");
+DECL_STR(_codec_mpeg4aac_main, "mpeg4aac-main");
+DECL_STR(_codec_mpeg4aac_lc, "mpeg4aac-lc");
+DECL_STR(_codec_mpeg4aac_ssr, "mpeg4aac-ssr");
+DECL_STR(_codec_mpeg4aac_ltp, "mpeg4aac-ltp");
+
+DECL_STR(_dlna_mp3, "MP3");
+DECL_STR(_dlna_mp3x, "MP3X");
+
+DECL_STR(_dlna_aac_adts_320, "AAC_ADTS_320");
+DECL_STR(_dlna_aac_adts, "AAC_ADTS");
+DECL_STR(_dlna_aac_adts_mult5, "AAC_MULT5_ADTS");
+
+DECL_STR(_dlna_mime_mpeg, "audio/mpeg");
+DECL_STR(_dlna_mime_adts, "audio/vnd.dlna.adts");
+#undef DECL_STR
+
+
+static void
+_fill_dlna_profile(struct lms_audio_info *info)
+{
+    if ((info->channels == 1 || info->channels == 2) &&
+        (info->sampling_rate == 32000 ||
+         info->sampling_rate == 44100 ||
+         info->sampling_rate == 48000) &&
+        (info->bitrate >= 32000 && info->bitrate <= 320000) &&
+        info->codec.str == _codec_mpeg1layer3.str) {
+        info->dlna_profile = _dlna_mp3;
+        info->dlna_mime = _dlna_mime_mpeg;
+   } else if (
+        (info->channels == 1 || info->channels == 2) &&
+        (info->sampling_rate == 16000 ||
+         info->sampling_rate == 22050 ||
+         info->sampling_rate == 24000 ||
+         info->sampling_rate == 32000 ||
+         info->sampling_rate == 44100 ||
+         info->sampling_rate == 48000) &&
+        (info->bitrate >= 8000 && info->bitrate <= 320000) &&
+        (info->codec.str == _codec_mpeg1layer1.str ||
+         info->codec.str == _codec_mpeg1layer2.str ||
+         info->codec.str == _codec_mpeg1layer3.str ||
+         info->codec.str == _codec_mpeg2layer1.str ||
+         info->codec.str == _codec_mpeg2layer2.str ||
+         info->codec.str == _codec_mpeg2layer3.str)) {
+        info->dlna_profile = _dlna_mp3x;
+        info->dlna_mime = _dlna_mime_mpeg;
+    } else if (
+        (info->sampling_rate == 8000 ||
+         info->sampling_rate == 11025 ||
+         info->sampling_rate == 12000 ||
+         info->sampling_rate == 16000 ||
+         info->sampling_rate == 22050 ||
+         info->sampling_rate == 24000 ||
+         info->sampling_rate == 32000 ||
+         info->sampling_rate == 44100 ||
+         info->sampling_rate == 48000) &&
+        (info->codec.str == _codec_mpeg2aac_lc.str ||
+         info->codec.str == _codec_mpeg4aac_lc.str)) {
+
+        if (info->channels == 1 || info->channels == 2) {
+            if (info->bitrate <= 320000) {
+                info->dlna_profile = _dlna_aac_adts_320;
+                info->dlna_mime = _dlna_mime_adts;
+            } else if (info->bitrate <= 576000) {
+                info->dlna_profile = _dlna_aac_adts;
+                info->dlna_mime = _dlna_mime_adts;
+            }
+        } else if ((info->channels >= 1 && info->channels <= 6) &&
+                   (info->bitrate <= 1440000)) {
+            info->dlna_profile = _dlna_aac_adts_mult5;
+            info->dlna_mime = _dlna_mime_adts;
+        }
+    }
+}
+
 #define ID3V2_HEADER_SIZE       10
 #define ID3V2_FOOTER_SIZE       10
 
@@ -92,30 +182,30 @@ struct mpeg_header {
     bool cbr;
 };
 
-static const struct lms_string_size _codecs[] = {
+static const struct lms_string_size *_codecs[] = {
     /* mp3 */
-    [0] = LMS_STATIC_STRING_SIZE("mpeg1layer1"),
-    [1] = LMS_STATIC_STRING_SIZE("mpeg1layer2"),
-    [2] = LMS_STATIC_STRING_SIZE("mpeg1layer3"),
-    [3] = LMS_STATIC_STRING_SIZE("mpeg2layer1"),
-    [4] = LMS_STATIC_STRING_SIZE("mpeg2layer2"),
-    [5] = LMS_STATIC_STRING_SIZE("mpeg2layer3"),
-    [6] = LMS_STATIC_STRING_SIZE("mpeg2.5layer1"),
-    [7] = LMS_STATIC_STRING_SIZE("mpeg2.5layer2"),
-    [8] = LMS_STATIC_STRING_SIZE("mpeg2.5layer3"),
+    [0] = &_codec_mpeg1layer1,
+    [1] = &_codec_mpeg1layer2,
+    [2] = &_codec_mpeg1layer3,
+    [3] = &_codec_mpeg2layer1,
+    [4] = &_codec_mpeg2layer2,
+    [5] = &_codec_mpeg2layer3,
+    [6] = &_codec_mpeg2_5layer1,
+    [7] = &_codec_mpeg2_5layer2,
+    [8] = &_codec_mpeg2_5layer3,
 
     /* aac */
 #define MPEG_CODEC_AAC_START 9
-    [9] = LMS_STATIC_STRING_SIZE("mpeg2aac-main"),
-    [10] = LMS_STATIC_STRING_SIZE("mpeg2aac-lc"),
-    [11] = LMS_STATIC_STRING_SIZE("mpeg2aac-ssr"),
-    [12] = LMS_STATIC_STRING_SIZE("mpeg2aac-ltp"),
+    [9] = &_codec_mpeg2aac_main,
+    [10] = &_codec_mpeg2aac_lc,
+    [11] = &_codec_mpeg2aac_ssr,
+    [12] = &_codec_mpeg2aac_ltp,
 
-    [13] = LMS_STATIC_STRING_SIZE("mpeg4aac-main"),
-    [14] = LMS_STATIC_STRING_SIZE("mpeg4aac-lc"),
-    [15] = LMS_STATIC_STRING_SIZE("mpeg4aac-ssr"),
-    [16] = LMS_STATIC_STRING_SIZE("mpeg4aac-ltp"),
-    { }
+    [13] = &_codec_mpeg4aac_main,
+    [14] = &_codec_mpeg4aac_lc,
+    [15] = &_codec_mpeg4aac_ssr,
+    [16] = &_codec_mpeg4aac_ltp,
+    [17] = NULL
 };
 
 /* Ordered according to AAC index, take care with mp3 */
@@ -554,7 +644,7 @@ found:
     if (r < 0)
         return r;
 
-    audio_info->codec = _codecs[hdr.codec_idx];
+    audio_info->codec = *_codecs[hdr.codec_idx];
     audio_info->sampling_rate = _sample_rates[hdr.sampling_rate_idx];
     audio_info->channels = hdr.channels;
     audio_info->bitrate = hdr.bitrate;
@@ -1204,6 +1294,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     audio_info.trackno = info.trackno;
 
     _parse_mpeg_header(fd, sync_offset, &audio_info, finfo->size);
+
+    _fill_dlna_profile(&audio_info);
 
     r = lms_db_audio_add(plugin->audio_db, &audio_info);
 
