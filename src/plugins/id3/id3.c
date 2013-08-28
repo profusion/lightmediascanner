@@ -57,6 +57,7 @@ enum mpeg_audio_version {
     MPEG_AUDIO_VERSION_2,
     MPEG_AUDIO_VERSION_2_5,
     MPEG_AUDIO_VERSION_4,
+    _MPEG_AUDIO_VERSION_COUNT
 };
 
 enum mpeg_audio_layer {
@@ -64,6 +65,7 @@ enum mpeg_audio_layer {
     MPEG_AUDIO_LAYER_2,
     MPEG_AUDIO_LAYER_3,
     MPEG_AUDIO_LAYER_AAC,
+    _MPEG_AUDIO_LAYER_COUNT
 };
 
 struct mpeg_header {
@@ -73,6 +75,7 @@ struct mpeg_header {
     uint8_t channels;
     uint8_t sampling_rate_idx;
     uint8_t codec_idx;
+    unsigned int bitrate_idx;
 };
 
 static const struct lms_string_size _codecs[] = {
@@ -111,6 +114,24 @@ static int _sample_rates[16] = {
     12000, 11025, 8000,
 
     7350, /* reserved, zeroed */
+};
+
+static unsigned int
+_bitrate_table[_MPEG_AUDIO_VERSION_COUNT][_MPEG_AUDIO_LAYER_COUNT][16] = {
+    [MPEG_AUDIO_VERSION_1][MPEG_AUDIO_LAYER_1] = {
+        0,32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0},
+    [MPEG_AUDIO_VERSION_1][MPEG_AUDIO_LAYER_2] = {
+        0,32, 48, 56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, 384, 0},
+    [MPEG_AUDIO_VERSION_1][MPEG_AUDIO_LAYER_3] = {
+        0,32, 40, 48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, 0},
+    [MPEG_AUDIO_VERSION_2][MPEG_AUDIO_LAYER_2] = {
+        0,32, 48, 56,  64,  80,  96, 112, 128, 144, 160, 176, 192, 224, 256, 0},
+    [MPEG_AUDIO_VERSION_2][MPEG_AUDIO_LAYER_3] = {
+        0, 8, 16, 24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, 0},
+    [MPEG_AUDIO_VERSION_2_5][MPEG_AUDIO_LAYER_2] = {
+        0,32, 48, 56,  64,  80,  96, 112, 128, 144, 160, 176, 192, 224, 256, 0},
+    [MPEG_AUDIO_VERSION_2_5][MPEG_AUDIO_LAYER_3] = {
+        0, 8, 16, 24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, 0},
 };
 
 enum ID3Encodings {
@@ -215,7 +236,9 @@ _is_id3v2_second_synch_byte(unsigned char byte)
 static inline int
 _fill_mp3_header(struct mpeg_header *hdr, const uint8_t b[4])
 {
+    unsigned int bitrate_idx = (b[2] & 0xF0) >> 4;
     hdr->sampling_rate_idx = (b[2] & 0x0C) >> 2;
+
     if (hdr->sampling_rate_idx == 0x3)
         return -1;
     /*
@@ -236,6 +259,9 @@ _fill_mp3_header(struct mpeg_header *hdr, const uint8_t b[4])
 
     hdr->channels = (b[3] & 0xC0) >> 6;
     hdr->channels = hdr->channels == 0x3 ? 1 : 2;
+
+    hdr->bitrate_idx = bitrate_idx;
+
     return 0;
 }
 
@@ -298,21 +324,19 @@ _fill_mpeg_header(struct mpeg_header *hdr, const uint8_t b[4])
             hdr->version = MPEG_AUDIO_VERSION_1;
     }
 
-    if (hdr->layer == MPEG_AUDIO_LAYER_AAC)
-        return _fill_aac_header(hdr, b);
-    else
-        return _fill_mp3_header(hdr, b);
-
     return 0;
 }
 
 static int
-_parse_mpeg_header(int fd, off_t off, struct lms_audio_info *audio_info)
+_parse_mpeg_header(int fd, off_t off, struct lms_audio_info *audio_info,
+                   size_t size)
 {
     uint8_t buffer[32];
     const uint8_t *p, *p_end;
     unsigned int prev_read;
     struct mpeg_header hdr;
+    int r;
+    off_t mpeg_offset = off;
 
     lseek(fd, off, SEEK_SET);
 
@@ -325,6 +349,7 @@ _parse_mpeg_header(int fd, off_t off, struct lms_audio_info *audio_info)
 
         p = buffer;
         p_end = buffer + nread;
+        off += nread - prev_read;
         while (p < p_end && (p = memchr(p, 0xFF, p_end - p))) {
             /* poor man's ring buffer since the needle is small (4 bytes) */
             if (p > p_end - MPEG_HEADER_SIZE) {
@@ -332,8 +357,10 @@ _parse_mpeg_header(int fd, off_t off, struct lms_audio_info *audio_info)
                 break;
             }
 
-            if (_is_id3v2_second_synch_byte(*(p + 1)))
+            if (_is_id3v2_second_synch_byte(*(p + 1))) {
+                off -= (p_end - p);
                 goto found;
+            }
 
             p++;
         }
@@ -346,9 +373,28 @@ found:
         return 0;
     }
 
+    if (hdr.layer == MPEG_AUDIO_LAYER_AAC)
+        r = _fill_aac_header(&hdr, p);
+    else {
+        r = _fill_mp3_header(&hdr, p);
+        if (r >= 0) {
+            audio_info->bitrate =
+                _bitrate_table[hdr.version][hdr.layer][hdr.bitrate_idx];
+        }
+    }
+
+    if (r < 0)
+        return r;
+
     audio_info->codec = _codecs[hdr.codec_idx];
     audio_info->sampling_rate = _sample_rates[hdr.sampling_rate_idx];
     audio_info->channels = hdr.channels;
+
+    /* assume it's CBR */
+    if (!audio_info->length && audio_info->bitrate) {
+        audio_info->length = (8 * (size - mpeg_offset)) /
+            (1000 * audio_info->bitrate);
+    }
 
     return 0;
 }
@@ -993,7 +1039,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     audio_info.genre = info.genre;
     audio_info.trackno = info.trackno;
 
-    _parse_mpeg_header(fd, sync_offset, &audio_info);
+    _parse_mpeg_header(fd, sync_offset, &audio_info, finfo->size);
 
     r = lms_db_audio_add(plugin->audio_db, &audio_info);
 
