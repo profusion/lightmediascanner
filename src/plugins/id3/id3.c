@@ -29,6 +29,7 @@
  * Reference:
  *   http://www.mp3-tech.org/programmer/frame_header.html
  *   http://www.mpgedit.org/mpgedit/mpeg_format/MP3Format.html
+ *   http://www.codeproject.com/Articles/8295/MPEG-Audio-Frame-Header
  *   http://id3.org/id3v2.3.0
  */
 
@@ -39,6 +40,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,10 +74,14 @@ struct mpeg_header {
     enum mpeg_audio_version version;
     enum mpeg_audio_layer layer;
 
+    bool crc;
     uint8_t channels;
     uint8_t sampling_rate_idx;
     uint8_t codec_idx;
     unsigned int bitrate_idx;
+
+    unsigned int bitrate;
+    unsigned int length;
 };
 
 static const struct lms_string_size _codecs[] = {
@@ -132,6 +138,19 @@ _bitrate_table[_MPEG_AUDIO_VERSION_COUNT][_MPEG_AUDIO_LAYER_COUNT][16] = {
         0,32, 48, 56,  64,  80,  96, 112, 128, 144, 160, 176, 192, 224, 256, 0},
     [MPEG_AUDIO_VERSION_2_5][MPEG_AUDIO_LAYER_3] = {
         0, 8, 16, 24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, 0},
+};
+
+static unsigned int
+_samples_per_frame_table[_MPEG_AUDIO_VERSION_COUNT][_MPEG_AUDIO_LAYER_COUNT] = {
+    [MPEG_AUDIO_VERSION_1][MPEG_AUDIO_LAYER_1] = 384,
+    [MPEG_AUDIO_VERSION_1][MPEG_AUDIO_LAYER_2] = 1152,
+    [MPEG_AUDIO_VERSION_1][MPEG_AUDIO_LAYER_3] = 1152,
+    [MPEG_AUDIO_VERSION_2][MPEG_AUDIO_LAYER_1] = 384,
+    [MPEG_AUDIO_VERSION_2][MPEG_AUDIO_LAYER_2] = 1152,
+    [MPEG_AUDIO_VERSION_2][MPEG_AUDIO_LAYER_3] = 576,
+    [MPEG_AUDIO_VERSION_2_5][MPEG_AUDIO_LAYER_1] = 384,
+    [MPEG_AUDIO_VERSION_2_5][MPEG_AUDIO_LAYER_2] = 1152,
+    [MPEG_AUDIO_VERSION_2_5][MPEG_AUDIO_LAYER_3] = 576,
 };
 
 enum ID3Encodings {
@@ -237,6 +256,7 @@ static inline int
 _fill_mp3_header(struct mpeg_header *hdr, const uint8_t b[4])
 {
     unsigned int bitrate_idx = (b[2] & 0xF0) >> 4;
+
     hdr->sampling_rate_idx = (b[2] & 0x0C) >> 2;
 
     if (hdr->sampling_rate_idx == 0x3)
@@ -324,6 +344,68 @@ _fill_mpeg_header(struct mpeg_header *hdr, const uint8_t b[4])
             hdr->version = MPEG_AUDIO_VERSION_1;
     }
 
+    hdr->crc = !(b[1] & 0x1);
+
+    return 0;
+}
+
+static int
+_parse_vbr_headers(int fd, off_t mpeg_offset, struct mpeg_header *hdr)
+{
+    unsigned int sampling_rate, samples_per_frame, flags, nframes = 0, size = 0;
+    int xing_offset_table[2][2] = { /* [(version == 1)][channels == 1)] */
+        { 17,  9 },
+        { 32, 17 }
+    };
+    uint8_t buf[18];
+    off_t xing_offset;
+    bool cbr = false;
+
+    /* Try Xing first since it's the most likely to be there */
+    xing_offset = mpeg_offset + 4 + 2 * hdr->crc
+        + xing_offset_table[(hdr->version == 1)][(hdr->channels == 1)];
+
+    lseek(fd, xing_offset, SEEK_SET);
+    if (read(fd, buf, sizeof(buf)) != sizeof(buf))
+        return -1;
+
+    cbr = (memcmp(buf, "Info", 4) == 0);
+    if (cbr || memcmp(buf, "Xing", 4) == 0) {
+        flags = buf[7];
+
+        if (flags & 1)
+            nframes = get_be32(&buf[8]);
+        if (flags & 2)
+            size = get_be32(&buf[8 + !!(flags & 1) * 4]);
+
+        goto proceed;
+    }
+
+    /* VBRI is found in files encoded by Fraunhofer Encoder. Fixed location: 32
+     * bytes after the mpeg header */
+    lseek(fd, mpeg_offset + 36, SEEK_SET);
+    if (read(fd, buf, sizeof(buf)) != sizeof(buf))
+        return -1;
+
+    if (memcmp(buf, "VBRI", 4) == 0 && get_be16(buf) == 1) {
+        size = get_be32(&buf[10]);
+        nframes = get_be32(&buf[14]);
+
+        goto proceed;
+    }
+
+    return 0;
+
+proceed:
+    samples_per_frame = _samples_per_frame_table[hdr->version][hdr->layer];
+    sampling_rate = _sample_rates[hdr->sampling_rate_idx];
+    assert(sampling_rate != 0);
+
+    hdr->length = (nframes * samples_per_frame) / sampling_rate;
+
+    if (hdr->length)
+        hdr->bitrate = (8 * size) / (1000 * hdr->length);
+
     return 0;
 }
 
@@ -334,9 +416,8 @@ _parse_mpeg_header(int fd, off_t off, struct lms_audio_info *audio_info,
     uint8_t buffer[32];
     const uint8_t *p, *p_end;
     unsigned int prev_read;
-    struct mpeg_header hdr;
+    struct mpeg_header hdr = { };
     int r;
-    off_t mpeg_offset = off;
 
     lseek(fd, off, SEEK_SET);
 
@@ -376,11 +457,18 @@ found:
     if (hdr.layer == MPEG_AUDIO_LAYER_AAC)
         r = _fill_aac_header(&hdr, p);
     else {
-        r = _fill_mp3_header(&hdr, p);
-        if (r >= 0) {
-            audio_info->bitrate =
+        if ((r = _fill_mp3_header(&hdr, p) < 0) ||
+            (r = _parse_vbr_headers(fd, off, &hdr) < 0))
+            return r;
+
+        /* assume it's cbr, otherwise it should have been set already */
+        if (!hdr.bitrate)
+            hdr.bitrate =
                 _bitrate_table[hdr.version][hdr.layer][hdr.bitrate_idx];
-        }
+
+        /* estimate length from bitrate */
+        if (!hdr.length)
+            hdr.length =  (8 * (size - off)) / (1000 * hdr.bitrate);
     }
 
     if (r < 0)
@@ -389,12 +477,9 @@ found:
     audio_info->codec = _codecs[hdr.codec_idx];
     audio_info->sampling_rate = _sample_rates[hdr.sampling_rate_idx];
     audio_info->channels = hdr.channels;
+    audio_info->bitrate = hdr.bitrate;
+    audio_info->length = hdr.length;
 
-    /* assume it's CBR */
-    if (!audio_info->length && audio_info->bitrate) {
-        audio_info->length = (8 * (size - mpeg_offset)) /
-            (1000 * audio_info->bitrate);
-    }
 
     return 0;
 }
