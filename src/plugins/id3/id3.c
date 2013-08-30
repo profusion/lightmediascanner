@@ -512,7 +512,7 @@ _estimate_mp3_bitrate_from_frames(int fd, off_t mpeg_offset,
         }
     }
 
-    orig_hdr->bitrate = sum / i;
+    orig_hdr->bitrate = sum / i * 1000;
 
     return 0;
 }
@@ -630,7 +630,7 @@ found:
 
         if (hdr.cbr)
             hdr.bitrate =
-                _bitrate_table[hdr.version][hdr.layer][hdr.bitrate_idx];
+                _bitrate_table[hdr.version][hdr.layer][hdr.bitrate_idx] * 1000;
         else if (!hdr.bitrate) {
             r = _estimate_mp3_bitrate_from_frames(fd, off, &hdr);
             if (r < 0)
