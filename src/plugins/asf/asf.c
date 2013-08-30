@@ -41,6 +41,50 @@
 #include <string.h>
 #include <unistd.h>
 
+#define DECL_STR(cname, str)                                            \
+    static const struct lms_string_size cname = LMS_STATIC_STRING_SIZE(str)
+
+DECL_STR(_codec_audio_wmav1, "wmav1");
+DECL_STR(_codec_audio_wmav2, "wmav2");
+DECL_STR(_codec_audio_wmavpro, "wmavpro");
+DECL_STR(_codec_audio_wmavlossless, "wmavlossless");
+DECL_STR(_codec_audio_aac, "aac");
+DECL_STR(_codec_audio_flac, "flac");
+DECL_STR(_codec_audio_mp3, "mp3");
+
+DECL_STR(_codec_video_wmv1, "wmv1");
+DECL_STR(_codec_video_wmv2, "wmv2");
+DECL_STR(_codec_video_wmv3, "wmv3");
+
+DECL_STR(_dlna_wma_base, "WMABASE");
+DECL_STR(_dlna_wma_full, "WMAFULL");
+DECL_STR(_dlna_wma_pro, "WMAPRO");
+DECL_STR(_dlna_wma_mime, "audio/x-ms-wma");
+
+DECL_STR(_str_unknown, "<UNKNOWN>");
+#undef DECL_STR
+
+static void
+_fill_audio_dlna_profile(struct lms_audio_info *info)
+{
+    if ((info->codec.str == _codec_audio_wmav1.str ||
+         info->codec.str == _codec_audio_wmav2.str) &&
+        (info->sampling_rate <= 48000)) {
+        info->dlna_mime = _dlna_wma_mime;
+        if (info->bitrate <= 192999)
+            info->dlna_profile = _dlna_wma_base;
+        else
+            info->dlna_profile = _dlna_wma_full;
+    } else if (
+        info->codec.str == _codec_audio_wmavpro.str &&
+        info->sampling_rate <= 96000 &&
+        info->channels <= 8 &&
+        info->bitrate <= 1500000) {
+        info->dlna_mime = _dlna_wma_mime;
+        info->dlna_profile = _dlna_wma_pro;
+    }
+}
+
 enum AttributeTypes {
     ATTR_TYPE_UNICODE = 0,
     ATTR_TYPE_BYTES,
@@ -99,32 +143,32 @@ static const char *_authors[] = {
 /* TODO: Add the gazillion of possible codecs -- possibly a task to gperf */
 static const struct {
     uint16_t id;
-    struct lms_string_size name;
+    const struct lms_string_size *name;
 } _audio_codecs[] = {
     /* id == 0  is special, check callers if it's needed */
-    { 0x0160, LMS_STATIC_STRING_SIZE("wmav1") },
-    { 0x0161, LMS_STATIC_STRING_SIZE("wmav2") },
-    { 0x0162, LMS_STATIC_STRING_SIZE("wmavpro") },
-    { 0x0163, LMS_STATIC_STRING_SIZE("wmavlossless") },
-    { 0x1600, LMS_STATIC_STRING_SIZE("aac") },
-    { 0x706d, LMS_STATIC_STRING_SIZE("aac") },
-    { 0x4143, LMS_STATIC_STRING_SIZE("aac") },
-    { 0xA106, LMS_STATIC_STRING_SIZE("aac") },
-    { 0xF1AC, LMS_STATIC_STRING_SIZE("flac") },
-    { 0x0055, LMS_STATIC_STRING_SIZE("mp3") },
-    { }
+    { 0x0160, &_codec_audio_wmav1 },
+    { 0x0161, &_codec_audio_wmav2 },
+    { 0x0162, &_codec_audio_wmavpro },
+    { 0x0163, &_codec_audio_wmavlossless },
+    { 0x1600, &_codec_audio_aac },
+    { 0x706d, &_codec_audio_aac },
+    { 0x4143, &_codec_audio_aac },
+    { 0xA106, &_codec_audio_aac },
+    { 0xF1AC, &_codec_audio_flac },
+    { 0x0055, &_codec_audio_mp3 },
+    { 0x0, &_str_unknown }
 };
 
 /* TODO: Add the gazillion of possible codecs -- possibly a task to gperf */
 static const struct {
     uint8_t id[4];
-    struct lms_string_size name;
+    const struct lms_string_size *name;
 } _video_codecs[] = {
     /* id == 0  is special, check callers if it's needed */
-    { "WMV1", LMS_STATIC_STRING_SIZE("wmv1") },
-    { "WMV2", LMS_STATIC_STRING_SIZE("wmv2") },
-    { "WMV3", LMS_STATIC_STRING_SIZE("wmv3") },
-    { }
+    { "WMV1", &_codec_video_wmv1 },
+    { "WMV2", &_codec_video_wmv2 },
+    { "WMV3", &_codec_video_wmv3 },
+    { "XXXX", &_str_unknown }
 };
 
 
@@ -264,24 +308,24 @@ _parse_file_properties(int fd, struct asf_info *info)
     return r;
 }
 
-static struct lms_string_size
+static const struct lms_string_size *
 _audio_codec_id_to_str(uint16_t id)
 {
     unsigned int i;
 
-    for (i = 0; _audio_codecs[i].name.str != NULL; i++)
+    for (i = 0; _audio_codecs[i].name != &_str_unknown; i++)
         if (_audio_codecs[i].id == id)
             return _audio_codecs[i].name;
 
     return _audio_codecs[i].name;
 }
 
-static struct lms_string_size
+static const struct lms_string_size *
 _video_codec_id_to_str(uint8_t id[4])
 {
     unsigned int i;
 
-    for (i = 0; _video_codecs[i].name.str != NULL; i++)
+    for (i = 0; _video_codecs[i].name != &_str_unknown; i++)
         if (memcmp(id, _video_codecs[i].id, 4) == 0)
             return _video_codecs[i].name;
 
@@ -383,7 +427,7 @@ _parse_stream_properties(int fd, struct asf_info *info)
         if (le32toh(props.type_specific_len) < 18)
             goto done;
 
-        s->base.codec = _audio_codec_id_to_str(_read_word(fd));
+        s->base.codec = *_audio_codec_id_to_str(_read_word(fd));
         s->base.audio.channels = _read_word(fd);
         s->priv.sampling_rate = _read_dword(fd);
         s->base.audio.bitrate = _read_dword(fd) * 8;
@@ -414,7 +458,7 @@ _parse_stream_properties(int fd, struct asf_info *info)
             (sizeof(video) - offsetof(typeof(video), width)))
             goto done;
 
-        s->base.codec = _video_codec_id_to_str(video.compression_id);
+        s->base.codec = *_video_codec_id_to_str(video.compression_id);
         s->base.video.width = get_le32(&video.width);
         s->base.video.height = get_le32(&video.height);
 
@@ -776,6 +820,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             audio_info.sampling_rate = s->priv.sampling_rate;
             audio_info.codec = s->base.codec;
         }
+
+        _fill_audio_dlna_profile(&audio_info);
+
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     } else {
         struct lms_video_info video_info = { };
