@@ -111,6 +111,18 @@ _db_table_updater_videos_2(sqlite3 *db, const char *table,
     char *errmsg = NULL;
     int r;
 
+    r = sqlite3_exec(
+        db, "BEGIN TRANSACTION;"
+        "ALTER TABLE videos ADD COLUMN dlna_profile TEXT DEFAULT NULL;"
+        "ALTER TABLE videos ADD COLUMN dlna_mime TEXT DEFAULT NULL;"
+        "COMMIT;",
+        NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could add columns to videos table: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+    }
+
     /* Video streams */
     r = sqlite3_exec(db,
                      "CREATE TABLE IF NOT EXISTS videos_videos ("
@@ -309,8 +321,9 @@ lms_db_video_start(lms_db_video_t *ldv)
         return 0;
 
     ldv->insert = lms_db_compile_stmt(ldv->db,
-        "INSERT OR REPLACE INTO videos (id, title, artist, length) "
-        "VALUES (?, ?, ?, ?)");
+        "INSERT OR REPLACE INTO videos (id, title, artist, length, "
+        "dlna_profile, dlna_mime) "
+        "VALUES (?, ?, ?, ?, ?, ?)");
     if (!ldv->insert)
         return -2;
 
@@ -513,6 +526,15 @@ _db_insert(lms_db_video_t *ldv, const struct lms_video_info *info)
         goto done;
 
     ret = lms_db_bind_int(stmt, 4, info->length);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_text(stmt, 5, info->dlna_profile.str,
+                           info->dlna_profile.len);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_text(stmt, 6, info->dlna_mime.str, info->dlna_mime.len);
     if (ret != 0)
         goto done;
 
