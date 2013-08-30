@@ -440,8 +440,14 @@ static int _parse_extended_stream_properties(lms_charset_conv_t *cs_conv,
     struct {
         uint64_t start_time;
         uint64_t end_time;
-        uint32_t bitrate;
-        uint32_t unused[7];
+        uint32_t data_bitrate;
+        uint32_t buffer_size;
+        uint32_t init_buffer_fullness;
+        uint32_t alt_data_bitrate;
+        uint32_t alt_buffer_size;
+        uint32_t alt_init_buffer_fullness;
+        uint32_t max_obj_size;
+        uint32_t flags;
         uint16_t stream_id;
         uint16_t lang_id;
         uint64_t avg_time_per_frame;
@@ -450,6 +456,7 @@ static int _parse_extended_stream_properties(lms_charset_conv_t *cs_conv,
     } __attribute__((packed)) props;
     struct stream *s;
     unsigned int stream_id;
+    uint32_t bitrate;
     uint16_t n;
     int r;
 
@@ -460,7 +467,10 @@ static int _parse_extended_stream_properties(lms_charset_conv_t *cs_conv,
     stream_id = get_le16(&props.stream_id);
     s = _stream_get_or_create(info, stream_id);
 
-    s->priv.bitrate = get_le32(&props.bitrate);
+    bitrate = get_le32(&props.alt_data_bitrate); /* for vbr */
+    if (!bitrate)
+        bitrate = get_le32(&props.data_bitrate);
+    s->priv.bitrate = bitrate;
     s->priv.framerate = (NSEC100_PER_SEC /
                          (double) get_le64(&props.avg_time_per_frame));
     for (n = get_le16(&props.stream_name_count); n; n--) {
