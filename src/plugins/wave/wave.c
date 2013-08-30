@@ -47,6 +47,34 @@
 #include <string.h>
 #include <unistd.h>
 
+#define DECL_STR(cname, str)                                            \
+    static const struct lms_string_size cname = LMS_STATIC_STRING_SIZE(str)
+
+DECL_STR(_dlna_lpcm, "LPCM");
+
+DECL_STR(_dlna_mime_44_mono, "audio/L16;rate=44100;channels=1");
+DECL_STR(_dlna_mime_44_stereo, "audio/L16;rate=44100;channels=2");
+DECL_STR(_dlna_mime_48_mono, "audio/L16;rate=48000;channels=1");
+DECL_STR(_dlna_mime_48_stereo, "audio/L16;rate=48000;channels=2");
+#undef DECL_STR
+
+static void
+_fill_dlna_profile(struct lms_audio_info *info)
+{
+    if (info->channels == 1 && info->sampling_rate == 44100) {
+        info->dlna_profile = _dlna_lpcm;
+        info->dlna_mime = _dlna_mime_44_mono;
+    } else if (info->channels == 2 && info->sampling_rate == 44100) {
+        info->dlna_profile = _dlna_lpcm;
+        info->dlna_mime = _dlna_mime_44_stereo;
+    } else if (info->channels == 1 && info->sampling_rate == 48000) {
+        info->dlna_profile = _dlna_lpcm;
+        info->dlna_mime = _dlna_mime_48_mono;
+    } else if (info->channels == 2 && info->sampling_rate == 48000) {
+        info->dlna_profile = _dlna_lpcm;
+        info->dlna_mime = _dlna_mime_48_stereo;
+    }
+}
 
 static const char _name[] = "wave";
 static const struct lms_string_size _exts[] = {
@@ -232,6 +260,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
                                                 ctxt->cs_conv);
 
     info.id = finfo->id;
+
+    _fill_dlna_profile(&info);
+
     r = lms_db_audio_add(plugin->audio_db, &info);
 
 done:
