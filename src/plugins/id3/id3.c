@@ -51,8 +51,14 @@
 #define ID3V2_HEADER_SIZE       10
 #define ID3V2_FOOTER_SIZE       10
 
-/* We parse only the first 4 bytes, which are the interesting ones */
 #define MPEG_HEADER_SIZE 4
+
+/* TODO: The higher these numbers are, the more performance impact you get
+ * when parsing mp3. However the lower they are, the more imprecise bitrate
+ * _and_ length estimate will be. Investigate which would be the best numbers
+ * here. */
+#define N_FRAMES_BITRATE_ESTIMATE 512
+#define N_FRAMES_CBR_ESTIMATE 128
 
 enum mpeg_audio_version {
     MPEG_AUDIO_VERSION_1,
@@ -75,6 +81,7 @@ struct mpeg_header {
     enum mpeg_audio_layer layer;
 
     bool crc;
+    bool padding;
     uint8_t channels;
     uint8_t sampling_rate_idx;
     uint8_t codec_idx;
@@ -82,6 +89,7 @@ struct mpeg_header {
 
     unsigned int bitrate;
     unsigned int length;
+    bool cbr;
 };
 
 static const struct lms_string_size _codecs[] = {
@@ -345,6 +353,76 @@ _fill_mpeg_header(struct mpeg_header *hdr, const uint8_t b[4])
     }
 
     hdr->crc = !(b[1] & 0x1);
+    hdr->padding = b[2] & 0x2;
+
+    return 0;
+}
+
+static int
+_estimate_mp3_bitrate_from_frames(int fd, off_t mpeg_offset,
+                                  struct mpeg_header *orig_hdr)
+{
+    struct mpeg_header hdr = *orig_hdr;
+    off_t offset = mpeg_offset;
+    unsigned int sum = 0, i;
+    int r;
+    bool cbr = true;
+    /* For Layer I slot is 32 bits long, for Layer II and Layer III slot is 8
+     * bits long.
+     * [layer == 1] */
+    unsigned int padding_size_table[2] = { 1, 4 };
+    unsigned int samples_per_frame, sampling_rate;
+
+    samples_per_frame = _samples_per_frame_table[hdr.version][hdr.layer];
+    sampling_rate = _sample_rates[hdr.sampling_rate_idx];
+    assert(sampling_rate != 0);
+
+    for (i = 0; i < N_FRAMES_BITRATE_ESTIMATE;) {
+        unsigned int bitrate, padding_size;
+        unsigned int framesize;
+        uint8_t buf[4];
+
+        bitrate = _bitrate_table[hdr.version][hdr.layer][hdr.bitrate_idx];
+        if (cbr && bitrate == hdr.bitrate && i > N_FRAMES_CBR_ESTIMATE) {
+            i = 1;
+            sum = bitrate;
+            break;
+        }
+
+        sum += bitrate;
+        i++;
+
+        padding_size = hdr.padding ? padding_size_table[hdr.layer == 1] : 0;
+
+        framesize = 4;          /* mpeg header */
+        framesize += (samples_per_frame / 8) * bitrate * 1000;
+        framesize /= sampling_rate;
+        framesize += (padding_size * samples_per_frame);
+
+        offset += framesize;
+
+        lseek(fd, offset, SEEK_SET);
+        r = read(fd, buf, sizeof(buf));
+
+        if (r < 0) {
+            fprintf(stderr, "ERROR reading frame header at %#x\n",
+                    (unsigned int) offset);
+            break;
+        }
+        if (!r)
+            break;
+
+        if (buf[0] != 0xff || !_is_id3v2_second_synch_byte(buf[1]) ||
+            _fill_mpeg_header(&hdr, buf) < 0 ||
+            _fill_mp3_header(&hdr, buf) < 0) {
+            fprintf(stderr, "ERROR interpreting frame header at 0x%x:"
+                    "%#02x %#02x %#02x %#02x\n", (unsigned int) offset,
+                    buf[0], buf[1], buf[2], buf[3]);
+            break;
+        }
+    }
+
+    orig_hdr->bitrate = sum / i;
 
     return 0;
 }
@@ -359,7 +437,6 @@ _parse_vbr_headers(int fd, off_t mpeg_offset, struct mpeg_header *hdr)
     };
     uint8_t buf[18];
     off_t xing_offset;
-    bool cbr = false;
 
     /* Try Xing first since it's the most likely to be there */
     xing_offset = mpeg_offset + 4 + 2 * hdr->crc
@@ -369,8 +446,8 @@ _parse_vbr_headers(int fd, off_t mpeg_offset, struct mpeg_header *hdr)
     if (read(fd, buf, sizeof(buf)) != sizeof(buf))
         return -1;
 
-    cbr = (memcmp(buf, "Info", 4) == 0);
-    if (cbr || memcmp(buf, "Xing", 4) == 0) {
+    hdr->cbr = (memcmp(buf, "Info", 4) == 0);
+    if (hdr->cbr || memcmp(buf, "Xing", 4) == 0) {
         flags = buf[7];
 
         if (flags & 1)
@@ -461,12 +538,15 @@ found:
             (r = _parse_vbr_headers(fd, off, &hdr) < 0))
             return r;
 
-        /* assume it's cbr, otherwise it should have been set already */
-        if (!hdr.bitrate)
+        if (hdr.cbr)
             hdr.bitrate =
                 _bitrate_table[hdr.version][hdr.layer][hdr.bitrate_idx];
+        else if (!hdr.bitrate) {
+            r = _estimate_mp3_bitrate_from_frames(fd, off, &hdr);
+            if (r < 0)
+                return r;
+        }
 
-        /* estimate length from bitrate */
         if (!hdr.length)
             hdr.length =  (8 * (size - off)) / (1000 * hdr.bitrate);
     }
@@ -479,7 +559,6 @@ found:
     audio_info->channels = hdr.channels;
     audio_info->bitrate = hdr.bitrate;
     audio_info->length = hdr.length;
-
 
     return 0;
 }
