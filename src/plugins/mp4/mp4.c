@@ -53,6 +53,93 @@ struct plugin {
     lms_db_video_t *video_db;
 };
 
+#define DECL_STR(cname, str)                                            \
+    static const struct lms_string_size cname = LMS_STATIC_STRING_SIZE(str)
+
+DECL_STR(_codec_audio_mpeg4aac_main, "mpeg4aac-main");
+DECL_STR(_codec_audio_mpeg4aac_lc, "mpeg4aac-lc");
+DECL_STR(_codec_audio_mpeg4aac_ssr, "mpeg4aac-ssr");
+DECL_STR(_codec_audio_mpeg4aac_ltp, "mpeg4aac-ltp");
+DECL_STR(_codec_audio_mpeg4aac_he, "mpeg4aac-he");
+DECL_STR(_codec_audio_mpeg4aac_scalable, "mpeg4aac-scalable");
+DECL_STR(_codec_audio_mpeg4_twinvq, "mpeg4twinvq");
+DECL_STR(_codec_audio_mpeg4_celp, "mpeg4celp");
+DECL_STR(_codec_audio_mpeg4_hvxc, "mpeg4hvxc");
+/* NULL */
+DECL_STR(_codec_audio_mpeg4_tssi, "mpeg4ttsi");
+DECL_STR(_codec_audio_mpeg4_main_synthetic,"mpeg4main-synthetic");
+DECL_STR(_codec_audio_mpeg4_wavetable_syn, "mpeg4wavetable-syn");
+DECL_STR(_codec_audio_mpeg4_general_midi, "mpeg4general-midi");
+DECL_STR(_codec_audio_mpeg4_algo_syn_and_audio_fx, "mpeg4algo-syn-and-audio-fx");
+DECL_STR(_codec_audio_mpeg4_er_aac_lc, "mpeg4er-aac-lc");
+/* NULL */
+DECL_STR(_codec_audio_mpeg4_er_aac_ltp, "mpeg4er-aac-ltp");
+DECL_STR(_codec_audio_mpeg4_er_aac_scalable, "mpeg4er-aac-scalable");
+DECL_STR(_codec_audio_mpeg4_er_twinvq, "mpeg4er-twinvq");
+DECL_STR(_codec_audio_mpeg4_er_bsac, "mpeg4er-bsac");
+DECL_STR(_codec_audio_mpeg4_er_acc_ld, "mpeg4er-acc-ld");
+DECL_STR(_codec_audio_mpeg4_er_celp, "mpeg4er-celp");
+DECL_STR(_codec_audio_mpeg4_er_hvxc, "mpeg4er-hvxc");
+DECL_STR(_codec_audio_mpeg4_er_hiln, "mpeg4er-hiln");
+DECL_STR(_codec_audio_mpeg4_er_parametric, "mpeg4er-parametric");
+DECL_STR(_codec_audio_mpeg4_ssc, "mpeg4ssc");
+DECL_STR(_codec_audio_mpeg4_ps, "mpeg4ps");
+DECL_STR(_codec_audio_mpeg4_mpeg_surround, "mpeg4mpeg-surround");
+/* NULL */
+DECL_STR(_codec_audio_mpeg4_layer1, "mpeg4layer1");
+DECL_STR(_codec_audio_mpeg4_layer2, "mpeg4layer2");
+DECL_STR(_codec_audio_mpeg4_layer3, "mpeg4layer3");
+DECL_STR(_codec_audio_mpeg4_dst, "mpeg4dst");
+DECL_STR(_codec_audio_mpeg4_audio_lossless, "mpeg4audio-lossless");
+DECL_STR(_codec_audio_mpeg4_sls, "mpeg4sls");
+DECL_STR(_codec_audio_mpeg4_sls_non_core, "mpeg4sls-non-core");
+
+/* --- */
+DECL_STR(_codec_audio_amr, "amr");
+DECL_STR(_codec_audio_amr_wb, "amr-wb");
+#undef DECL_STR
+
+static const struct lms_string_size *_audio_codecs[] = {
+    &_codec_audio_mpeg4aac_main,
+    &_codec_audio_mpeg4aac_lc,
+    &_codec_audio_mpeg4aac_ssr,
+    &_codec_audio_mpeg4aac_ltp,
+    &_codec_audio_mpeg4aac_he,
+    &_codec_audio_mpeg4aac_scalable,
+    &_codec_audio_mpeg4_twinvq,
+    &_codec_audio_mpeg4_celp,
+    &_codec_audio_mpeg4_hvxc,
+    NULL,
+    &_codec_audio_mpeg4_tssi,
+    &_codec_audio_mpeg4_main_synthetic,
+    &_codec_audio_mpeg4_wavetable_syn,
+    &_codec_audio_mpeg4_general_midi,
+    &_codec_audio_mpeg4_algo_syn_and_audio_fx,
+    &_codec_audio_mpeg4_er_aac_lc,
+    NULL,
+    &_codec_audio_mpeg4_er_aac_ltp,
+    &_codec_audio_mpeg4_er_aac_scalable,
+    &_codec_audio_mpeg4_er_twinvq,
+    &_codec_audio_mpeg4_er_bsac,
+    &_codec_audio_mpeg4_er_acc_ld,
+    &_codec_audio_mpeg4_er_celp,
+    &_codec_audio_mpeg4_er_hvxc,
+    &_codec_audio_mpeg4_er_hiln,
+    &_codec_audio_mpeg4_er_parametric,
+    &_codec_audio_mpeg4_ssc,
+    &_codec_audio_mpeg4_ps,
+    &_codec_audio_mpeg4_mpeg_surround,
+    NULL,
+    &_codec_audio_mpeg4_layer1,
+    &_codec_audio_mpeg4_layer2,
+    &_codec_audio_mpeg4_layer3,
+    &_codec_audio_mpeg4_dst,
+    &_codec_audio_mpeg4_audio_lossless,
+    &_codec_audio_mpeg4_sls,
+    &_codec_audio_mpeg4_sls_non_core,
+};
+#define N_AUDIO_CODECS (sizeof(_audio_codecs) / sizeof(_audio_codecs[0]))
+
 static const char _name[] = "mp4";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".mp4"),
@@ -86,6 +173,29 @@ _match(struct plugin *p, const char *path, int len, int base)
 }
 
 #ifdef HAVE_MP4V2_2_0_API
+static struct lms_string_size
+_get_audio_codec(MP4FileHandle mp4_fh, MP4TrackId id)
+{
+    const char *data_name = MP4GetTrackMediaDataName(mp4_fh, id);
+    struct lms_string_size nullret = { };
+    uint8_t type;
+
+    if (!data_name)
+        return nullret;
+    if (strcasecmp(data_name, "samr") == 0)
+        return _codec_audio_amr;
+    if (strcasecmp(data_name, "sawb") == 0)
+        return _codec_audio_amr_wb;
+    if ((strcasecmp(data_name, "mp4a") != 0) ||
+        (type = MP4GetTrackEsdsObjectTypeId(mp4_fh, id)) != MP4_MPEG4_AUDIO_TYPE ||
+        (type = MP4GetTrackAudioMpeg4Type(mp4_fh, id)) == 0 ||
+        (type > N_AUDIO_CODECS) ||
+        (_audio_codecs[type - 1] == NULL))
+        return nullret;
+
+    return *_audio_codecs[type - 1];
+}
+
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
@@ -145,6 +255,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.channels = MP4GetTrackAudioChannels(mp4_fh, id);
         audio_info.sampling_rate = MP4GetTrackTimeScale(mp4_fh, id);
         audio_info.length = info.length;
+        audio_info.codec = _get_audio_codec(mp4_fh, id);
     } else {
         num_tracks = MP4GetNumberOfTracks(mp4_fh, NULL, 0);
         for (i = 0; i < num_tracks; i++) {
@@ -167,6 +278,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             if (lmstype == LMS_STREAM_TYPE_AUDIO) {
                 s->audio.channels = MP4GetTrackAudioChannels(mp4_fh, id);
                 s->audio.bitrate = MP4GetTrackBitRate(mp4_fh, id);
+                s->codec = _get_audio_codec(mp4_fh, id);
             } else if (lmstype == LMS_STREAM_TYPE_VIDEO) {
                 s->video.width = MP4GetTrackVideoWidth(mp4_fh, id);
                 s->video.height = MP4GetTrackVideoHeight(mp4_fh, id);
