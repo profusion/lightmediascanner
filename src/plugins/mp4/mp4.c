@@ -43,7 +43,8 @@ struct mp4_info {
     struct lms_string_size artist;
     struct lms_string_size album;
     struct lms_string_size genre;
-    u_int16_t trackno;
+    uint16_t trackno;
+    uint64_t length;
 };
 
 struct plugin {
@@ -93,7 +94,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     struct lms_video_info video_info = { };
     int r, stream_type = LMS_STREAM_TYPE_AUDIO;
     MP4FileHandle mp4_fh;
-    u_int32_t num_tracks;
+    u_int32_t num_tracks, i;
     const MP4Tags *tags;
 
     mp4_fh = MP4Read(finfo->path);
@@ -128,11 +129,54 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     if (num_tracks > 0)
         stream_type = LMS_STREAM_TYPE_VIDEO;
 
+    info.length = MP4GetDuration(mp4_fh) /
+        MP4GetTimeScale(mp4_fh) ?: 1;
+
     if (stream_type == LMS_STREAM_TYPE_AUDIO) {
+        MP4TrackId id;
+
         STR_FIELD_FROM_TAG(tags->album, info.album);
         STR_FIELD_FROM_TAG(tags->genre, info.genre);
         if (tags->track)
             info.trackno = tags->track->index;
+
+        id = MP4FindTrackId(mp4_fh, 0, MP4_AUDIO_TRACK_TYPE, 0);
+        audio_info.bitrate = MP4GetTrackBitRate(mp4_fh, id);
+        audio_info.channels = MP4GetTrackAudioChannels(mp4_fh, id);
+        audio_info.sampling_rate = MP4GetTrackTimeScale(mp4_fh, id);
+        audio_info.length = info.length;
+    } else {
+        num_tracks = MP4GetNumberOfTracks(mp4_fh, NULL, 0);
+        for (i = 0; i < num_tracks; i++) {
+            MP4TrackId id = MP4FindTrackId(mp4_fh, i, NULL, 0);
+            const char *type = MP4GetTrackType(mp4_fh, id);
+            enum lms_stream_type lmstype;
+            struct lms_stream *s;
+
+            if (strcmp(type, MP4_AUDIO_TRACK_TYPE) == 0)
+                lmstype = LMS_STREAM_TYPE_AUDIO;
+            else if (strcmp(type, MP4_VIDEO_TRACK_TYPE) == 0)
+                lmstype = LMS_STREAM_TYPE_VIDEO;
+            else
+                continue;
+
+            s = calloc(1, sizeof(*s));
+            s->type = lmstype;
+            s->stream_id = id;
+
+            if (lmstype == LMS_STREAM_TYPE_AUDIO) {
+                s->audio.channels = MP4GetTrackAudioChannels(mp4_fh, id);
+                s->audio.bitrate = MP4GetTrackBitRate(mp4_fh, id);
+            } else if (lmstype == LMS_STREAM_TYPE_VIDEO) {
+                s->video.width = MP4GetTrackVideoWidth(mp4_fh, id);
+                s->video.height = MP4GetTrackVideoHeight(mp4_fh, id);
+                s->video.framerate = MP4GetTrackVideoFrameRate(mp4_fh, id);
+            }
+
+            s->next = video_info.streams;
+            video_info.streams = s;
+        }
+        video_info.length = info.length;
     }
 #undef STR_FIELD_FROM_TAG
 
@@ -170,15 +214,21 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 
-    MP4TagsFree(tags);
-
 fail:
-    MP4Close(mp4_fh, 0);
+    MP4TagsFree(tags);
 
     free(info.title.str);
     free(info.artist.str);
     free(info.album.str);
     free(info.genre.str);
+
+    while (video_info.streams) {
+        struct lms_stream *s = video_info.streams;
+        video_info.streams = s->next;
+        free(s);
+    }
+
+    MP4Close(mp4_fh, 0);
 
     return r;
 }
