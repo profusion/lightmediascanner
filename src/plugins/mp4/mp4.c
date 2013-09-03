@@ -84,6 +84,105 @@ _match(struct plugin *p, const char *path, int len, int base)
       return (void*)(i + 1);
 }
 
+#ifdef HAVE_MP4V2_2_0_API
+static int
+_parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
+{
+    struct mp4_info info = { };
+    struct lms_audio_info audio_info = { };
+    struct lms_video_info video_info = { };
+    int r, stream_type = LMS_STREAM_TYPE_AUDIO;
+    MP4FileHandle mp4_fh;
+    u_int32_t num_tracks;
+    const MP4Tags *tags;
+
+    mp4_fh = MP4Read(finfo->path);
+    if (mp4_fh == MP4_INVALID_FILE_HANDLE) {
+        fprintf(stderr, "ERROR: cannot read mp4 file %s\n", finfo->path);
+        return -1;
+    }
+
+    tags = MP4TagsAlloc();
+    if (!tags)
+        return -1;
+
+    if (!MP4TagsFetch(tags, mp4_fh)) {
+        r = -1;
+        goto fail;
+    }
+
+#define STR_FIELD_FROM_TAG(_tags_field, _field)                         \
+    do {                                                                \
+        if (_tags_field) {                                              \
+            _field.len = strlen(_tags_field);                           \
+            _field.str = malloc(_field.len);                            \
+            memcpy(_field.str, _tags_field, _field.len + 1);            \
+        }                                                               \
+    } while (0)
+
+    STR_FIELD_FROM_TAG(tags->name, info.title);
+    STR_FIELD_FROM_TAG(tags->artist, info.artist);
+
+    /* check if the file contains a video track */
+    num_tracks = MP4GetNumberOfTracks(mp4_fh, MP4_VIDEO_TRACK_TYPE, 0);
+    if (num_tracks > 0)
+        stream_type = LMS_STREAM_TYPE_VIDEO;
+
+    if (stream_type == LMS_STREAM_TYPE_AUDIO) {
+        STR_FIELD_FROM_TAG(tags->album, info.album);
+        STR_FIELD_FROM_TAG(tags->genre, info.genre);
+        if (tags->track)
+            info.trackno = tags->track->index;
+    }
+#undef STR_FIELD_FROM_TAG
+
+    lms_string_size_strip_and_free(&info.title);
+    lms_string_size_strip_and_free(&info.artist);
+    lms_string_size_strip_and_free(&info.album);
+    lms_string_size_strip_and_free(&info.genre);
+
+    if (!info.title.str)
+        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
+                                                finfo->base,
+                                                &_exts[((long) match) - 1],
+                                                NULL);
+    if (info.title.str)
+        lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
+    if (info.artist.str)
+        lms_charset_conv(ctxt->cs_conv, &info.artist.str, &info.artist.len);
+    if (info.album.str)
+        lms_charset_conv(ctxt->cs_conv, &info.album.str, &info.album.len);
+    if (info.genre.str)
+        lms_charset_conv(ctxt->cs_conv, &info.genre.str, &info.genre.len);
+
+    if (stream_type == LMS_STREAM_TYPE_AUDIO) {
+        audio_info.id = finfo->id;
+        audio_info.title = info.title;
+        audio_info.artist = info.artist;
+        audio_info.album = info.album;
+        audio_info.genre = info.genre;
+        audio_info.trackno = info.trackno;
+        r = lms_db_audio_add(plugin->audio_db, &audio_info);
+    } else {
+        video_info.id = finfo->id;
+        video_info.title = info.title;
+        video_info.artist = info.artist;
+        r = lms_db_video_add(plugin->video_db, &video_info);
+    }
+
+    MP4TagsFree(tags);
+
+fail:
+    MP4Close(mp4_fh, 0);
+
+    free(info.title.str);
+    free(info.artist.str);
+    free(info.album.str);
+    free(info.genre.str);
+
+    return r;
+}
+#else
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
@@ -94,11 +193,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     MP4FileHandle mp4_fh;
     u_int32_t num_tracks;
 
-#ifdef HAVE_MP4V2_2_0_API
-    mp4_fh = MP4Read(finfo->path);
-#else
     mp4_fh = MP4Read(finfo->path, 0);
-#endif
     if (mp4_fh == MP4_INVALID_FILE_HANDLE) {
         fprintf(stderr, "ERROR: cannot read mp4 file %s\n", finfo->path);
         return -1;
@@ -173,11 +268,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 
-#ifdef HAVE_MP4V2_2_0_API
-    MP4Close(mp4_fh, 0);
-#else
     MP4Close(mp4_fh);
-#endif
 
     free(info.title.str);
     free(info.artist.str);
@@ -186,6 +277,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
     return r;
 }
+#endif
 
 static int
 _setup(struct plugin *plugin, struct lms_context *ctxt)
