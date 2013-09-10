@@ -464,6 +464,7 @@ done:
 static const char _name[] = "ogg";
 static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".ogg"),
+    LMS_STATIC_STRING_SIZE(".oga"),
     LMS_STATIC_STRING_SIZE(".ogv")
 };
 static const char *_cats[] = {
