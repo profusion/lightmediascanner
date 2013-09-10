@@ -113,6 +113,7 @@ _db_table_updater_videos_2(sqlite3 *db, const char *table,
 
     r = sqlite3_exec(
         db, "BEGIN TRANSACTION;"
+        "ALTER TABLE videos ADD COLUMN container TEXT DEFAULT NULL;"
         "ALTER TABLE videos ADD COLUMN dlna_profile TEXT DEFAULT NULL;"
         "ALTER TABLE videos ADD COLUMN dlna_mime TEXT DEFAULT NULL;"
         "COMMIT;",
@@ -163,6 +164,7 @@ _db_table_updater_videos_2(sqlite3 *db, const char *table,
                      "codec TEXT, "
                      "lang TEXT, "
                      "channels INTEGER, "
+                     "sampling_rate INTEGER, "
                      "bitrate INTEGER)",
                      NULL, NULL, &errmsg);
     if (r != SQLITE_OK) {
@@ -322,8 +324,8 @@ lms_db_video_start(lms_db_video_t *ldv)
 
     ldv->insert = lms_db_compile_stmt(ldv->db,
         "INSERT OR REPLACE INTO videos (id, title, artist, length, "
-        "dlna_profile, dlna_mime) "
-        "VALUES (?, ?, ?, ?, ?, ?)");
+        "container, dlna_profile, dlna_mime) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)");
     if (!ldv->insert)
         return -2;
 
@@ -337,8 +339,8 @@ lms_db_video_start(lms_db_video_t *ldv)
 
     ldv->insert_audio_streams = lms_db_compile_stmt(
         ldv->db, "INSERT OR REPLACE INTO videos_audios ("
-        "video_id, stream_id, codec, lang, channels, bitrate) VALUES ("
-        "?, ?, ?, ?, ?, ?)");
+        "video_id, stream_id, codec, lang, channels, sampling_rate, bitrate) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)");
     if (!ldv->insert_audio_streams)
         return -1;
 
@@ -444,6 +446,7 @@ _db_insert_stream_audio(lms_db_video_t *ldv, int64_t video_id,
         lms_db_bind_text(stmt, ++col, s->codec.str, s->codec.len) ||
         lms_db_bind_text(stmt, ++col, s->lang.str, s->lang.len) ||
         lms_db_bind_int(stmt, ++col, s->audio.channels) ||
+        lms_db_bind_int(stmt, ++col, s->audio.sampling_rate) ||
         lms_db_bind_int(stmt, ++col, s->audio.bitrate)) {
         fprintf(stderr, "ERROR: Failed to bind value to column %d\n", col);
         ret = -1;
@@ -529,12 +532,17 @@ _db_insert(lms_db_video_t *ldv, const struct lms_video_info *info)
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_text(stmt, 5, info->dlna_profile.str,
+    ret = lms_db_bind_text(stmt, 5, info->container.str,
+                           info->container.len);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_text(stmt, 6, info->dlna_profile.str,
                            info->dlna_profile.len);
     if (ret != 0)
         goto done;
 
-    ret = lms_db_bind_text(stmt, 6, info->dlna_mime.str, info->dlna_mime.len);
+    ret = lms_db_bind_text(stmt, 7, info->dlna_mime.str, info->dlna_mime.len);
     if (ret != 0)
         goto done;
 

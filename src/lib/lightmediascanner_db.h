@@ -136,6 +136,7 @@ extern "C" {
     };
 
     struct lms_stream_audio_info {
+        unsigned int sampling_rate;
         unsigned int bitrate;
         uint8_t channels;
     };
@@ -156,6 +157,7 @@ extern "C" {
         int64_t id;
         struct lms_string_size title;
         struct lms_string_size artist;
+        struct lms_string_size container;
         struct lms_string_size dlna_profile;
         struct lms_string_size dlna_mime;
         unsigned int length;
