@@ -327,6 +327,7 @@ static void _parse_theora_and_vorbis_streams(struct ogg_info *info,
         if (s->base.type == LMS_STREAM_TYPE_AUDIO) {
             s->base.codec = _audio_codec;
             s->base.audio.channels = s->audio.vi.channels;
+            s->base.audio.sampling_rate = s->audio.vi.rate;
             s->base.audio.bitrate = s->audio.vi.bitrate_nominal;
         } else if (s->base.type == LMS_STREAM_TYPE_VIDEO) {
             unsigned int num, den;
@@ -545,6 +546,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
         video_info.id = finfo->id;
         video_info.title = info.title;
         video_info.artist = info.artist;
+        video_info.container = _container;
         video_info.streams = (struct lms_stream *) info.streams;
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
