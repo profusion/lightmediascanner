@@ -104,7 +104,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         else if (strncmp(str, "ARTIST=", 7) == 0)
             lms_string_size_strndup(&info.artist, str + 7, len - 7);
         else if (strncmp(str, "ALBUM=", 6) == 0)
-            lms_string_size_strndup(&info.album, str + 7, len - 7);
+            lms_string_size_strndup(&info.album, str + 6, len - 6);
         else if (strncmp(str, "GENRE=", 6) == 0)
             lms_string_size_strndup(&info.genre, str + 6, len - 6);
         else if (strncmp(str, "TRACKNUMBER=", 12) == 0)
