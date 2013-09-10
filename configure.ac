@@ -65,32 +65,25 @@ define([CHECK_MODULE_OGG],
 AM_CONDITIONAL(HAVE_MP4V2, false)
 define([CHECK_MODULE_MP4],
 [
-        AC_CHECK_HEADERS(mp4.h, HAVE_MP4_HEADERS=yes, HAVE_MP4_HEADERS=no)
         AC_CHECK_HEADERS(mp4v2/mp4v2.h, HAVE_MP4V2_HEADERS=yes, HAVE_MP4V2_HEADERS=no)
-        if test "x$HAVE_MP4_HEADERS" = "xyes" -o "x$HAVE_MP4V2_HEADERS" = "xyes"; then
+        if test "x$HAVE_MP4V2_HEADERS" = "xyes"; then
             AC_CHECK_LIB(mp4v2, MP4Read, [MP4=true], [MP4=false])
             MP4V2_LIBS="-lmp4v2"
             AC_SUBST(MP4V2_LIBS)
-            if test "x$HAVE_MP4V2_HEADERS" = "xyes"; then
-               AC_DEFINE(HAVE_MP4V2, 1, Define if mp4v2.h is present)
-            fi
-            if test "x$HAVE_MP4_HEADERS" = "xyes"; then
-               AC_DEFINE(HAVE_MP4, 1, Define if mp4.h is present)
-            fi
 
-            # test for new 2.0 api
-            if test "x$HAVE_MP4V2_HEADERS" = "xyes"; then
-               AC_MSG_CHECKING([mp4v2 2.0 API (MP4Read and MP4Close)])
-               AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-                  [[#include <mp4v2/mp4v2.h>]],
-                  [[MP4FileHandle fh = MP4Read("/tmp");
-                    MP4Close(fh, 0);
-                  ]])],
-                  [
-                     AC_MSG_RESULT([yes])
-                     AC_DEFINE(HAVE_MP4V2_2_0_API, 1, Define to 1 if you have mp4v2 2.0 api)
-                  ], [AC_MSG_RESULT([no])])
-            fi
+            # strict about new 2.0 api
+            AC_MSG_CHECKING([mp4v2 2.0 API (MP4Read and MP4Close)])
+            AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+               [[#include <mp4v2/mp4v2.h>]],
+               [[MP4FileHandle fh = MP4Read("/tmp");
+                 MP4Close(fh, 0);
+               ]])],
+               [
+                  MP4=true
+                  AC_MSG_RESULT([yes])
+               ], [
+                  MP4=false
+                  AC_MSG_RESULT([no])])
         else
             MP4=false
         fi

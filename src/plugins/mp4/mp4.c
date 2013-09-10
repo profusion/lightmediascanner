@@ -30,11 +30,7 @@ static const char PV[] = PACKAGE_VERSION; /* mp4.h screws PACKAGE_VERSION */
 #include <lightmediascanner_db.h>
 #include <shared/util.h>
 
-#ifdef HAVE_MP4V2
 #include <mp4v2/mp4v2.h>
-#else
-#include <mp4.h>
-#endif
 #include <string.h>
 #include <stdlib.h>
 
@@ -172,7 +168,6 @@ _match(struct plugin *p, const char *path, int len, int base)
       return (void*)(i + 1);
 }
 
-#ifdef HAVE_MP4V2_2_0_API
 static struct lms_string_size
 _get_audio_codec(MP4FileHandle mp4_fh, MP4TrackId id)
 {
@@ -344,102 +339,6 @@ fail:
 
     return r;
 }
-#else
-static int
-_parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
-{
-    struct mp4_info info = { };
-    struct lms_audio_info audio_info = { };
-    struct lms_video_info video_info = { };
-    int r, stream_type = LMS_STREAM_TYPE_AUDIO;
-    MP4FileHandle mp4_fh;
-    u_int32_t num_tracks;
-
-    mp4_fh = MP4Read(finfo->path, 0);
-    if (mp4_fh == MP4_INVALID_FILE_HANDLE) {
-        fprintf(stderr, "ERROR: cannot read mp4 file %s\n", finfo->path);
-        return -1;
-    }
-
-    /* check if the file contains a video track */
-    num_tracks = MP4GetNumberOfTracks(mp4_fh, MP4_VIDEO_TRACK_TYPE, 0);
-    if (num_tracks > 0)
-        stream_type = LMS_STREAM_TYPE_VIDEO;
-
-    MP4GetMetadataName(mp4_fh, &info.title.str);
-    if (info.title.str)
-        info.title.len = strlen(info.title.str);
-    MP4GetMetadataArtist(mp4_fh, &info.artist.str);
-    if (info.artist.str)
-        info.artist.len = strlen(info.artist.str);
-
-    if (stream_type == LMS_STREAM_TYPE_AUDIO) {
-        u_int16_t total_tracks;
-
-        MP4GetMetadataAlbum(mp4_fh, &info.album.str);
-        if (info.album.str)
-            info.album.len = strlen(info.album.str);
-        MP4GetMetadataGenre(mp4_fh, &info.genre.str);
-        if (info.genre.str)
-            info.genre.len = strlen(info.genre.str);
-
-        MP4GetMetadataTrack(mp4_fh, &info.trackno, &total_tracks);
-    }
-
-    lms_string_size_strip_and_free(&info.title);
-    lms_string_size_strip_and_free(&info.artist);
-    lms_string_size_strip_and_free(&info.album);
-    lms_string_size_strip_and_free(&info.genre);
-
-    if (!info.title.str)
-        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
-                                                finfo->base,
-                                                &_exts[((long) match) - 1],
-                                                NULL);
-    if (info.title.str)
-        lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
-
-    if (info.artist.str)
-        lms_charset_conv(ctxt->cs_conv, &info.artist.str, &info.artist.len);
-    if (info.album.str)
-        lms_charset_conv(ctxt->cs_conv, &info.album.str, &info.album.len);
-    if (info.genre.str)
-        lms_charset_conv(ctxt->cs_conv, &info.genre.str, &info.genre.len);
-
-#if 0
-    fprintf(stderr, "file %s info\n", finfo->path);
-    fprintf(stderr, "\ttitle='%s'\n", info.title.str);
-    fprintf(stderr, "\tartist='%s'\n", info.artist.str);
-    fprintf(stderr, "\talbum='%s'\n", info.album.str);
-    fprintf(stderr, "\tgenre='%s'\n", info.genre.str);
-#endif
-
-    if (stream_type == LMS_STREAM_TYPE_AUDIO) {
-        audio_info.id = finfo->id;
-        audio_info.title = info.title;
-        audio_info.artist = info.artist;
-        audio_info.album = info.album;
-        audio_info.genre = info.genre;
-        audio_info.trackno = info.trackno;
-        r = lms_db_audio_add(plugin->audio_db, &audio_info);
-    }
-    else {
-        video_info.id = finfo->id;
-        video_info.title = info.title;
-        video_info.artist = info.artist;
-        r = lms_db_video_add(plugin->video_db, &video_info);
-    }
-
-    MP4Close(mp4_fh);
-
-    free(info.title.str);
-    free(info.artist.str);
-    free(info.album.str);
-    free(info.genre.str);
-
-    return r;
-}
-#endif
 
 static int
 _setup(struct plugin *plugin, struct lms_context *ctxt)
