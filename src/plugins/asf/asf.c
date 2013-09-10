@@ -430,6 +430,7 @@ _parse_stream_properties(int fd, struct asf_info *info)
         s->base.codec = *_audio_codec_id_to_str(_read_word(fd));
         s->base.audio.channels = _read_word(fd);
         s->priv.sampling_rate = _read_dword(fd);
+        s->base.audio.sampling_rate = s->priv.sampling_rate;
         s->base.audio.bitrate = _read_dword(fd) * 8;
     } else {
         struct {
@@ -831,6 +832,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         video_info.title = info.title;
         video_info.artist = info.artist;
         video_info.length = info.length;
+        video_info.container = _container;
         video_info.streams = (struct lms_stream *) info.streams;
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
