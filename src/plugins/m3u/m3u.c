@@ -133,10 +133,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
                 finfo->path);
 
     ext_idx = ((long)match) - 1;
-    info.title.len = finfo->path_len - finfo->base - _exts[ext_idx].len;
-    info.title.str = malloc((info.title.len + 1) * sizeof(char));
-    memcpy(info.title.str, finfo->path + finfo->base, info.title.len);
-    info.title.str[info.title.len] = '\0';
+    lms_string_size_strndup(&info.title, finfo->path + finfo->base,
+                            finfo->path_len - finfo->base - _exts[ext_idx].len);
     lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
 
     info.id = finfo->id;

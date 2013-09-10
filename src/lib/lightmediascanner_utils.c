@@ -23,6 +23,7 @@
 #include <lightmediascanner_utils.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 #include <alloca.h>
 
 /**
@@ -125,6 +126,71 @@ lms_string_size_strip_and_free(struct lms_string_size *p)
     }
 }
 
+/**
+ * lms_string_size version of strdup().
+ *
+ * @param dst where to return the duplicated value.
+ * @param src pointer to lms_string_size to be duplicated.
+ *
+ * @return 1 on success, 0 on failure.
+ */
+int
+lms_string_size_dup(struct lms_string_size *dst, const struct lms_string_size *src)
+{
+    if (src->len == 0) {
+        dst->str = NULL;
+        dst->len = 0;
+        return 1;
+    }
+
+    dst->str = malloc(src->len + 1);
+    if (!dst->str) {
+        dst->len = 0;
+        return 0;
+    }
+
+    dst->len = src->len;
+    memcpy(dst->str, src->str, dst->len);
+    dst->str[dst->len] = '\0';
+    return 1;
+}
+
+/**
+ * Similar to lms_string_size_dup(), but from a simple string.
+ *
+ * @param dst where to return the duplicated value.
+ * @param src pointer to string to be duplicated.
+ * @param size size to copy or -1 to auto-calculate.
+ *
+ * @return 1 on success, 0 on failure.
+ */
+int
+lms_string_size_strndup(struct lms_string_size *dst, const char *src, int size)
+{
+    if (size < 0) {
+        if (!src)
+            size = 0;
+        else
+            size = strlen(src);
+    }
+
+    if (size == 0) {
+        dst->str = NULL;
+        dst->len = 0;
+        return 1;
+    }
+
+    dst->str = malloc(size + 1);
+    if (!dst->str) {
+        dst->len = 0;
+        return 0;
+    }
+
+    dst->len = size;
+    memcpy(dst->str, src, dst->len);
+    dst->str[dst->len] = '\0';
+    return 1;
+}
 
 /**
  * Find out which of the given extensions matches the given name.

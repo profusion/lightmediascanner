@@ -398,7 +398,7 @@ static struct lms_string_size
 _get_video_codec(MP4FileHandle mp4_fh, MP4TrackId id)
 {
     const char *data_name = MP4GetTrackMediaDataName(mp4_fh, id);
-    struct lms_string_size ret = {};
+    struct lms_string_size ret = {}, tmp;
     char buf[256];
     char ofmt[8] = {};
 
@@ -476,27 +476,15 @@ _get_video_codec(MP4FileHandle mp4_fh, MP4TrackId id)
 
 found: /* ugly, but h264 codec is composed in runtime */
 
-    if (ret.str == NULL)
+    if (!lms_string_size_dup(&tmp, &ret))
         return nullstr;
-    else {
-        struct lms_string_size tmp;
-
-        tmp.str = malloc(ret.len + 1);
-        if (!tmp.str)
-            tmp.len = 0;
-        else {
-            tmp.len = ret.len;
-            memcpy(tmp.str, ret.str, ret.len);
-            tmp.str[tmp.len] = '\0';
-        }
-        return tmp;
-    }
+    return tmp;
 }
 
 static struct lms_string_size
 _get_lang(MP4FileHandle mp4_fh, MP4TrackId id)
 {
-    struct lms_string_size ret = { };
+    struct lms_string_size ret;
     char buf[4];
 
     if (!MP4GetTrackLanguage(mp4_fh, id, buf))
@@ -505,13 +493,8 @@ _get_lang(MP4FileHandle mp4_fh, MP4TrackId id)
     if (memcmp(buf, "und", 4) == 0)
         return nullstr;
 
-    buf[3] = '\0';
-    ret.len = strlen(buf);
-    ret.str = malloc(ret.len + 1);
-    if (ret.str == NULL)
-        ret.len = 0;
-    else
-        memcpy(ret.str, buf, 4);
+    if (!lms_string_size_strndup(&ret, buf, -1))
+        return nullstr;
 
     return ret;
 }
@@ -574,17 +557,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         goto fail;
     }
 
-#define STR_FIELD_FROM_TAG(_tags_field, _field)                         \
-    do {                                                                \
-        if (_tags_field) {                                              \
-            _field.len = strlen(_tags_field);                           \
-            _field.str = malloc(_field.len);                            \
-            memcpy(_field.str, _tags_field, _field.len + 1);            \
-        }                                                               \
-    } while (0)
-
-    STR_FIELD_FROM_TAG(tags->name, info.title);
-    STR_FIELD_FROM_TAG(tags->artist, info.artist);
+    lms_string_size_strndup(&info.title, tags->name, -1);
+    lms_string_size_strndup(&info.artist, tags->artist, -1);
 
     /* check if the file contains a video track */
     num_tracks = MP4GetNumberOfTracks(mp4_fh, MP4_VIDEO_TRACK_TYPE, 0);
@@ -597,8 +571,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     if (stream_type == LMS_STREAM_TYPE_AUDIO) {
         MP4TrackId id;
 
-        STR_FIELD_FROM_TAG(tags->album, info.album);
-        STR_FIELD_FROM_TAG(tags->genre, info.genre);
+        lms_string_size_strndup(&info.album, tags->album, -1);
+        lms_string_size_strndup(&info.genre, tags->genre, -1);
         if (tags->track)
             info.trackno = tags->track->index;
 

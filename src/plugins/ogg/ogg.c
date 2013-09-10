@@ -113,19 +113,10 @@ _id3_tag_size(FILE *file)
 static void
 _set_lms_info(struct lms_string_size *info, const char *tag)
 {
-    int size;
-
-    if (!info || !tag)
+    if (!info)
         return;
 
-    size = strlen(tag);
-
-    if (!size)
-        return;
-
-    info->len = size;
-    info->str = malloc(size * sizeof(char));
-    memcpy(info->str, tag, size);
+    lms_string_size_strndup(info, tag, -1);
     lms_string_size_strip_and_free(info);
 }
 

@@ -100,26 +100,14 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     for (i = 0; i < tags->data.vorbis_comment.num_comments; i++) {
         str = (char *) tags->data.vorbis_comment.comments[i].entry;
         len = tags->data.vorbis_comment.comments[i].length;
-        if (strncmp(str, "TITLE=", 6) == 0) {
-            info.title.str = malloc((len - 6 + 1) * sizeof(char));
-            strcpy(info.title.str, str + 6);
-            info.title.len = len - 6;
-        }
-        else if (strncmp(str, "ARTIST=", 7) == 0) {
-            info.artist.str = malloc((len - 7 + 1) * sizeof(char));
-            strcpy(info.artist.str, str + 7);
-            info.artist.len = len - 7;
-        }
-        else if (strncmp(str, "ALBUM=", 6) == 0) {
-            info.album.str = malloc((len - 6 + 1) * sizeof(char));
-            strcpy(info.album.str, str + 6);
-            info.album.len = len - 6;
-        }
-        else if (strncmp(str, "GENRE=", 6) == 0) {
-            info.genre.str = malloc((len - 6 + 1) * sizeof(char));
-            strcpy(info.genre.str, str + 6);
-            info.genre.len = len - 6;
-        }
+        if (strncmp(str, "TITLE=", 6) == 0)
+            lms_string_size_strndup(&info.title, str + 6, len - 6);
+        else if (strncmp(str, "ARTIST=", 7) == 0)
+            lms_string_size_strndup(&info.artist, str + 7, len - 7);
+        else if (strncmp(str, "ALBUM=", 6) == 0)
+            lms_string_size_strndup(&info.album, str + 7, len - 7);
+        else if (strncmp(str, "GENRE=", 6) == 0)
+            lms_string_size_strndup(&info.genre, str + 6, len - 6);
         else if (strncmp(str, "TRACKNUMBER=", 12) == 0)
             info.trackno = atoi(str + 12);
     }
