@@ -29,9 +29,3 @@ liblightmediascanner_la_SOURCES = \
 
 liblightmediascanner_la_LIBADD = -ldl @SQLITE3_LIBS@ @LTLIBICONV@
 liblightmediascanner_la_LDFLAGS = -version-info @version_info@
-
-# shared sources/headers
-noinst_LTLIBRARIES = shared/libshared.la
-shared_libshared_la_SOURCES = shared/util.c
-
-noinst_HEADERS += shared/util.h

@@ -28,7 +28,6 @@ static const char PV[] = PACKAGE_VERSION; /* mp4.h screws PACKAGE_VERSION */
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
-#include <shared/util.h>
 
 #include <mp4v2/mp4v2.h>
 #include <string.h>
@@ -499,38 +498,6 @@ _get_lang(MP4FileHandle mp4_fh, MP4TrackId id)
     return ret;
 }
 
-static struct lms_string_size
-_guess_aspect_ratio(const struct lms_stream_video_info *info)
-{
-    static struct {
-        double ratio;
-        struct lms_string_size str;
-    } *itr, known_ratios[] = {
-        {16.0 / 9.0, LMS_STATIC_STRING_SIZE("16:9")},
-        {4.0 / 3.0, LMS_STATIC_STRING_SIZE("4:3")},
-        {3.0 / 2.0, LMS_STATIC_STRING_SIZE("3:2")},
-        {5.0 / 3.0, LMS_STATIC_STRING_SIZE("5:3")},
-        {8.0 / 5.0, LMS_STATIC_STRING_SIZE("8:5")},
-        {1.85, LMS_STATIC_STRING_SIZE("1.85:1")},
-        {1.4142, LMS_STATIC_STRING_SIZE("1.41:1")},
-        {2.39, LMS_STATIC_STRING_SIZE("2.39:1")},
-        {16.18 / 10.0, LMS_STATIC_STRING_SIZE("16.18:10")},
-        {-1.0, {NULL, 0}}
-    };
-    double ratio;
-
-    if (info->width == 0 || info->height == 0)
-        return nullstr;
-
-    ratio = (double)info->width / (double)info->height;
-    for (itr = known_ratios; itr->ratio > 0.0; itr++) {
-        if (fabs(ratio - itr->ratio) <= 0.01)
-            return itr->str;
-    }
-
-    return nullstr;
-}
-
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
@@ -613,7 +580,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
                 s->video.width = MP4GetTrackVideoWidth(mp4_fh, id);
                 s->video.height = MP4GetTrackVideoHeight(mp4_fh, id);
                 s->video.framerate = MP4GetTrackVideoFrameRate(mp4_fh, id);
-                s->video.aspect_ratio = _guess_aspect_ratio(&s->video);
+                lms_stream_video_info_aspect_ratio_guess(&s->video);
             }
 
             s->next = video_info.streams;
@@ -629,10 +596,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     lms_string_size_strip_and_free(&info.genre);
 
     if (!info.title.str)
-        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
-                                                finfo->base,
-                                                &_exts[((long) match) - 1],
-                                                NULL);
+        lms_name_from_path(&info.title, finfo->path, finfo->path_len,
+                           finfo->base, _exts[((long) match) - 1].len,
+                           NULL);
     if (info.title.str)
         lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
     if (info.artist.str)
@@ -670,8 +636,10 @@ fail:
     while (video_info.streams) {
         struct lms_stream *s = video_info.streams;
         video_info.streams = s->next;
-        if (s->type == LMS_STREAM_TYPE_VIDEO)
+        if (s->type == LMS_STREAM_TYPE_VIDEO) {
             free(s->codec.str); /* ugly, but h264 needs alloc */
+            free(s->video.aspect_ratio.str);
+        }
         free(s->lang.str);
         free(s);
     }

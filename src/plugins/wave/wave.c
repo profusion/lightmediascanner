@@ -254,10 +254,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
     _parse_info(fd, &info);
 
     if (!info.title.str)
-        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
-                                                finfo->base,
-                                                &_exts[((long) match) - 1],
-                                                ctxt->cs_conv);
+        lms_name_from_path(&info.title, finfo->path, finfo->path_len,
+                           finfo->base, _exts[((long) match) - 1].len,
+                           ctxt->cs_conv);
 
     info.id = finfo->id;
 

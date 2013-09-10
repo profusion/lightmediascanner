@@ -25,7 +25,6 @@
 #include <stddef.h>
 
 #include <lightmediascanner_utils.h>
-#include <lightmediascanner_charset_conv.h>
 
 #define NSEC100_PER_SEC  10000000ULL
 #define MSEC_PER_SEC  1000ULL
@@ -103,11 +102,3 @@ static inline uint16_t get_be16(const void *ptr)
 #else
 #error "Unknown byte order"
 #endif
-
-
-struct lms_string_size str_extract_name_from_path(
-    const char *path, unsigned int pathlen, unsigned int baselen,
-    const struct lms_string_size *ext, struct lms_charset_conv *cs_conv);
-
-void reduce_gcd(unsigned int w, unsigned int h, unsigned int *dw,
-                unsigned int *dh);

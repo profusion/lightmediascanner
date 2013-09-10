@@ -22,9 +22,11 @@
 
 #include <lightmediascanner_utils.h>
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <alloca.h>
+#include <math.h>
 
 /**
  * Strips string, in place.
@@ -192,6 +194,78 @@ lms_string_size_strndup(struct lms_string_size *dst, const char *src, int size)
     return 1;
 }
 
+/* Euclidean algorithm
+ * http://en.wikipedia.org/wiki/Euclidean_algorithm */
+static unsigned int
+gcd(unsigned int a, unsigned int b)
+{
+    unsigned int t;
+
+    while (b) {
+        t = b;
+        b = a % t;
+        a = t;
+    }
+
+    return a;
+}
+
+/**
+ * Guess aspect ratio from known ratios or Greatest Common Divisor.
+ *
+ * @param ret where to store the newly allocated string with ratio.
+ * @param width frame width to guess aspect ratio.
+ * @param height frame height to guess aspect ratio.
+ * @return 1 on success and @c ret->str must be @c free()d, 0 on failure.
+ */
+int
+lms_aspect_ratio_guess(struct lms_string_size *ret, int width, int height)
+{
+    static struct {
+        double ratio;
+        struct lms_string_size str;
+    } *itr, known_ratios[] = {
+        {16.0 / 9.0, LMS_STATIC_STRING_SIZE("16:9")},
+        {4.0 / 3.0, LMS_STATIC_STRING_SIZE("4:3")},
+        {3.0 / 2.0, LMS_STATIC_STRING_SIZE("3:2")},
+        {5.0 / 3.0, LMS_STATIC_STRING_SIZE("5:3")},
+        {8.0 / 5.0, LMS_STATIC_STRING_SIZE("8:5")},
+        {1.85, LMS_STATIC_STRING_SIZE("1.85:1")},
+        {1.4142, LMS_STATIC_STRING_SIZE("1.41:1")},
+        {2.39, LMS_STATIC_STRING_SIZE("2.39:1")},
+        {16.18 / 10.0, LMS_STATIC_STRING_SIZE("16.18:10")},
+        {-1.0, {NULL, 0}}
+    };
+    double ratio;
+    unsigned num, den, f;
+
+    if (width <= 0 || height <= 0) {
+        ret->len = 0;
+        ret->str = NULL;
+        return 0;
+    }
+
+    ratio = (double)width / (double)height;
+    for (itr = known_ratios; itr->ratio > 0.0; itr++) {
+        if (fabs(ratio - itr->ratio) <= 0.01)
+            return lms_string_size_dup(ret, &itr->str);
+    }
+
+    f = gcd(width, height);
+
+    num = width / f;
+    den = height / f;
+    ret->len = asprintf(&ret->str, "%u:%u", num, den);
+    if (ret->len == (unsigned int)-1) {
+        ret->len = 0;
+        ret->str = NULL;
+        return 0;
+    }
+
+    return 1;
+}
+
+
 /**
  * Find out which of the given extensions matches the given name.
  *
@@ -242,4 +316,36 @@ lms_which_extension(const char *name, unsigned int name_len, const struct lms_st
     }
 
     return -1;
+}
+
+/**
+ * Extract name from a path given its path string, length, base and extension.
+ *
+ * @param name where to store the result.
+ * @param path the input path to base the name on.
+ * @param pathlen the path size in bytes.
+ * @param baselen where (offset int bytes) in path starts the filename (base name).
+ * @param extlen the extension length in bytes.
+ * @param cs_conv charset conversion to use, if none use @c NULL.
+ * @return 1 on success, 0 on failure.
+ */
+int
+lms_name_from_path(struct lms_string_size *name, const char *path, unsigned int pathlen, unsigned int baselen, unsigned int extlen, struct lms_charset_conv *cs_conv)
+{
+    int size = pathlen - baselen - extlen;
+
+    name->str = malloc(size + 1);
+    if (!name->str) {
+        name->len = 0;
+        return 0;
+    }
+
+    name->len = size;
+    memcpy(name->str, path + baselen, size);
+    name->str[size] = '\0';
+
+    if (cs_conv)
+        lms_charset_conv(cs_conv, &name->str, &name->len);
+
+    return 1;
 }

@@ -45,6 +45,7 @@
 extern "C" {
 #endif
 
+#include <lightmediascanner_charset_conv.h>
 
     struct lms_string_size {
         char *str;
@@ -62,8 +63,11 @@ extern "C" {
     API int lms_string_size_dup(struct lms_string_size *dst, const struct lms_string_size *src) GNUC_NON_NULL(1, 2);
     API int lms_string_size_strndup(struct lms_string_size *dst, const char *src, int size) GNUC_NON_NULL(1);
 
+    API int lms_aspect_ratio_guess(struct lms_string_size *ret, int width, int height) GNUC_NON_NULL(1);
+
     API int lms_which_extension(const char *name, unsigned int name_len, const struct lms_string_size *exts, unsigned int exts_len) GNUC_NON_NULL(1, 3);
 
+    API int lms_name_from_path(struct lms_string_size *name, const char *path, unsigned int pathlen, unsigned int baselen, unsigned int extlen, struct lms_charset_conv *cs_conv) GNUC_NON_NULL(1, 2);
 
 
 #ifdef __cplusplus

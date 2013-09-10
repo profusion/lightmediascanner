@@ -616,3 +616,25 @@ lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
 
     return r;
 }
+
+/**
+ * If aspect ratio wasn't set yet, guess it from stream video info size.
+ *
+ * This function calls lms_aspect_ratio_guess() and thus the
+ * aspect_ratio string will be allocated with malloc(). Remember to
+ * free() it afterwards.
+ *
+ * @param info where to query width and height, then setting aspect_ratio string.
+ *
+ * @return 1 on success, 0 on failure.
+ */
+int
+lms_stream_video_info_aspect_ratio_guess(struct lms_stream_video_info *info)
+{
+    if (info->aspect_ratio.len > 0)
+        return 1;
+
+    return lms_aspect_ratio_guess(&info->aspect_ratio,
+                                  info->width,
+                                  info->height);
+}

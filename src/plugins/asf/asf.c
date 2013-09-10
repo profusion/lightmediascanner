@@ -449,7 +449,6 @@ _parse_stream_properties(int fd, struct asf_info *info)
 
             /* other fields are ignored */
         } __attribute__((packed)) video;
-        unsigned int num, den;
 
         r = read(fd, &video, sizeof(video));
         if (r != sizeof(video))
@@ -462,11 +461,7 @@ _parse_stream_properties(int fd, struct asf_info *info)
         s->base.codec = *_video_codec_id_to_str(video.compression_id);
         s->base.video.width = get_le32(&video.width);
         s->base.video.height = get_le32(&video.height);
-
-        reduce_gcd(s->base.video.width, s->base.video.height, &num, &den);
-        asprintf(&s->base.video.aspect_ratio.str, "%u:%u", num, den);
-        s->base.video.aspect_ratio.len = s->base.video.aspect_ratio.str ?
-            strlen(s->base.video.aspect_ratio.str) : 0;
+        lms_stream_video_info_aspect_ratio_guess(&s->base.video);
     }
 
     _stream_copy_extension_properties(s);
@@ -796,10 +791,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     lms_string_size_strip_and_free(&info.genre);
 
     if (!info.title.str)
-        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
-                                                finfo->base,
-                                                &_exts[((long) match) - 1],
-                                                ctxt->cs_conv);
+        lms_name_from_path(&info.title, finfo->path, finfo->path_len,
+                           finfo->base, _exts[((long) match) - 1].len,
+                           ctxt->cs_conv);
 
     if (info.type == LMS_STREAM_TYPE_AUDIO) {
         struct lms_audio_info audio_info = { };

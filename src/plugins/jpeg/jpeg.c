@@ -681,10 +681,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         info.date = finfo->mtime;
 
     if (!info.title.str)
-        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
-                                                finfo->base,
-                                                &_exts[((long) match) - 1],
-                                                ctxt->cs_conv);
+        lms_name_from_path(&info.title, finfo->path, finfo->path_len,
+                           finfo->base, _exts[((long) match) - 1].len,
+                           ctxt->cs_conv);
     if (info.artist.str)
       lms_charset_conv(ctxt->cs_conv, &info.artist.str, &info.artist.len);
 

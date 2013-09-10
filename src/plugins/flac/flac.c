@@ -26,7 +26,6 @@
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
-#include <shared/util.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -121,10 +120,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
 title_fallback:
     if (!info.title.str)
-        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
-                                                finfo->base,
-                                                &_exts[((long) match) - 1],
-                                                NULL);
+        lms_name_from_path(&info.title, finfo->path, finfo->path_len,
+                           finfo->base, _exts[((long) match) - 1].len,
+                           NULL);
     if (info.title.str)
         lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
 

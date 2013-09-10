@@ -33,7 +33,6 @@
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <lightmediascanner_utils.h>
-#include <shared/util.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -334,13 +333,7 @@ static void _parse_theora_and_vorbis_streams(struct ogg_info *info,
 
             num = s->video.ti.aspect_numerator;
             den = s->video.ti.aspect_denominator;
-            if (num && den) {
-                reduce_gcd(num, den, &num, &den);
-                asprintf(&s->base.video.aspect_ratio.str, "%u:%u", num, den);
-                s->base.video.aspect_ratio.len =
-                    s->base.video.aspect_ratio.str ?
-                    strlen(s->base.video.aspect_ratio.str) : 0;
-            }
+            lms_aspect_ratio_guess(&s->base.video.aspect_ratio, num, den);
         }
     }
 
@@ -500,10 +493,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
       goto done;
 
     if (!info.title.str)
-        info.title = str_extract_name_from_path(finfo->path, finfo->path_len,
-                                                finfo->base,
-                                                &_exts[((long) match) - 1],
-                                                NULL);
+        lms_name_from_path(&info.title, finfo->path, finfo->path_len,
+                           finfo->base, _exts[((long) match) - 1].len,
+                           NULL);
     if (info.title.str)
         lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
     if (info.artist.str)

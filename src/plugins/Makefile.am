@@ -3,17 +3,16 @@ MAINTAINERCLEANFILES = Makefile.in
 AM_LDFLAGS = -module -avoid-version -shared $(GCLDFLAGS)
 AM_CFLAGS = -fvisibility=hidden $(WARNINGFLAGS)
 AM_CPPFLAGS = -include $(top_builddir)/config.h \
-		-I$(top_srcdir)/src/lib @SQLITE3_CFLAGS@
+		-I$(top_srcdir)/src/lib -I$(srcdir) @SQLITE3_CFLAGS@
 pkgdir = $(pluginsdir)
 
-PLUGINS_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la \
-		 $(top_builddir)/src/lib/shared/libshared.la
+PLUGINS_LIBADD = $(top_builddir)/src/lib/liblightmediascanner.la
 
 pkg_LTLIBRARIES =
 BUILT_SOURCES =
 EXTRA_DIST =
 SUBDIRS =
-noinst_HEADERS =
+noinst_HEADERS = shared/util.h
 
 if USE_MODULE_DUMMY
 pkg_LTLIBRARIES += dummy/dummy.la

@@ -171,6 +171,8 @@ extern "C" {
     API int lms_db_video_free(lms_db_video_t *ldv) GNUC_NON_NULL(1);
     API int lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info) GNUC_NON_NULL(1, 2);
 
+    API int lms_stream_video_info_aspect_ratio_guess(struct lms_stream_video_info *info) GNUC_NON_NULL(1);
+
     /* Playlist Records */
     struct lms_playlist_info {
         int64_t id;
