@@ -588,7 +588,6 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         }
         video_info.length = info.length;
     }
-#undef STR_FIELD_FROM_TAG
 
     lms_string_size_strip_and_free(&info.title);
     lms_string_size_strip_and_free(&info.artist);
