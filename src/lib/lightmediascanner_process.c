@@ -565,7 +565,9 @@ _slave_work(struct pinfo *pinfo)
 
         _slave_send_reply(fds, r);
 
-        if (r < 0 || r == LMS_PROGRESS_STATUS_UP_TO_DATE)
+        if (r < 0 ||
+            (r == LMS_PROGRESS_STATUS_UP_TO_DATE ||
+             r == LMS_PROGRESS_STATUS_SKIPPED))
             continue;
 
         counter++;
