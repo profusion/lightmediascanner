@@ -844,7 +844,7 @@ _process_file(struct cinfo *info, int base, char *path, const char *name)
                 info, path, new_len, LMS_PROGRESS_STATUS_ERROR_PARSE);
             return reply;
         }
-        _report_progress(info, path, new_len, r);
+        _report_progress(info, path, new_len, reply);
         return reply;
     }
 }
