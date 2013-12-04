@@ -11,6 +11,7 @@ static char **charsets = NULL;
 static GHashTable *categories = NULL;
 static int commit_interval = 100;
 static int slave_timeout = 60;
+static int delete_older_than = 30;
 static gboolean vacuum = FALSE;
 static gboolean startup_scan = FALSE;
 
@@ -144,6 +145,47 @@ end:
 
     g_debug("update id: %llu", (unsigned long long)update_id);
     return update_id;
+}
+
+static void
+do_delete_old(void)
+{
+    const char sql[] = "DELETE FROM files WHERE dtime > 0 and dtime <= ?";
+    sqlite3 *db;
+    sqlite3_stmt *stmt;
+    gint64 dtime;
+    int ret;
+
+    ret = sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL);
+    if (ret != SQLITE_OK) {
+        g_warning("Couldn't open '%s': %s", db_path, sqlite3_errmsg(db));
+        goto end;
+    }
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        g_warning("Couldn't prepare delete old from %s: %s",
+                  db_path, sqlite3_errmsg(db));
+        goto end;
+    }
+
+    dtime = (gint64)time(NULL) - delete_older_than * (24 * 60 * 60);
+    if (sqlite3_bind_int64(stmt, 1, dtime) != SQLITE_OK) {
+        g_warning("Couldn't bind delete old dtime '%lld'from %s: %s",
+                  dtime, db_path, sqlite3_errmsg(db));
+        goto cleanup;
+    }
+
+    ret = sqlite3_step(stmt);
+    if (ret != SQLITE_DONE)
+        g_warning("Couldn't run SQL delete old dtime '%lld', ret=%d: %s",
+                  dtime, ret, sqlite3_errmsg(db));
+
+cleanup:
+    sqlite3_reset(stmt);
+    sqlite3_finalize(stmt);
+
+end:
+    sqlite3_close(db);
 }
 
 static void
@@ -658,6 +700,12 @@ scanner_thread_work(gpointer data)
 
     g_debug("finished scanner thread");
 
+    if (delete_older_than >= 0) {
+        g_debug("Delete from DB files with dtime older than %d days.",
+                delete_older_than);
+        do_delete_old();
+    }
+
     if (vacuum) {
         GTimer *timer = g_timer_new();
 
@@ -1157,6 +1205,16 @@ main(int argc, char *argv[])
          "Number of seconds to wait for slave to reply, otherwise kills it. "
          "Defaults to 60.",
          "SECONDS"},
+        {"delete-older-than", 'd', 0, G_OPTION_ARG_INT, &delete_older_than,
+         "Delete from database files that have 'dtime' older than the given "
+         "number of DAYS. If not specified LightMediaScanner will keep the "
+         "files in the database even if they are gone from the file system "
+         "and if they appear again and have the same 'mtime' and 'size' "
+         "it will be restored ('dtime' set to 0) without the need to parse "
+         "the file again (much faster). This is useful for removable media. "
+         "Use a negative number to disable this behavior. "
+         "Defaults to 30.",
+         "DAYS"},
         {"vacuum", 'V', 0, G_OPTION_ARG_NONE, &vacuum,
          "Execute SQL VACUUM after every scan.", NULL},
         {"startup-scan", 'S', 0, G_OPTION_ARG_NONE, &startup_scan,
@@ -1272,6 +1330,7 @@ main(int argc, char *argv[])
     g_debug("db-path: %s", db_path);
     g_debug("commit-interval: %d files", commit_interval);
     g_debug("slave-timeout: %d seconds", slave_timeout);
+    g_debug("delete-older-than: %d days", delete_older_than);
 
     if (charsets) {
         char *tmp = g_strjoinv(", ", charsets);
