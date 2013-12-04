@@ -259,6 +259,29 @@ on_properties_changed_check_scan(GDBusProxy *proxy, GVariant *changed, const cha
 }
 
 static void
+on_signal(GDBusProxy *proxy, gchar *sender, gchar *signal, GVariant *params, gpointer user_data)
+{
+    if (g_str_equal(signal, "ScanProgress")) {
+        const gchar *category = NULL, *path = NULL;
+        guint64 uptodate = 0, processed = 0, deleted = 0,
+            skipped = 0, errors = 0;
+
+        g_variant_get(params, "(&s&sttttt)",
+                      &category,
+                      &path,
+                      &uptodate,
+                      &processed,
+                      &deleted,
+                      &skipped,
+                      &errors);
+
+        printf("Scan Progress %s:%s uptodate=%llu, processed=%llu, "
+               "deleted=%llu, skipped=%llu, errors=%llu\n",
+               category, path, uptodate, processed, deleted, skipped, errors);
+    }
+}
+
+static void
 populate_scan_params(gpointer key, gpointer value, gpointer user_data)
 {
     const char *category = key;
@@ -304,6 +327,9 @@ do_scan(struct app *app)
 
     g_signal_connect(app->proxy, "g-properties-changed",
                      G_CALLBACK(on_properties_changed_check_scan),
+                     app);
+    g_signal_connect(app->proxy, "g-signal",
+                     G_CALLBACK(on_signal),
                      app);
 
     categories = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, do_free_array);

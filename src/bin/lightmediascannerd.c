@@ -14,6 +14,7 @@ static int slave_timeout = 60;
 static int delete_older_than = 30;
 static gboolean vacuum = FALSE;
 static gboolean startup_scan = FALSE;
+static gboolean omit_scan_progress = FALSE;
 
 static GDBusNodeInfo *introspection_data = NULL;
 
@@ -34,6 +35,15 @@ static const char introspection_xml[] =
     "    <method name=\"Stop\" />"
     "    <method name=\"RequestWriteLock\" />"
     "    <method name=\"ReleaseWriteLock\" />"
+    "    <signal name=\"ScanProgress\">"
+    "      <arg type=\"s\" name=\"Category\" />"
+    "      <arg type=\"s\" name=\"Path\" />"
+    "      <arg type=\"t\" name=\"UpToDate\" />"
+    "      <arg type=\"t\" name=\"Processed\" />"
+    "      <arg type=\"t\" name=\"Deleted\" />"
+    "      <arg type=\"t\" name=\"Skipped\" />"
+    "      <arg type=\"t\" name=\"Errors\" />"
+    "    </signal>"
     "  </interface>"
     "</node>";
 
@@ -50,6 +60,34 @@ typedef struct scanner_pending
     GList *paths;
 } scanner_pending_t;
 
+typedef struct scan_progress {
+    GDBusConnection *conn;
+    gchar *category;
+    gchar *path;
+    guint64 uptodate;
+    guint64 processed;
+    guint64 deleted;
+    guint64 skipped;
+    guint64 errors;
+    time_t last_report_time;
+    gint updated;
+} scan_progress_t;
+
+/* Scan progress signals will be issued if the time since last
+ * emission is greated than SCAN_PROGRESS_UPDATE_TIMEOUT _and_ number
+ * of items is greater than the SCAN_PROGRESS_UPDATE_COUNT.
+ *
+ * Be warned that D-Bus signal will wake-up the dbus-daemon (unless
+ * k-dbus) and all listener clients, which may hurt scan performance,
+ * thus we keep these good enough for GUI to look responsive while
+ * conservative to not hurt performance.
+ *
+ * Note that at after a path is scanned (check/progress) the signal is
+ * emitted even if count or timeout didn't match.
+ */
+#define SCAN_PROGRESS_UPDATE_TIMEOUT 1 /* in seconds */
+#define SCAN_PROGRESS_UPDATE_COUNT  50 /* in number of items */
+
 typedef struct scanner {
     GDBusConnection *conn;
     char *write_lock;
@@ -58,6 +96,7 @@ typedef struct scanner {
     GList *pending_scan; /* of scanner_pending_t, see scanner_thread_work */
     GThread *thread; /* see scanner_thread_work */
     unsigned cleanup_thread_idler; /* see scanner_thread_work */
+    scan_progress_t *scan_progress;
     guint64 update_id;
     struct {
         unsigned idler; /* not a flag, but g_source tag */
@@ -542,12 +581,87 @@ scanner_is_scanning_changed(scanner_t *scanner)
     scanner->changed_props.is_scanning = TRUE;
 }
 
+static gboolean
+report_scan_progress(gpointer data)
+{
+    scan_progress_t *sp = data;
+    GError *error = NULL;
+
+    g_dbus_connection_emit_signal(sp->conn,
+                                  NULL,
+                                  BUS_PATH,
+                                  BUS_IFACE,
+                                  "ScanProgress",
+                                  g_variant_new("(ssttttt)",
+                                                sp->category,
+                                                sp->path,
+                                                sp->uptodate,
+                                                sp->processed,
+                                                sp->deleted,
+                                                sp->skipped,
+                                                sp->errors),
+                                  &error);
+    g_assert_no_error(error);
+
+    return FALSE;
+}
+
+static gboolean
+report_scan_progress_and_free(gpointer data)
+{
+    scan_progress_t *sp = data;
+
+    if (sp->updated)
+        report_scan_progress(sp);
+
+    g_object_unref(sp->conn);
+    g_free(sp->category);
+    g_free(sp->path);
+    g_free(sp);
+    return FALSE;
+}
+
 static void
 scan_progress_cb(lms_t *lms, const char *path, int pathlen, lms_progress_status_t status, void *data)
 {
     const scanner_t *scanner = data;
+    scan_progress_t *sp = scanner->scan_progress;
+
     if (scanner->pending_stop)
         lms_stop_processing(lms);
+
+    if (!sp)
+        return;
+
+    switch (status) {
+    case LMS_PROGRESS_STATUS_UP_TO_DATE:
+        sp->uptodate++;
+        break;
+    case LMS_PROGRESS_STATUS_PROCESSED:
+        sp->processed++;
+        break;
+    case LMS_PROGRESS_STATUS_DELETED:
+        sp->deleted++;
+        break;
+    case LMS_PROGRESS_STATUS_KILLED:
+    case LMS_PROGRESS_STATUS_ERROR_PARSE:
+    case LMS_PROGRESS_STATUS_ERROR_COMM:
+        sp->errors++;
+        break;
+    case LMS_PROGRESS_STATUS_SKIPPED:
+        sp->skipped++;
+        break;
+    }
+
+    sp->updated++;
+    if (sp->updated > SCAN_PROGRESS_UPDATE_COUNT) {
+        time_t now = time(NULL);
+        if (sp->last_report_time + SCAN_PROGRESS_UPDATE_TIMEOUT < now) {
+            sp->last_report_time = now;
+            sp->updated = 0;
+            g_idle_add(report_scan_progress, sp);
+        }
+    }
 }
 
 static lms_t *
@@ -675,6 +789,7 @@ scanner_thread_work(gpointer data)
         if (lms) {
             while (pending->paths) {
                 char *path;
+                scan_progress_t *sp = NULL;
 
                 if (scanner->pending_stop)
                     break;
@@ -684,11 +799,23 @@ scanner_thread_work(gpointer data)
                                                     pending->paths);
 
                 g_debug("scan category %s, path %s", pending->category, path);
+
+                if (!omit_scan_progress) {
+                    sp = g_new0(scan_progress_t, 1);
+                    sp->conn = g_object_ref(scanner->conn);
+                    sp->category = g_strdup(pending->category);
+                    sp->path = g_strdup(path);
+                    scanner->scan_progress = sp;
+                }
+
                 if (!scanner->pending_stop)
                     lms_check(lms, path);
                 if (!scanner->pending_stop &&
                     g_file_test(path, G_FILE_TEST_EXISTS))
                     lms_process(lms, path);
+
+                if (sp)
+                    g_idle_add(report_scan_progress_and_free, sp);
 
                 g_free(path);
             }
@@ -1219,6 +1346,12 @@ main(int argc, char *argv[])
          "Execute SQL VACUUM after every scan.", NULL},
         {"startup-scan", 'S', 0, G_OPTION_ARG_NONE, &startup_scan,
          "Execute full scan on startup.", NULL},
+        {"omit-scan-progress", 0, 0, G_OPTION_ARG_NONE, &omit_scan_progress,
+         "Omit the ScanProgress signal during scans. This will avoid the "
+         "overhead of D-Bus signal emission and may slightly improve the "
+         "performance, but will make the listener user-interfaces less "
+         "responsive as they won't be able to tell the user what is happening.",
+         NULL},
         {"charset", 'C', 0, G_OPTION_ARG_STRING_ARRAY, &charsets,
          "Extra charset to use. (Multiple use)", "CHARSET"},
         {"parser", 'P', 0, G_OPTION_ARG_STRING_ARRAY, &parsers,
