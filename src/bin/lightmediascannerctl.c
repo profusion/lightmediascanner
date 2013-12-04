@@ -237,8 +237,10 @@ on_properties_changed_check_scan(GDBusProxy *proxy, GVariant *changed, const cha
                     app->ret = EXIT_SUCCESS;
                     g_main_loop_quit(app->loop);
                 }
+                g_variant_unref(value);
                 break;
-            }
+            } else
+                g_variant_unref(value);
         }
         g_variant_iter_free(itr);
     }
