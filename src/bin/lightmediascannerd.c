@@ -209,15 +209,15 @@ do_delete_old(void)
 
     dtime = (gint64)time(NULL) - delete_older_than * (24 * 60 * 60);
     if (sqlite3_bind_int64(stmt, 1, dtime) != SQLITE_OK) {
-        g_warning("Couldn't bind delete old dtime '%lld'from %s: %s",
-                  dtime, db_path, sqlite3_errmsg(db));
+        g_warning("Couldn't bind delete old dtime '%"G_GINT64_FORMAT
+                  "'from %s: %s", dtime, db_path, sqlite3_errmsg(db));
         goto cleanup;
     }
 
     ret = sqlite3_step(stmt);
     if (ret != SQLITE_DONE)
-        g_warning("Couldn't run SQL delete old dtime '%lld', ret=%d: %s",
-                  dtime, ret, sqlite3_errmsg(db));
+        g_warning("Couldn't run SQL delete old dtime '%"G_GINT64_FORMAT
+                  "', ret=%d: %s", dtime, ret, sqlite3_errmsg(db));
 
 cleanup:
     sqlite3_reset(stmt);

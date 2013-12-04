@@ -275,8 +275,9 @@ on_signal(GDBusProxy *proxy, gchar *sender, gchar *signal, GVariant *params, gpo
                       &skipped,
                       &errors);
 
-        printf("Scan Progress %s:%s uptodate=%llu, processed=%llu, "
-               "deleted=%llu, skipped=%llu, errors=%llu\n",
+        printf("Scan Progress %s:%s uptodate=%"G_GUINT64_FORMAT", "
+               "processed=%"G_GUINT64_FORMAT", deleted=%"G_GUINT64_FORMAT", "
+               "skipped=%"G_GUINT64_FORMAT", errors=%"G_GUINT64_FORMAT"\n",
                category, path, uptodate, processed, deleted, skipped, errors);
     }
 }
