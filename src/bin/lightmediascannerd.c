@@ -22,6 +22,7 @@ static const char BUS_IFACE[] = "org.lightmediascanner.Scanner1";
 static const char introspection_xml[] =
     "<node>"
     "  <interface name=\"org.lightmediascanner.Scanner1\">"
+    "    <property name=\"DataBasePath\" type=\"s\" access=\"read\" />"
     "    <property name=\"IsScanning\" type=\"b\" access=\"read\" />"
     "    <property name=\"WriteLocked\" type=\"b\" access=\"read\" />"
     "    <property name=\"UpdateID\" type=\"t\" access=\"read\" />"
@@ -802,7 +803,9 @@ scanner_get_prop(GDBusConnection *conn, const char *sender, const char *opath, c
     scanner_t *scanner = data;
     GVariant *ret;
 
-    if (strcmp(prop, "IsScanning") == 0)
+    if (strcmp(prop, "DataBasePath") == 0)
+        ret = g_variant_new_string(db_path);
+    else if (strcmp(prop, "IsScanning") == 0)
         ret = g_variant_new_boolean(scanner->thread != NULL);
     else if (strcmp(prop, "WriteLocked") == 0)
         ret = g_variant_new_boolean(check_write_locked(scanner));
