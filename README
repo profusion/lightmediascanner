@@ -17,3 +17,41 @@ The scanner will use SQLite3 to store file-mtime association, avoiding
 parsing files that are already up-to-date. This SQLite connection and
 the file id within the master table 'files' are handled to plugins for
 relationship with other tables.
+
+
+DAEMON
+~~~~~~
+
+LMS provides `lightmediascannerd', a D-Bus daemon that uses the library
+and provides a common use case in a centralized way. It will scan
+directories based on some categories (defaults to FreeDesktop.Org/XDG
+directories specification, but can be manually specified in the
+command line), manages a DataBase WriteLock (remember SQLite3 will
+produce annoying 'database is locked' errors if writes are done by one
+process while another is using it) and information of database changes
+through properties.
+
+Service Information:
+ * Well Known Name: org.lightmediascanner
+ * Path: /org/lightmediascanner/Scanner1
+ * Interfaces: org.lightmediascanner.Scanner1, org.freedesktop.DBus.Properties,
+   org.freedesktop.DBus.Introspectable
+
+There is a tool `lightmediascannerctl' to print server status, monitor
+properties (useful to see WriteLocked, IsScanning and UpdateID),
+request write lock or request scan.
+
+Both tools are written using glib and it's gio/gdbus, so they depend
+on these libraries during both compile and runtime.
+
+NOTE:
+
+   If you're installing to custom directories (~/usr, /opt, etc) make
+   sure the service file is installed in a directory known to
+   dbus-daemon, usually /usr/share/dbus-1/services or
+   ~/.local/share/dbus-1/services. Example:
+
+      ./configure \
+          --prefix=$HOME/lms \
+          --enable-daemon \
+          --with-dbus-services=$HOME/.local/share/dbus-1/services
