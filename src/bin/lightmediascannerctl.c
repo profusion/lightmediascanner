@@ -4,6 +4,47 @@
 #include <string.h>
 #include <time.h>
 
+static gboolean
+start_service_by_name(void)
+{
+    GError *error = NULL;
+    GVariant *var;
+    GDBusConnection *conn;
+
+    conn = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error);
+    if (error) {
+        fprintf(stderr, "Could not get session bus connection: %s\n",
+                error->message);
+        g_error_free(error);
+        return FALSE;
+    }
+
+    var = g_dbus_connection_call_sync(conn,
+                                      "org.freedesktop.DBus",
+                                      "/org/freedesktop/DBus",
+                                      "org.freedesktop.DBus",
+                                      "StartServiceByName",
+                                      g_variant_new("(su)",
+                                                    "org.lightmediascanner", 0),
+                                      G_VARIANT_TYPE("(u)"),
+                                      G_DBUS_CALL_FLAGS_NONE,
+                                      10000,
+                                      NULL,
+                                      &error);
+    g_object_unref(conn);
+    if (var)
+        g_variant_unref(var);
+
+    if (error) {
+        fprintf(stderr, "Could not start org.lightmediascanner: %s\n",
+                error->message);
+        g_error_free(error);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 struct app {
     int ret;
     int argc;
@@ -479,6 +520,9 @@ main(int argc, char *argv[])
         fprintf(stderr, "Unknown action '%s', see --help.\n", argv[1]);
         return EXIT_FAILURE;
     }
+
+    if (!start_service_by_name())
+        return EXIT_FAILURE;
 
     app.timer = NULL;
     app.loop = g_main_loop_new(NULL, FALSE);
