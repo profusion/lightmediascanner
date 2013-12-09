@@ -19,7 +19,7 @@ AC_HEADER_STDC
 AC_C_CONST
 
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])dnl
-AC_PROG_LIBTOOL
+LT_INIT([disable-static])
 
 VMAJ=`echo $PACKAGE_VERSION | awk -F. '{printf("%s", $1);}'`
 VMIN=`echo $PACKAGE_VERSION | awk -F. '{printf("%s", $2);}'`
