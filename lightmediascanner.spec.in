@@ -7,10 +7,10 @@ Version: @VERSION@
 Release: %{_rel}
 License: LGPLv2.1
 Group: System Environment/Libraries
-Source: https://garage.maemo.org/frs/download.php/8852/lightmediascanner-%{version}.tar.bz2
+Source: https://github.com/profusion/lightmediascanner/archive/release_%{version}.tar.gz
 Packager: %{?_packager:%{_packager}}%{!?_packager:Rui Seabra <rms@1407.org>}
 Distribution: %{?_distribution:%{_distribution}}%{!?_distribution:%{_vendor}}
-URL: http://lms.garage.maemo.org/
+URL: http://github.com/profusion/lightmediascanner
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 
 %description

@@ -561,7 +561,7 @@ lms_plugin_info(void)
         "Real Networks audio and video files (RA, RV, RM, RMJ, RMVB)",
         PACKAGE_VERSION,
         _authors,
-        "http://lms.garage.maemo.org"
+        "http://github.com/profusion/lightmediascanner"
     };
 
     return &info;

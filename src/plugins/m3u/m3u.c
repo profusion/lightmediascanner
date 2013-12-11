@@ -207,7 +207,7 @@ lms_plugin_info(void)
         "M3U playlists (aka WinAMP playlists)",
         PACKAGE_VERSION,
         _authors,
-        "http://lms.garage.maemo.org"
+        "http://github.com/profusion/lightmediascanner"
     };
 
     return &info;

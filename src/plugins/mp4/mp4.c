@@ -2666,7 +2666,7 @@ lms_plugin_info(void)
         "MP4 files (MP4, M4A, MOV, QT, 3GP)",
         PV,
         _authors,
-        "http://lms.garage.maemo.org"
+        "http://github.com/profusion/lightmediascanner"
     };
 
     return &info;

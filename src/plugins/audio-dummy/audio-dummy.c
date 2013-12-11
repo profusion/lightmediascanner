@@ -142,7 +142,7 @@ lms_plugin_info(void)
         "but no metadata is processed.",
         PACKAGE_VERSION,
         _authors,
-        "http://lms.garage.maemo.org"
+        "http://github.com/profusion/lightmediascanner"
     };
 
     return &info;

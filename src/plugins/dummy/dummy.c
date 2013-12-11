@@ -111,7 +111,7 @@ lms_plugin_info(void)
         "Stores all files in the database with no processing",
         PACKAGE_VERSION,
         _authors,
-        "http://lms.garage.maemo.org"
+        "http://github.com/profusion/lightmediascanner"
     };
 
     return &info;

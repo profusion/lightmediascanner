@@ -918,7 +918,7 @@ lms_plugin_info(void)
         "Microsoft WMA, WMV and ASF",
         PACKAGE_VERSION,
         _authors,
-        "http://lms.garage.maemo.org"
+        "http://github.com/profusion/lightmediascanner"
     };
 
     return &info;

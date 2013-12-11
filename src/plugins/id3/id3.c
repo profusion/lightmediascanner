@@ -1397,7 +1397,7 @@ lms_plugin_info(void)
         "ID3 v1 and v2 for mp3 files",
         PACKAGE_VERSION,
         _authors,
-        "http://lms.garage.maemo.org"
+        "http://github.com/profusion/lightmediascanner"
     };
 
     return &info;
