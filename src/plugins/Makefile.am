@@ -113,4 +113,10 @@ wave_wave_la_SOURCES = wave/wave.c
 wave_wave_la_LIBADD = $(PLUGINS_LIBADD) $(FLAC_LIBS)
 endif
 
+if USE_MODULE_GENERIC
+pkg_LTLIBRARIES += generic/generic.la
+generic_generic_la_SOURCES = generic/generic.c
+generic_generic_la_LIBADD = $(PLUGINS_LIBADD) $(GENERIC_LIBS)
+endif
+
 CLEAN_FILES = $(BUILT_SOURCES)

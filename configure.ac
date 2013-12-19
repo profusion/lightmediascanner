@@ -95,6 +95,12 @@ define([CHECK_MODULE_FLAC],
         AC_LMS_CHECK_PKG(FLAC, flac, [], [FLAC=false])
 ])
 
+AM_CONDITIONAL(HAVE_GENERIC, false)
+define([CHECK_MODULE_GENERIC],
+[
+        AC_LMS_CHECK_PKG(GENERIC, [libavcodec libavformat], [], [GENERIC=false])
+])
+
 # plugins declarations
 AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
@@ -110,6 +116,7 @@ AC_LMS_OPTIONAL_MODULE([mp4], true, [CHECK_MODULE_MP4])
 AC_LMS_OPTIONAL_MODULE([id3], true)
 AC_LMS_OPTIONAL_MODULE([flac], true, [CHECK_MODULE_FLAC])
 AC_LMS_OPTIONAL_MODULE([wave], true)
+AC_LMS_OPTIONAL_MODULE([generic], true, [CHECK_MODULE_GENERIC])
 
 
 AC_ARG_ENABLE([daemon],
