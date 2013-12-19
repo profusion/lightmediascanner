@@ -173,6 +173,7 @@ extern "C" {
         lms_plugin_setup_fn_t setup; /**< setup (1st phase init) */
         lms_plugin_start_fn_t start; /**< start (2nd phase init) */
         lms_plugin_finish_fn_t finish; /**< finish plugin */
+        int order;
     };
 
     struct lms_plugin_info {

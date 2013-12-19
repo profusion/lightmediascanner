@@ -97,6 +97,7 @@ lms_plugin_open(void)
     plugin->setup = _setup;
     plugin->start = _start;
     plugin->finish = _finish;
+    plugin->order = 0;
 
     return plugin;
 }

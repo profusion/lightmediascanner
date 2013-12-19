@@ -322,6 +322,7 @@ lms_plugin_open(void)
     plugin->setup = (lms_plugin_setup_fn_t) _setup;
     plugin->start = (lms_plugin_start_fn_t) _start;
     plugin->finish = (lms_plugin_finish_fn_t) _finish;
+    plugin->order = 0;
 
     return plugin;
 }
