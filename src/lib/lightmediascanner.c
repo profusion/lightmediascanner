@@ -205,6 +205,12 @@ lms_set_progress_callback(lms_t *lms, lms_progress_callback_t cb, const void *da
     lms->progress.free_data = free_data;
 }
 
+static int
+_plugin_sort(const struct parser *a, const struct parser *b)
+{
+    return (a->plugin->order - b->plugin->order);
+}
+
 /**
  * Add parser plugin given it's shared object path.
  *
@@ -244,6 +250,8 @@ lms_parser_add(lms_t *lms, const char *so_path)
     }
 
     lms->n_parsers++;
+    qsort(lms->parsers, lms->n_parsers, sizeof(struct parser),
+          (comparison_fn_t)_plugin_sort);
     return parser->plugin;
 }
 
