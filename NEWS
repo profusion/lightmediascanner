@@ -1,3 +1,25 @@
+ver 0.4.5.99: (will change to 0.5 or 1.0, to be defined)
+        Improved build system (non-recursive, cleanups, etc).
+        Disabled static plugins.
+        Plugin symbols are now hidden by default (-fvisibility=hidden).
+        Fix _update_finfo_from_stmt() due changed tables.
+        Properly report up to date files as such.
+        Introduce "update_id" to ease synchronization.
+        Added new video streams sub-tables (audio, video and subtitles).
+        Added more media information fields to audio and video.
+        Added DLNA profile and mime to audio, video and image tables.
+        plugins: calculate (or estimate in case of VBR) length.
+        id3: parse ".adts" files.
+        asf: major improvements.
+        ogg: support theora videos.
+        wave: introduce ".wav" (RIFF) plugin.
+        mp4: convert to mp4v2 2.0 API.
+        Allow scan a single file.
+        Added lightmediascannerctl and lightmediascannerd binaries.
+        Added generic parser using libavcodec/libavformat.
+        Introduced parser ordering.
+        Changed url to github.
+
 ver 0.4.5:
 	Fix build with mp4v2 2.0 api changes.
 	Change project email to my own, garage.maemo.org is not being

@@ -1,4 +1,4 @@
-AC_INIT(lightmediascanner, 0.4.5.0, barbieri@profusion.mobi)
+AC_INIT(lightmediascanner, 0.4.5.99, barbieri@profusion.mobi)
 AC_PREREQ(2.60)
 AC_CONFIG_SRCDIR(configure.ac)
 AC_CANONICAL_BUILD
