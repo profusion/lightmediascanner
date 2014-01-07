@@ -88,6 +88,8 @@ typedef struct scan_progress {
 #define SCAN_PROGRESS_UPDATE_TIMEOUT 1 /* in seconds */
 #define SCAN_PROGRESS_UPDATE_COUNT  50 /* in number of items */
 
+#define SCAN_MOUNTPOINTS_TIMEOUT 1 /* in seconds */
+
 typedef struct scanner {
     GDBusConnection *conn;
     char *write_lock;
@@ -97,6 +99,13 @@ typedef struct scanner {
     GThread *thread; /* see scanner_thread_work */
     unsigned cleanup_thread_idler; /* see scanner_thread_work */
     scan_progress_t *scan_progress;
+    struct {
+        GIOChannel *channel;
+        unsigned watch;
+        unsigned timer;
+        GList *paths;
+        GList *pending;
+    } mounts;
     guint64 update_id;
     struct {
         unsigned idler; /* not a flag, but g_source tag */
@@ -453,12 +462,21 @@ scanner_pending_add_all(scanner_pending_t *pending, const GArray *arr)
     pending->paths = g_list_reverse(pending->paths);
 }
 
+static gboolean
+scanner_category_allows_path(const GArray *restrictions, const char *path)
+{
+    const char * const *itr;
+    for (itr = (const char *const*)restrictions->data; *itr != NULL; itr++) {
+        if (g_str_has_prefix(path, *itr))
+            return TRUE;
+    }
+    return FALSE;
+}
+
 static void
 scanner_pending_add(scanner_pending_t *pending, const GArray *restrictions, const char *path)
 {
     GList *n, *nlast;
-    const char * const *itr;
-    gboolean allowed = FALSE;
 
     for (n = pending->paths; n != NULL; n = n->next) {
         const char *other = n->data;
@@ -469,13 +487,8 @@ scanner_pending_add(scanner_pending_t *pending, const GArray *restrictions, cons
         }
     }
 
-    for (itr = (const char *const*)restrictions->data; *itr != NULL; itr++) {
-        if (g_str_has_prefix(path, *itr)) {
-            allowed = TRUE;
-            break;
-        }
-    }
-    if (!allowed) {
+
+    if (restrictions && (!scanner_category_allows_path(restrictions, path))) {
         g_warning("Path is outside of category %s directories: %s",
                   pending->category, path);
         return;
@@ -715,6 +728,8 @@ setup_lms(const char *category, const scanner_t *scanner)
     return lms;
 }
 
+static void scan_mountpoints(scanner_t *scanner);
+
 static gboolean
 scanner_thread_cleanup(gpointer data)
 {
@@ -738,8 +753,12 @@ scanner_thread_cleanup(gpointer data)
                      (GDestroyNotify)scanner_pending_free);
     scanner->pending_scan = NULL;
 
-    scanner_is_scanning_changed(scanner);
-    scanner_write_lock_changed(scanner);
+    if (scanner->mounts.pending && !scanner->mounts.timer)
+        scan_mountpoints(scanner);
+    else {
+        scanner_is_scanning_changed(scanner);
+        scanner_write_lock_changed(scanner);
+    }
 
     return FALSE;
 }
@@ -1002,12 +1021,216 @@ scanner_get_prop(GDBusConnection *conn, const char *sender, const char *opath, c
     return ret;
 }
 
+struct scanner_should_monitor_data {
+    const char *mountpoint;
+    gboolean should_monitor;
+};
+
+static void
+category_should_monitor(gpointer key, gpointer value, gpointer user_data)
+{
+    const scanner_category_t *sc = value;
+    struct scanner_should_monitor_data *data = user_data;
+
+    if (data->should_monitor)
+        return;
+
+    if (scanner_category_allows_path(sc->dirs, data->mountpoint)) {
+        data->should_monitor = TRUE;
+        return;
+    }
+}
+
+static gboolean
+should_monitor(const char *mountpoint)
+{
+    struct scanner_should_monitor_data data = {mountpoint, FALSE};
+    g_hash_table_foreach(categories, category_should_monitor, &data);
+    return data.should_monitor;
+}
+
+static GList *
+scanner_mounts_parse(scanner_t *scanner)
+{
+    GList *paths = NULL;
+    GIOStatus status;
+    GError *error = NULL;
+
+    status = g_io_channel_seek_position(scanner->mounts.channel, 0, G_SEEK_SET,
+                                        &error);
+    if (error) {
+        g_warning("Couldn't rewind mountinfo channel: %s", error->message);
+        g_free(error);
+        return NULL;
+    }
+
+    do {
+        gchar *str = NULL;
+        gsize len = 0;
+        int mount_id, parent_id, major, minor;
+        char root[1024], mountpoint[1024];
+
+        status = g_io_channel_read_line(scanner->mounts.channel, &str, NULL,
+                                        &len, &error);
+        switch (status) {
+        case G_IO_STATUS_AGAIN:
+            continue;
+        case G_IO_STATUS_NORMAL:
+            str[len] = '\0';
+            break;
+        case G_IO_STATUS_ERROR:
+            g_warning("Couldn't read line of mountinfo: %s", error->message);
+            g_free(error);
+        case G_IO_STATUS_EOF:
+            return g_list_sort(paths, (GCompareFunc)strcmp);
+        }
+
+        if (sscanf(str, "%d %d %d:%d %1023s %1023s", &mount_id, &parent_id,
+                   &major, &minor, root, mountpoint) != 6)
+            g_warning("Error parsing mountinfo line: %s", str);
+        else {
+            char *mp = g_strcompress(mountpoint);
+
+            if (!should_monitor(mp)) {
+                g_debug("Ignored mountpoint: %s. Not in any category.", mp);
+                g_free(mp);
+            } else {
+                g_debug("Got mountpoint: %s", mp);
+                paths = g_list_prepend(paths, mp);
+            }
+        }
+
+        g_free(str);
+    } while (TRUE);
+}
+
+static void
+scanner_mount_pending_add_or_delete(scanner_t *scanner, gchar *mountpoint)
+{
+    GList *itr;
+
+    for (itr = scanner->mounts.pending; itr != NULL; itr = itr->next) {
+        if (strcmp(itr->data, mountpoint) == 0) {
+            g_free(mountpoint);
+            return;
+        }
+    }
+
+    scanner->mounts.pending = g_list_prepend(scanner->mounts.pending,
+                                             mountpoint);
+}
+
+static void
+category_scan_pending_mountpoints(gpointer key, gpointer value, gpointer user_data)
+{
+    scanner_pending_t *pending = NULL;
+    scanner_category_t *sc = value;
+    scanner_t *scanner = user_data;
+    GList *n;
+
+    for (n = scanner->mounts.pending; n != NULL; n = n->next) {
+        const char *mountpoint = n->data;
+
+        if (scanner_category_allows_path(sc->dirs, mountpoint)) {
+            if (!pending)
+                pending = scanner_pending_get_or_add(scanner, sc->category);
+
+            scanner_pending_add(pending, NULL, mountpoint);
+        }
+    }
+}
+
+static void
+scan_mountpoints(scanner_t *scanner)
+{
+    g_assert(scanner->thread == NULL);
+
+    g_hash_table_foreach(categories, category_scan_pending_mountpoints,
+                         scanner);
+    g_list_free_full(scanner->mounts.pending, g_free);
+    scanner->mounts.pending = NULL;
+
+    do_scan(scanner);
+}
+
+static gboolean
+on_scan_mountpoints_timeout(gpointer data)
+{
+    scanner_t *scanner = data;
+
+    if (!scanner->thread)
+        scan_mountpoints(scanner);
+
+    scanner->mounts.timer = 0;
+    return FALSE;
+}
+
+static gboolean
+on_mounts_changed(GIOChannel *source, GIOCondition cond, gpointer data)
+{
+    scanner_t *scanner = data;
+    GList *oldpaths = scanner->mounts.paths;
+    GList *newpaths = scanner_mounts_parse(scanner);
+    GList *o, *n;
+    GList *current = NULL;
+
+    for (o = oldpaths, n = newpaths; o != NULL && n != NULL;) {
+        int r = strcmp(o->data, n->data);
+        if (r == 0) {
+            current = g_list_prepend(current, o->data);
+            g_free(n->data);
+            o = o->next;
+            n = n->next;
+        } else if (r < 0) { /* removed */
+            scanner_mount_pending_add_or_delete(scanner, o->data);
+            o = o->next;
+        } else { /* added (goes to both pending and current) */
+            current = g_list_prepend(current, g_strdup(n->data));
+            scanner_mount_pending_add_or_delete(scanner, n->data);
+            n = n->next;
+        }
+    }
+
+    for (; o != NULL; o = o->next)
+        scanner_mount_pending_add_or_delete(scanner, o->data);
+    for (; n != NULL; n = n->next) {
+        current = g_list_prepend(current, g_strdup(n->data));
+        scanner_mount_pending_add_or_delete(scanner, n->data);
+    }
+
+    scanner->mounts.paths = g_list_reverse(current);
+
+    g_list_free(oldpaths);
+    g_list_free(newpaths);
+
+    if (scanner->mounts.timer) {
+        g_source_remove(scanner->mounts.timer);
+        scanner->mounts.timer = 0;
+    }
+    if (scanner->mounts.pending) {
+        scanner->mounts.timer = g_timeout_add(SCAN_MOUNTPOINTS_TIMEOUT * 1000,
+                                              on_scan_mountpoints_timeout,
+                                              scanner);
+    }
+
+    return TRUE;
+}
+
 static void
 scanner_destroyed(gpointer data)
 {
     scanner_t *scanner = data;
 
     g_free(scanner->write_lock);
+
+    if (scanner->mounts.timer)
+        g_source_remove(scanner->mounts.timer);
+    if (scanner->mounts.watch)
+        g_source_remove(scanner->mounts.watch);
+    if (scanner->mounts.channel)
+        g_io_channel_unref(scanner->mounts.channel);
+    g_list_free_full(scanner->mounts.paths, g_free);
+    g_list_free_full(scanner->mounts.pending, g_free);
 
     if (scanner->write_lock_name_watcher)
         g_bus_unwatch_name(scanner->write_lock_name_watcher);
@@ -1046,6 +1269,7 @@ static void
 on_name_acquired(GDBusConnection *conn, const gchar *name, gpointer data)
 {
     GDBusInterfaceInfo *iface;
+    GError *error = NULL;
     unsigned id;
     scanner_t *scanner;
 
@@ -1065,6 +1289,19 @@ on_name_acquired(GDBusConnection *conn, const gchar *name, gpointer data)
                                            scanner_destroyed,
                                            NULL);
     g_assert(id > 0);
+
+    scanner->mounts.channel = g_io_channel_new_file("/proc/self/mountinfo",
+                                                    "r", &error);
+    if (error) {
+      g_warning("No /proc/self/mountinfo file: %s. Disabled mount monitoring.",
+                error->message);
+      g_error_free(error);
+    } else {
+        scanner->mounts.watch = g_io_add_watch(scanner->mounts.channel,
+                                               G_IO_ERR,
+                                               on_mounts_changed, scanner);
+        scanner->mounts.paths = scanner_mounts_parse(scanner);
+    }
 
     if (startup_scan) {
         g_debug("Do startup scan");
