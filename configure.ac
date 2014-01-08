@@ -42,22 +42,12 @@ PKG_CHECK_MODULES(SQLITE3, [sqlite3 >= 3.3])
 
 # plugins checks
 
-AM_CONDITIONAL(HAVE_VORBIS, false)
 AM_CONDITIONAL(USE_TREMOR, false)
 define([CHECK_MODULE_OGG],
 [
-        AC_CHECK_HEADERS(tremor/ivorbiscodec.h tremor/ivorbisfile.h, HAVE_IVORBIS_HEADERS=yes, HAVE_IVORBIS_HEADERS=no)
-        if test "x$HAVE_IVORBIS_HEADERS" = "xyes"; then
-            AC_CHECK_LIB(vorbisidec, ogg_sync_bufferin, HAVE_IVORBIS_LIBS=yes, HAVE_IVORBIS_LIBS=no)
-        fi
-
-        AM_CONDITIONAL(USE_TREMOR, test "x$HAVE_IVORBIS_LIBS" = "xyes")
-        if test "x$HAVE_IVORBIS_LIBS" = "xyes"; then
-            AC_DEFINE(USE_TREMOR, 1, Define if libvorbisidec (aka tremor) support is enabled)
-            VORBIS_LIBS="-lvorbisidec"
-            AC_SUBST(VORBIS_LIBS)
-        else
-            AC_LMS_CHECK_PKG(VORBIS, vorbis, [], [OGG=false])
+        AC_LMS_CHECK_PKG(VORBIS, vorbis, [], [OGG=false])
+        if test "x$HAVE_VOBIS" = "xno"; then
+            AC_LMS_CHECK_PKG(VORBIS, vorbisdec, [USE_TREMOR=true], [OGG=false])
         fi
 	AC_LMS_CHECK_PKG(THEORADEC, theoradec, [], [OGG=false])
 ])
