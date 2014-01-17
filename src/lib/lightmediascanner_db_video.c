@@ -21,6 +21,7 @@
  */
 
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 #include "lightmediascanner_db_private.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -604,6 +605,7 @@ int
 lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
 {
     struct lms_stream *s;
+    const struct lms_dlna_video_profile *dlna;
     int r;
 
     if (!ldv)
@@ -612,6 +614,14 @@ lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
         return -2;
     if (info->id < 1)
         return -3;
+
+    if (info->dlna_mime.len == 0 && info->dlna_profile.len == 0) {
+        dlna = lms_dlna_get_video_profile(info);
+        if (dlna) {
+            info->dlna_mime = *dlna->dlna_mime;
+            info->dlna_profile = *dlna->dlna_profile;
+        }
+    }
 
     r = _db_insert(ldv, info);
     if (r < 0)
