@@ -241,10 +241,33 @@ _db_table_updater_videos_2(sqlite3 *db, const char *table,
     return 0;
 }
 
+static int
+_db_table_updater_videos_3(sqlite3 *db, const char *table,
+                           unsigned int current_version, int is_last_run)
+{
+    char *errmsg = NULL;
+    int r;
+
+    r = sqlite3_exec(
+        db, "BEGIN TRANSACTION;"
+        "ALTER TABLE videos ADD COLUMN packet_size INTEGER;"
+        "COMMIT;",
+        NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could add columns to videos table: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    return 0;
+}
+
 static lms_db_table_updater_t _db_table_updater_videos[] = {
     _db_table_updater_videos_0,
     _db_table_updater_videos_1,
     _db_table_updater_videos_2,
+    _db_table_updater_videos_3,
 };
 
 
@@ -324,8 +347,8 @@ lms_db_video_start(lms_db_video_t *ldv)
 
     ldv->insert = lms_db_compile_stmt(ldv->db,
         "INSERT OR REPLACE INTO videos (id, title, artist, length, "
-        "container, dlna_profile, dlna_mime) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)");
+        "container, dlna_profile, dlna_mime, packet_size) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     if (!ldv->insert)
         return -2;
 
@@ -543,6 +566,10 @@ _db_insert(lms_db_video_t *ldv, const struct lms_video_info *info)
         goto done;
 
     ret = lms_db_bind_text(stmt, 7, info->dlna_mime.str, info->dlna_mime.len);
+    if (ret != 0)
+        goto done;
+
+    ret = lms_db_bind_int64(stmt, 8, info->packet_size);
     if (ret != 0)
         goto done;
 
