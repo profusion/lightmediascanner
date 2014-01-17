@@ -56,34 +56,7 @@ DECL_STR(_codec_video_wmv1, "wmv1");
 DECL_STR(_codec_video_wmv2, "wmv2");
 DECL_STR(_codec_video_wmv3, "wmv3");
 
-DECL_STR(_dlna_wma_base, "WMABASE");
-DECL_STR(_dlna_wma_full, "WMAFULL");
-DECL_STR(_dlna_wma_pro, "WMAPRO");
-DECL_STR(_dlna_wma_mime, "audio/x-ms-wma");
-
 DECL_STR(_str_unknown, "<UNKNOWN>");
-#undef DECL_STR
-
-static void
-_fill_audio_dlna_profile(struct lms_audio_info *info)
-{
-    if ((info->codec.str == _codec_audio_wmav1.str ||
-         info->codec.str == _codec_audio_wmav2.str) &&
-        (info->sampling_rate <= 48000)) {
-        info->dlna_mime = _dlna_wma_mime;
-        if (info->bitrate <= 192999)
-            info->dlna_profile = _dlna_wma_base;
-        else
-            info->dlna_profile = _dlna_wma_full;
-    } else if (
-        info->codec.str == _codec_audio_wmavpro.str &&
-        info->sampling_rate <= 96000 &&
-        info->channels <= 8 &&
-        info->bitrate <= 1500000) {
-        info->dlna_mime = _dlna_wma_mime;
-        info->dlna_profile = _dlna_wma_pro;
-    }
-}
 
 enum AttributeTypes {
     ATTR_TYPE_UNICODE = 0,
@@ -815,8 +788,6 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             audio_info.sampling_rate = s->priv.sampling_rate;
             audio_info.codec = s->base.codec;
         }
-
-        _fill_audio_dlna_profile(&audio_info);
 
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     } else {
