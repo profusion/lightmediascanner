@@ -51,6 +51,8 @@
 #define DECL_STR(cname, str)                                            \
     static const struct lms_string_size cname = LMS_STATIC_STRING_SIZE(str)
 
+DECL_STR(_container_mp3, "mp3");
+
 DECL_STR(_codec_mpeg1layer1, "mpeg1layer1");
 DECL_STR(_codec_mpeg1layer2, "mpeg1layer2");
 DECL_STR(_codec_mpeg1layer3, "mpeg1layer3");
@@ -68,75 +70,6 @@ DECL_STR(_codec_mpeg4aac_main, "mpeg4aac-main");
 DECL_STR(_codec_mpeg4aac_lc, "mpeg4aac-lc");
 DECL_STR(_codec_mpeg4aac_ssr, "mpeg4aac-ssr");
 DECL_STR(_codec_mpeg4aac_ltp, "mpeg4aac-ltp");
-
-DECL_STR(_dlna_mp3, "MP3");
-DECL_STR(_dlna_mp3x, "MP3X");
-
-DECL_STR(_dlna_aac_adts_320, "AAC_ADTS_320");
-DECL_STR(_dlna_aac_adts, "AAC_ADTS");
-DECL_STR(_dlna_aac_adts_mult5, "AAC_MULT5_ADTS");
-
-DECL_STR(_dlna_mime_mpeg, "audio/mpeg");
-DECL_STR(_dlna_mime_adts, "audio/vnd.dlna.adts");
-#undef DECL_STR
-
-
-static void
-_fill_dlna_profile(struct lms_audio_info *info)
-{
-    if ((info->channels == 1 || info->channels == 2) &&
-        (info->sampling_rate == 32000 ||
-         info->sampling_rate == 44100 ||
-         info->sampling_rate == 48000) &&
-        (info->bitrate >= 32000 && info->bitrate <= 320000) &&
-        info->codec.str == _codec_mpeg1layer3.str) {
-        info->dlna_profile = _dlna_mp3;
-        info->dlna_mime = _dlna_mime_mpeg;
-   } else if (
-        (info->channels == 1 || info->channels == 2) &&
-        (info->sampling_rate == 16000 ||
-         info->sampling_rate == 22050 ||
-         info->sampling_rate == 24000 ||
-         info->sampling_rate == 32000 ||
-         info->sampling_rate == 44100 ||
-         info->sampling_rate == 48000) &&
-        (info->bitrate >= 8000 && info->bitrate <= 320000) &&
-        (info->codec.str == _codec_mpeg1layer1.str ||
-         info->codec.str == _codec_mpeg1layer2.str ||
-         info->codec.str == _codec_mpeg1layer3.str ||
-         info->codec.str == _codec_mpeg2layer1.str ||
-         info->codec.str == _codec_mpeg2layer2.str ||
-         info->codec.str == _codec_mpeg2layer3.str)) {
-        info->dlna_profile = _dlna_mp3x;
-        info->dlna_mime = _dlna_mime_mpeg;
-    } else if (
-        (info->sampling_rate == 8000 ||
-         info->sampling_rate == 11025 ||
-         info->sampling_rate == 12000 ||
-         info->sampling_rate == 16000 ||
-         info->sampling_rate == 22050 ||
-         info->sampling_rate == 24000 ||
-         info->sampling_rate == 32000 ||
-         info->sampling_rate == 44100 ||
-         info->sampling_rate == 48000) &&
-        (info->codec.str == _codec_mpeg2aac_lc.str ||
-         info->codec.str == _codec_mpeg4aac_lc.str)) {
-
-        if (info->channels == 1 || info->channels == 2) {
-            if (info->bitrate <= 320000) {
-                info->dlna_profile = _dlna_aac_adts_320;
-                info->dlna_mime = _dlna_mime_adts;
-            } else if (info->bitrate <= 576000) {
-                info->dlna_profile = _dlna_aac_adts;
-                info->dlna_mime = _dlna_mime_adts;
-            }
-        } else if ((info->channels >= 1 && info->channels <= 6) &&
-                   (info->bitrate <= 1440000)) {
-            info->dlna_profile = _dlna_aac_adts_mult5;
-            info->dlna_mime = _dlna_mime_adts;
-        }
-    }
-}
 
 #define ID3V2_HEADER_SIZE       10
 #define ID3V2_FOOTER_SIZE       10
@@ -1294,8 +1227,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
     _parse_mpeg_header(fd, sync_offset, &audio_info, finfo->size);
 
-    _fill_dlna_profile(&audio_info);
-
+    audio_info.container = _container_mp3;
     r = lms_db_audio_add(plugin->audio_db, &audio_info);
 
   done:
