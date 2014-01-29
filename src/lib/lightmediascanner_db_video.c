@@ -21,6 +21,7 @@
  */
 
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 #include "lightmediascanner_db_private.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -241,10 +242,33 @@ _db_table_updater_videos_2(sqlite3 *db, const char *table,
     return 0;
 }
 
+static int
+_db_table_updater_videos_3(sqlite3 *db, const char *table,
+                           unsigned int current_version, int is_last_run)
+{
+    char *errmsg = NULL;
+    int r;
+
+    r = sqlite3_exec(
+        db, "BEGIN TRANSACTION;"
+        "ALTER TABLE videos ADD COLUMN packet_size INTEGER;"
+        "COMMIT;",
+        NULL, NULL, &errmsg);
+    if (r != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could add columns to videos table: %s\n",
+                errmsg);
+        sqlite3_free(errmsg);
+        return -1;
+    }
+
+    return 0;
+}
+
 static lms_db_table_updater_t _db_table_updater_videos[] = {
     _db_table_updater_videos_0,
     _db_table_updater_videos_1,
     _db_table_updater_videos_2,
+    _db_table_updater_videos_3,
 };
 
 
@@ -324,8 +348,8 @@ lms_db_video_start(lms_db_video_t *ldv)
 
     ldv->insert = lms_db_compile_stmt(ldv->db,
         "INSERT OR REPLACE INTO videos (id, title, artist, length, "
-        "container, dlna_profile, dlna_mime) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)");
+        "container, dlna_profile, dlna_mime, packet_size) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     if (!ldv->insert)
         return -2;
 
@@ -546,6 +570,10 @@ _db_insert(lms_db_video_t *ldv, const struct lms_video_info *info)
     if (ret != 0)
         goto done;
 
+    ret = lms_db_bind_int64(stmt, 8, info->packet_size);
+    if (ret != 0)
+        goto done;
+
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
         fprintf(stderr, "ERROR: could not insert video info: %s\n",
@@ -577,6 +605,7 @@ int
 lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
 {
     struct lms_stream *s;
+    const struct lms_dlna_video_profile *dlna;
     int r;
 
     if (!ldv)
@@ -585,6 +614,14 @@ lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
         return -2;
     if (info->id < 1)
         return -3;
+
+    if (info->dlna_mime.len == 0 && info->dlna_profile.len == 0) {
+        dlna = lms_dlna_get_video_profile(info);
+        if (dlna) {
+            info->dlna_mime = *dlna->dlna_mime;
+            info->dlna_profile = *dlna->dlna_profile;
+        }
+    }
 
     r = _db_insert(ldv, info);
     if (r < 0)

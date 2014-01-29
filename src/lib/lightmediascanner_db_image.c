@@ -22,6 +22,7 @@
 
 #include <lightmediascanner_db.h>
 #include "lightmediascanner_db_private.h"
+#include <lightmediascanner_dlna.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -108,9 +109,29 @@ _db_table_updater_images_1(sqlite3 *db, const char *table, unsigned int current_
     return ret;
 }
 
+static int
+_db_table_updater_images_2(sqlite3 *db, const char *table, unsigned int current_version, int is_last_run)
+{
+    int ret;
+    char *err;
+
+    ret = sqlite3_exec(
+        db, "BEGIN TRANSACTION;"
+        "ALTER TABLE images ADD COLUMN container TEXT DEFAULT NULL;"
+        "COMMIT;",
+        NULL, NULL, &err);
+    if (ret != SQLITE_OK) {
+        fprintf(stderr, "ERROR: could add columns to images table: %s\n", err);
+        sqlite3_free(err);
+    }
+
+    return ret;
+}
+
 static lms_db_table_updater_t _db_table_updater_images[] = {
     _db_table_updater_images_0,
-    _db_table_updater_images_1
+    _db_table_updater_images_1,
+    _db_table_updater_images_2
 };
 
 
@@ -191,8 +212,8 @@ lms_db_image_start(lms_db_image_t *ldi)
     ldi->insert = lms_db_compile_stmt(ldi->db,
         "INSERT OR REPLACE INTO images ("
         "id, title, artist, date, width, height, orientation, "
-        "gps_lat, gps_long, gps_alt, dlna_profile, dlna_mime) VALUES ("
-        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        "gps_lat, gps_long, gps_alt, dlna_profile, dlna_mime, container) "
+         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!ldi->insert)
         return -2;
 
@@ -294,6 +315,10 @@ _db_insert(lms_db_image_t *ldi, const struct lms_image_info *info)
     if (ret != 0)
         goto done;
 
+    ret = lms_db_bind_text(stmt, 13, info->container.str, info->container.len);
+    if (ret != 0)
+        goto done;
+
     r = sqlite3_step(stmt);
     if (r != SQLITE_DONE) {
         fprintf(stderr, "ERROR: could not insert image info: %s\n",
@@ -324,12 +349,22 @@ _db_insert(lms_db_image_t *ldi, const struct lms_image_info *info)
 int
 lms_db_image_add(lms_db_image_t *ldi, struct lms_image_info *info)
 {
+    const struct lms_dlna_image_profile *dlna;
+
     if (!ldi)
         return -1;
     if (!info)
         return -2;
     if (info->id < 1)
         return -3;
+
+    if (info->dlna_mime.len == 0 && info->dlna_profile.len == 0) {
+        dlna = lms_dlna_get_image_profile(info);
+        if (dlna) {
+            info->dlna_mime = *dlna->dlna_mime;
+            info->dlna_profile = *dlna->dlna_profile;
+        }
+    }
 
     return _db_insert(ldi, info);
 }

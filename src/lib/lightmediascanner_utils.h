@@ -52,6 +52,9 @@ extern "C" {
         unsigned int len;
     };
 
+#define DECL_STR(cname, str)                                                \
+    static const struct lms_string_size cname = LMS_STATIC_STRING_SIZE(str) \
+
 #define LMS_STATIC_STRING_SIZE(s) ((struct lms_string_size) { (char *)s, sizeof(s) - 1})
 #define LMS_ARRAY_SIZE(a)  (sizeof(a) / sizeof(*a))
 

@@ -34,6 +34,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define DECL_STR(cname, str)                                            \
+    static const struct lms_string_size cname = LMS_STATIC_STRING_SIZE(str)
+
 static const char _name[] = "generic";
 
 static const struct lms_string_size _exts[] = {
@@ -42,7 +45,240 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".mpeg2"),
     LMS_STATIC_STRING_SIZE(".mp2"),
     LMS_STATIC_STRING_SIZE(".mp3"),
+    LMS_STATIC_STRING_SIZE(".adts"),
     LMS_STATIC_STRING_SIZE(".m3u"),
+    LMS_STATIC_STRING_SIZE(".mp4"),
+    LMS_STATIC_STRING_SIZE(".wma"),
+};
+
+DECL_STR(_codec_mpeg1layer3, "mpeg1layer3");
+DECL_STR(_container_3gp, "3gp");
+DECL_STR(_container_mp4, "mp4");
+
+DECL_STR(_container_audio_wmav1, "wmav1");
+DECL_STR(_container_audio_wmav2, "wmav2");
+DECL_STR(_container_audio_wmavpro, "wmavpro");
+
+DECL_STR(_codec_audio_asf, "asf");
+DECL_STR(_codec_audio_mpeg4aac_main, "mpeg4aac-main");
+DECL_STR(_codec_audio_mpeg4aac_lc, "mpeg4aac-lc");
+DECL_STR(_codec_audio_mpeg4aac_ssr, "mpeg4aac-ssr");
+DECL_STR(_codec_audio_mpeg4aac_ltp, "mpeg4aac-ltp");
+DECL_STR(_codec_audio_mpeg4aac_he, "mpeg4aac-he");
+DECL_STR(_codec_audio_mpeg4aac_scalable, "mpeg4aac-scalable");
+
+typedef void (* generic_codec_container_cb)(AVStream *stream, struct lms_string_size *value);
+
+struct codec_container {
+    unsigned int id;
+    generic_codec_container_cb get_codec;
+    generic_codec_container_cb get_container;
+};
+
+struct codec_container_descriptor {
+    unsigned int id;
+    const struct lms_string_size *desc;
+};
+
+static const struct codec_container_descriptor _codec_list[] = {
+    {CODEC_ID_MP3, &_codec_mpeg1layer3},
+    {AV_CODEC_ID_WMAV1, &_codec_audio_asf},
+    {AV_CODEC_ID_WMAV2, &_codec_audio_asf},
+    {AV_CODEC_ID_WMAPRO, &_codec_audio_asf},
+};
+
+static const struct codec_container_descriptor _container_list[] = {
+    {AV_CODEC_ID_MPEG2VIDEO, &_container_mp4},
+    {AV_CODEC_ID_AAC, &_container_3gp},
+    {AV_CODEC_ID_WMAV1, &_container_audio_wmav1},
+    {AV_CODEC_ID_WMAV2, &_container_audio_wmav2},
+    {AV_CODEC_ID_WMAPRO, &_container_audio_wmavpro},
+    {AV_CODEC_ID_H264, &_container_mp4},
+};
+
+static void
+_mp4_get_audio_codec(AVStream *stream, struct lms_string_size *value)
+{
+    switch (stream->codec->profile) {
+    case FF_PROFILE_AAC_MAIN:
+        lms_string_size_dup(value, &_codec_audio_mpeg4aac_main);
+        break;
+    case FF_PROFILE_AAC_LOW:
+        lms_string_size_dup(value, &_codec_audio_mpeg4aac_lc);
+        break;
+    case FF_PROFILE_AAC_SSR:
+        lms_string_size_dup(value, &_codec_audio_mpeg4aac_ssr);
+        break;
+    case FF_PROFILE_AAC_LTP:
+        lms_string_size_dup(value, &_codec_audio_mpeg4aac_ltp);
+        break;
+    case FF_PROFILE_AAC_HE:
+        lms_string_size_dup(value, &_codec_audio_mpeg4aac_he);
+        break;
+    default:
+        lms_string_size_dup(value, &_codec_audio_mpeg4aac_scalable);
+        break;
+    }
+}
+
+/** TODO: for mp4 we're parsing a smaller subset of codec than mp4 plugin itself */
+static void
+_mp4_get_video_codec(AVStream *stream, struct lms_string_size *value)
+{
+    struct lms_string_size ret = {};
+    char str_profile[64], str_level[64], buf[256];
+    int level, profile;
+
+    profile = stream->codec->profile;
+    level = stream->codec->level;
+
+    switch (profile) {
+    case 66:
+        memcpy(str_profile, "baseline", sizeof("baseline"));
+        break;
+    case 77:
+        memcpy(str_profile, "main", sizeof("main"));
+        break;
+    case 88:
+        memcpy(str_profile, "extended", sizeof("extended"));
+        break;
+    case 100:
+        memcpy(str_profile, "high", sizeof("high"));
+        break;
+    case 110:
+        memcpy(str_profile, "high-10", sizeof("high-10"));
+        break;
+    case 122:
+        memcpy(str_profile, "high-422", sizeof("high-422"));
+        break;
+    case 144:
+        memcpy(str_profile, "high-444", sizeof("high-444"));
+        break;
+    default:
+        snprintf(str_profile, sizeof(str_profile), "unknown-%d", profile);
+    }
+
+    if (level % 10 == 0)
+        snprintf(str_level, sizeof(str_level), "%u", level / 10);
+    else
+        snprintf(str_level, sizeof(str_level), "%u.%u", level / 10, level % 10);
+
+    ret.len = snprintf(buf, sizeof(buf), "h264-%s-l%s", str_profile, str_level);
+    ret.str = buf;
+
+    lms_string_size_dup(value, &ret);
+}
+
+static void
+_mpeg2_get_video_codec(AVStream *stream, struct lms_string_size *value)
+{
+    const char *codec_name, *str_profile, *str_level;
+    char buf[256];
+
+    codec_name = avcodec_get_name(stream->codec->codec_id);
+    if (!codec_name) return;
+
+    str_profile = NULL;
+    str_level = NULL;
+
+    switch (stream->codec->profile) {
+    case 6:
+        str_profile = "simple";
+        break;
+    case 4:
+        str_profile = "main";
+        break;
+    }
+
+    switch (stream->codec->level) {
+    case 5:
+    case 8:
+        str_level = "main";
+        break;
+    case 2:
+    case 4:
+        str_level = "high";
+        break;
+    case 6:
+        str_level = "high";
+        break;
+    }
+
+    snprintf(buf, sizeof(buf), "%s-p%s-l%s", codec_name, str_profile, str_level);
+    lms_string_size_strndup(value, buf, -1);
+}
+
+static void
+_get_common_codec(AVStream *stream, struct lms_string_size *value)
+{
+    int length, i;
+
+    length = sizeof(_codec_list) / sizeof(struct codec_container_descriptor);
+    for (i = 0; i < length; i++) {
+        const struct codec_container_descriptor *curr = _codec_list + i;
+        if (curr->id == stream->codec->codec_id) {
+            lms_string_size_dup(value, curr->desc);
+            break;
+        }
+    }
+}
+
+static void
+_get_common_container(AVStream *stream, struct lms_string_size *value)
+{
+    int length, i;
+
+    length = sizeof(_container_list) / sizeof(struct codec_container_descriptor);
+    for (i = 0; i < length; i++) {
+        const struct codec_container_descriptor *curr = _container_list + i;
+        if (curr->id == stream->codec->codec_id) {
+            lms_string_size_dup(value, curr->desc);
+            break;
+        }
+    }
+}
+
+static const struct codec_container _codecs[] = {
+    {
+        .id = CODEC_ID_MP3,
+        .get_codec = _get_common_codec,
+        .get_container = NULL,
+    },
+    {
+        .id = AV_CODEC_ID_AAC,
+        .get_codec = _mp4_get_audio_codec,
+        .get_container = _get_common_container,
+    },
+    {
+        .id = AV_CODEC_ID_MPEG2VIDEO,
+        .get_codec = _mpeg2_get_video_codec,
+        .get_container = NULL,
+    },
+    {
+        .id = AV_CODEC_ID_MPEG2VIDEO,
+        .get_codec = _mp4_get_video_codec,
+        .get_container = _get_common_container,
+    },
+    {
+        .id = AV_CODEC_ID_H264,
+        .get_codec = _mp4_get_video_codec,
+        .get_container = _get_common_container,
+    },
+    {
+        .id = AV_CODEC_ID_WMAV1,
+        .get_codec = _get_common_codec,
+        .get_container = _get_common_container,
+    },
+    {
+        .id = AV_CODEC_ID_WMAV2,
+        .get_codec = _get_common_codec,
+        .get_container = _get_common_container,
+    },
+    {
+        .id = AV_CODEC_ID_WMAPRO,
+        .get_codec = _get_common_codec,
+        .get_container = _get_common_container,
+    },
 };
 
 static const char *_cats[] = {
@@ -70,745 +306,6 @@ struct mpeg_info {
     struct lms_string_size genre;
 };
 
-#define DECL_STR(cname, str)                                            \
-  static const struct lms_string_size cname = LMS_STATIC_STRING_SIZE(str) \
-
-#define DLNA_VIDEO_RES(_width, _height)                                 \
-    &(struct dlna_video_res) {.width = _width, .height = _height}       \
-
-#define DLNA_VIDEO_RES_RANGE(_wmin, _wmax, _hmin, _hmax)                \
-    &(struct dlna_video_res_range) {.width_min = _wmin,                 \
-            .width_max = _wmax, .height_min = _hmin,                    \
-            .height_max = _hmax}                                        \
-
-#define DLNA_BITRATE(_min, _max)                            \
-    &(struct dlna_bitrate) {.min = _min, .max = _max}       \
-
-#define DLNA_LEVEL(_val...)				\
-  &(struct dlna_level) {.levels = {_val, NULL}}		\
-
-#define DLNA_PROFILE(_val...)				    \
-  &(struct dlna_profile) {.profiles = {_val, NULL}}	    \
-
-#define DLNA_AUDIO_RATE(_val...)				\
-  &(struct dlna_audio_rate) {.rates = {_val, INT32_MAX}}	\
-
-#define DLNA_VIDEO_PIXEL_ASPECT(_val...)				\
-  &(struct dlna_video_pixel_aspect) {					\
-    .pixel_aspect_ratio = {_val, NULL}}					\
-
-#define DLNA_VIDEO_FRAMERATE(_val...)					\
-  &(struct dlna_video_framerate) {.framerate = {_val, INT32_MAX}}	\
-
-#define DLNA_VIDEO_PACKETSIZE(_packet_size)				\
-  &(struct dlna_video_packet_size) {.packet_size = _packet_size}	\
-
-#define MAX_AUDIO_MPEG_VERSIONS 2
-#define MAX_AUDIO_RATES 9
-#define MAX_AUDIO_LEVELS 5
-#define MAX_VIDEO_RULE_LEVEL 12
-#define MAX_VIDEO_RULE_PROFILE 3
-#define MAX_VIDEO_RULE_FRAMERATE 7
-#define MAX_VIDEO_PIXEL_ASPECT 3
-
-struct dlna_bitrate {
-     const unsigned int min;
-     const unsigned int max;
-};
-
-struct dlna_video_res {
-     const unsigned int width;
-     const unsigned int height;
-};
-
-struct dlna_video_res_range {
-    const unsigned int width_min;
-    const unsigned int width_max;
-    const unsigned int height_min;
-    const unsigned int height_max;
-};
-
-struct dlna_level {
-     const char *levels[MAX_VIDEO_RULE_LEVEL];
-};
-
-struct dlna_profile {
-     const char *profiles[MAX_VIDEO_RULE_PROFILE];
-};
-
-struct dlna_video_framerate {
-     const double framerate[MAX_VIDEO_RULE_FRAMERATE];
-};
-
-struct dlna_video_pixel_aspect {
-     const char *pixel_aspect_ratio[MAX_VIDEO_PIXEL_ASPECT];
-};
-
-struct dlna_video_rule {
-     const struct dlna_video_res *res;
-     const struct dlna_video_res_range *res_range;
-     const struct dlna_bitrate *bitrate;
-     const struct dlna_profile *profiles;
-     const struct dlna_level *levels;
-     const struct dlna_video_framerate *framerate;
-     const struct dlna_video_pixel_aspect *pixel_aspect;
-};
-
-struct dlna_audio_rate {
-     const unsigned int rates[MAX_AUDIO_RATES];
-};
-
-struct dlna_audio_rule {
-     const struct lms_string_size *codec;
-     const struct lms_string_size *container;
-     const struct dlna_audio_rate *rates;
-     const struct dlna_level *levels;
-     const struct dlna_bitrate *channels;
-     const struct dlna_bitrate *bitrate;
-};
-
-struct dlna_video_packet_size {
-     const int64_t packet_size;
-};
-
-struct dlna_video_profile {
-     const struct lms_string_size *dlna_profile;
-     const struct lms_string_size *dlna_mime;
-     const struct dlna_video_rule *video_rules;
-     const struct dlna_audio_rule *audio_rule;
-     const struct lms_string_size *container;
-     const struct dlna_video_packet_size *packet_size;
-};
-
-struct dlna_audio_profile {
-     const struct lms_string_size *dlna_profile;
-     const struct lms_string_size *dlna_mime;
-     const struct dlna_audio_rule *audio_rule;
-};
-
-DECL_STR(_dlna_profile_mpeg_ts_sd_eu_iso, "MPEG_TS_SD_EU_ISO");
-DECL_STR(_dlna_profile_mpeg_ts_sd_eu, "MPEG_TS_SD_EU");
-DECL_STR(_dlna_profile_mpeg_ts_hd_na_iso, "MPEG_TS_HD_NA_ISO");
-DECL_STR(_dlna_profile_mpeg_ts_hd_na, "MPEG_TS_HD_NA");
-DECL_STR(_dlna_profile_mpeg_ts_sd_na_iso, "MPEG_TS_SD_NA_ISO");
-DECL_STR(_dlna_profile_mpeg_ts_sd_na, "MPEG_TS_SD_NA");
-DECL_STR(_dlna_profile_mpeg_ps_pal, "MPEG_PS_PAL");
-DECL_STR(_dlna_profile_mpeg_ps_ntsc, "MPEG_PS_NTSC");
-DECL_STR(_dlna_profile_mpeg1, "MPEG1");
-DECL_STR(_dlna_profile_mp3, "MP3");
-DECL_STR(_dlna_profile_mp3x, "MP3X");
-
-DECL_STR(_dlna_mime_audio, "audio/mpeg");
-DECL_STR(_dlna_mime_video, "video/mpeg");
-DECL_STR(_dlna_mim_video_tts, "video/vnd.dlna.mpeg-tts");
-
-DECL_STR(_container_mpegts, "mpegts");
-DECL_STR(_container_mpeg, "mpeg");
-DECL_STR(_container_mp3, "mp3");
-
-static const struct dlna_video_rule _dlna_video_rule_mpeg_ps_pal[] = {
-    {
-        .res = DLNA_VIDEO_RES(720, 576),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main"),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("64:45", "16:15"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(704, 576),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main"),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("64:45", "16:15"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(544, 576),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main"),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("32:17", "24:17"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(480, 576),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main"),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("32:15", "8:5"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(352, 576),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main"),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("32:11", "24:11"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(352, 288),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main"),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("16:11", "12:11"),
-    },
-    { NULL },
-};
-
-static const struct dlna_video_rule _dlna_video_rule_mpeg1[] = {
-    {
-        .res = DLNA_VIDEO_RES(352, 288),
-        .bitrate = DLNA_BITRATE(1150000, 1152000),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-    },
-    {
-        .res = DLNA_VIDEO_RES(352, 240),
-        .bitrate = DLNA_BITRATE(1150000, 1152000),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-    },
-    {
-        .res = DLNA_VIDEO_RES(352, 240),
-        .bitrate = DLNA_BITRATE(1150000, 1152000),
-        .framerate = DLNA_VIDEO_FRAMERATE(24000/1001),
-    },
-    {
-        .bitrate = DLNA_BITRATE(1150000, 1152000),
-    },
-    { NULL },
-};
-
-static const struct dlna_video_rule _dlna_video_rule_mpeg_ps_ntsc[] = {
-    {
-        .res = DLNA_VIDEO_RES(720, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("32:27", "8:9"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(704, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .framerate = DLNA_VIDEO_FRAMERATE(24000/1001, 24/1, 30000/1001, 30/1,
-                    60000/1001, 60/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("40:33", "10:11"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(480, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("16:9", "4:3"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(544, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("80:51", "20:17"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(352, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("80:33", "20:11"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(352, 240),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .bitrate = DLNA_BITRATE(1, 9800000),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("16:11", "12:11"),
-    },
-    { NULL },
-};
-
-static const struct dlna_video_rule _dlna_video_rule_mpeg_ts_sd_na[] = {
-    {
-        .res = DLNA_VIDEO_RES(720, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("32:27", "8:9"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(704, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(24000/1001, 24/1, 30000/1001, 30/1,
-                                          60000/1001, 60/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("40:33", "10:11"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(640, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(24000/1001, 24/1, 30000/1001, 30/1,
-                                          60000/1001, 60/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("1:1", "4:3"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(480, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("16:9", "4:3"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(544, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("80:51", "20:17"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(352, 480),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("80:33", "20:11"),
-    },
-    { NULL },
-};
-
-static const struct dlna_video_rule _dlna_video_rule_mpeg_ts_hd_na[] = {
-    {
-        .res = DLNA_VIDEO_RES(1920, 1080),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001, 30/1, 24000/1001, 24/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("1:1", "9:16"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(1280, 720),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001, 30/1, 24000/1001, 24/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("1:1", "9:16"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(1080, 1440),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001, 30/1, 24000/1001, 24/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("4:3"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(1080, 1280),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(30000/1001, 30/1, 24000/1001, 24/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("3:2"),
-    },
-    { NULL },
-};
-
-static const struct dlna_video_rule _dlna_video_rule_mpeg_ts_sd_eu[] = {
-    {
-        .res = DLNA_VIDEO_RES(720, 576),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("64:45", "16:15"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(544, 576),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("32:17", "24:17"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(480, 576),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("32:15", "8:15"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(352, 576),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("32:11", "24:11"),
-    },
-    {
-        .res = DLNA_VIDEO_RES(352, 288),
-        .profiles = DLNA_PROFILE("simple", "main"),
-        .levels = DLNA_LEVEL("low", "main", "high-1440", "high"),
-        .bitrate = DLNA_BITRATE(1, 18881700),
-        .framerate = DLNA_VIDEO_FRAMERATE(25/1),
-        .pixel_aspect = DLNA_VIDEO_PIXEL_ASPECT("16:11", "12:11"),
-    },
-    { NULL },
-};
-
-static const struct dlna_audio_rule _dlna_audio_rule_mpeg_ps = {
-    .rates = DLNA_AUDIO_RATE(48000),
-};
-
-static const struct dlna_audio_rule _dlna_audio_rule_mpeg1 = {
-    .bitrate = DLNA_BITRATE(224000, 224000),
-    .channels = DLNA_BITRATE(2, 2),
-    .rates = DLNA_AUDIO_RATE(44100),
-};
-
-static const struct dlna_audio_rule _dlna_audio_rule_mpeg_ts_sd_hd_na = {
-    .bitrate = DLNA_BITRATE(1, 448000),
-    .channels = DLNA_BITRATE(1, 6),
-    .rates = DLNA_AUDIO_RATE(48000),
-};
-
-static const struct dlna_audio_rule _dlna_audio_rule_mpeg_ts_sd_eu = {
-     .bitrate = DLNA_BITRATE(1, 448000),
-     .channels = DLNA_BITRATE(1, 6),
-     .rates = DLNA_AUDIO_RATE(32000, 44100, 48000),
-};
-
-static const  struct dlna_video_profile _dlna_video_profile_rules[] = {
-    {
-        .dlna_profile = &_dlna_profile_mpeg_ps_pal,
-        .dlna_mime = &_dlna_mime_video,
-        .video_rules = _dlna_video_rule_mpeg_ps_pal,
-        .audio_rule = &_dlna_audio_rule_mpeg_ps,
-        .container = &_container_mpeg,
-    },
-    {
-        .dlna_profile = &_dlna_profile_mpeg1,
-        .dlna_mime = &_dlna_mime_video,
-        .video_rules = _dlna_video_rule_mpeg1,
-        .audio_rule = &_dlna_audio_rule_mpeg1,
-        .container = &_container_mpeg,
-    },
-    {
-        .dlna_profile = &_dlna_profile_mpeg_ps_ntsc,
-        .dlna_mime = &_dlna_mime_video,
-        .video_rules = _dlna_video_rule_mpeg_ps_ntsc,
-        .audio_rule = &_dlna_audio_rule_mpeg_ps,
-        .container = &_container_mpeg,
-    },
-    {
-        .dlna_profile = &_dlna_profile_mpeg_ts_sd_na,
-        .dlna_mime = &_dlna_mim_video_tts,
-        .video_rules = _dlna_video_rule_mpeg_ts_sd_na,
-        .audio_rule = &_dlna_audio_rule_mpeg_ts_sd_hd_na,
-        .packet_size = DLNA_VIDEO_PACKETSIZE(192),
-        .container = &_container_mpegts,
-    },
-    {
-        .dlna_profile = &_dlna_profile_mpeg_ts_sd_na_iso,
-        .dlna_mime = &_dlna_mime_video,
-        .video_rules = _dlna_video_rule_mpeg_ts_sd_na,
-        .audio_rule = &_dlna_audio_rule_mpeg_ts_sd_hd_na,
-        .packet_size = DLNA_VIDEO_PACKETSIZE(188),
-        .container = &_container_mpegts,
-    },
-    {
-        .dlna_profile = &_dlna_profile_mpeg_ts_hd_na,
-        .dlna_mime = &_dlna_mim_video_tts,
-        .video_rules = _dlna_video_rule_mpeg_ts_hd_na,
-        .audio_rule = &_dlna_audio_rule_mpeg_ts_sd_hd_na,
-        .packet_size = DLNA_VIDEO_PACKETSIZE(192),
-        .container = &_container_mpegts,
-    },
-    {
-        .dlna_profile = &_dlna_profile_mpeg_ts_hd_na_iso,
-        .dlna_mime = &_dlna_mime_video,
-        .video_rules = _dlna_video_rule_mpeg_ts_hd_na,
-        .audio_rule = &_dlna_audio_rule_mpeg_ts_sd_hd_na,
-        .packet_size = DLNA_VIDEO_PACKETSIZE(188),
-        .container = &_container_mpegts,
-    },
-    {
-        .dlna_profile = &_dlna_profile_mpeg_ts_sd_eu,
-        .dlna_mime = &_dlna_mim_video_tts,
-        .video_rules = _dlna_video_rule_mpeg_ts_sd_eu,
-        .audio_rule = &_dlna_audio_rule_mpeg_ts_sd_eu,
-        .packet_size = DLNA_VIDEO_PACKETSIZE(192),
-        .container = &_container_mpegts,
-    },
-    {
-        .dlna_profile = &_dlna_profile_mpeg_ts_sd_eu_iso,
-        .dlna_mime = &_dlna_mime_video,
-        .video_rules = _dlna_video_rule_mpeg_ts_sd_eu,
-        .audio_rule = &_dlna_audio_rule_mpeg_ts_sd_eu,
-        .packet_size = DLNA_VIDEO_PACKETSIZE(188),
-        .container = &_container_mpegts,
-    },
-};
-
-static const struct dlna_audio_rule _dlna_audio_rule_mp3 = {
-     .container = &_container_mp3,
-     .rates = DLNA_AUDIO_RATE(32000, 44100, 48000),
-     .bitrate = DLNA_BITRATE(320000, 320000),
-     .channels = DLNA_BITRATE(1, 2),
-};
-
-static const struct dlna_audio_rule _dlna_audio_rule_mp3x = {
-     .container = &_container_mp3,
-     .rates = DLNA_AUDIO_RATE(16000, 22050, 24000, 32000, 44100, 48000),
-     .bitrate = DLNA_BITRATE(8000, 320000),
-     .channels = DLNA_BITRATE(1, 2),
-};
-
-static const  struct dlna_audio_profile _dlna_audio_profile_rules[] = {
-    {
-        .dlna_profile = &_dlna_profile_mp3,
-        .dlna_mime = &_dlna_mime_audio,
-        .audio_rule = &_dlna_audio_rule_mp3,
-    },
-    {
-        .dlna_profile = &_dlna_profile_mp3x,
-        .dlna_mime = &_dlna_mime_audio,
-        .audio_rule = &_dlna_audio_rule_mp3x,
-    },
-    {NULL},
-};
-
-static bool
-_uint_vector_has_value(const unsigned int *list, unsigned int wanted)
-{
-    int i;
-    unsigned int curr;
-
-    for (i = 0, curr = list[i]; curr != INT32_MAX; i++, curr = list[i])
-      if (curr == wanted) return true;
-
-    return false;
-}
-
-static bool
-_double_vector_has_value(const double *list, const double wanted)
-{
-    int i;
-    double curr;
-
-    for (i = 0, curr = list[i]; (int)curr != INT32_MAX; i++, curr = list[i]) {
-      if (!(curr < wanted && curr > wanted)) return true;
-    }
-
-    return false;
-}
-
-static bool
-_string_vector_has_value(const char **list, const char *wanted)
-{
-    int i;
-    const char *curr;
-
-    for (i = 0, curr = list[i]; curr != NULL; i++, curr = list[i]) {
-        if (!strcmp(curr, wanted)) return true;
-    }
-
-    return false;
-}
-
-static const struct dlna_video_profile *
-_get_video_dlna_profile(const struct lms_stream_audio_info *audio,
-                        const struct lms_stream *audio_stream,
-                        const struct lms_stream_video_info *video,
-                        const struct lms_stream *video_stream,
-                        int64_t packet_size,
-                        struct lms_string_size *container)
-{
-    int i, length;
-    const struct dlna_video_profile *curr;
-    char *level, *profile, *profile_level;
-
-    profile_level = strstr(video_stream->codec.str, "-p");
-    level = strstr(profile_level, "-l");
-
-    profile = calloc(1, sizeof(char) * (sizeof(level) - 2));
-    strncpy(profile, profile_level, sizeof(level) - 2);
-
-    length = sizeof(_dlna_video_profile_rules) / sizeof(struct dlna_video_profile);
-
-    for (i = 0, curr = &_dlna_video_profile_rules[i]; i < length; i++,
-             curr = &_dlna_video_profile_rules[i]) {
-        const struct dlna_video_rule *video_rule;
-        const struct dlna_audio_rule *audio_rule;
-        const struct dlna_video_rule *r;
-
-        audio_rule = curr->audio_rule;
-        r = curr->video_rules;
-
-        if (curr->container &&
-            strcmp(curr->container->str, container->str))
-            continue;
-
-        if (curr->packet_size &&
-            curr->packet_size->packet_size != packet_size)
-            continue;
-
-        if (audio) {
-
-            if (audio_rule->bitrate &&
-                (audio->bitrate < audio_rule->bitrate->min ||
-                 audio->bitrate > audio_rule->bitrate->max)) {
-                continue;
-            }
-
-            if (audio_rule->rates &&
-                !_uint_vector_has_value(audio_rule->rates->rates,
-                                        audio->sampling_rate))
-                continue;
-
-            if (audio_rule->channels &&
-                (audio->channels < audio_rule->channels->min ||
-                 audio->channels > audio_rule->channels->max))
-                continue;
-        }
-
-        if (audio_stream && audio_rule->codec &&
-            strcmp(audio_stream->codec.str, audio_rule->codec->str))
-            continue;
-
-        while (true) {
-            video_rule = r++;
-
-            if (!video_rule->res && !video_rule->bitrate && !video_rule->levels)
-                break;
-
-            if (video_rule->res && (video->width != video_rule->res->width &&
-                                    video->height != video_rule->res->height))
-                continue;
-
-            if (video_rule->res_range &&
-                !(video->width >= video_rule->res_range->width_min &&
-                  video->width <= video_rule->res_range->width_max &&
-                  video->height >= video_rule->res_range->height_min &&
-                  video->height <= video_rule->res_range->height_max))
-                continue;
-
-            if (video_rule->framerate &&
-                !_double_vector_has_value(video_rule->framerate->framerate,
-                                          video->framerate))
-                continue;
-
-            if (video_rule->pixel_aspect && !_string_vector_has_value
-                ((const char **)video_rule->pixel_aspect->pixel_aspect_ratio,
-                 video->aspect_ratio.str))
-                continue;
-
-            if (video_rule->bitrate &&
-                !(video->bitrate >= video_rule->bitrate->min &&
-                  video->bitrate <= video_rule->bitrate->max))
-                continue;
-
-            if (video_rule->levels &&
-                !_string_vector_has_value
-                ((const char **)video_rule->levels->levels, level + 2))
-                continue;
-
-            if (video_rule->profiles &&
-                !_string_vector_has_value
-                ((const char **)video_rule->profiles->profiles, profile + 2))
-                continue;
-
-            free(profile);
-            return curr;
-        }
-    }
-
-    free(profile);
-    return NULL;
-}
-
-static void
-_fill_video_dlna_profile(struct lms_video_info *info,
-                         int64_t packet_size,
-                         struct lms_string_size *container)
-{
-    const struct dlna_video_profile *profile;
-    const struct lms_stream *s, *audio_stream, *video_stream;
-    const struct lms_stream_audio_info *audio;
-    const struct lms_stream_video_info *video;
-
-    audio_stream = video_stream = NULL;
-    audio = NULL;
-    video = NULL;
-
-    for (s = info->streams; s; s = s->next) {
-        if (s->type == LMS_STREAM_TYPE_VIDEO) {
-            video = &s->video;
-            video_stream = s;
-            if (audio) break;
-        } else if (s->type == LMS_STREAM_TYPE_AUDIO) {
-            audio = &s->audio;
-            audio_stream = s;
-            if (video) break;
-        }
-    }
-
-    profile = _get_video_dlna_profile(audio, audio_stream, video,
-                                      video_stream, packet_size, container);
-    if (!profile) return;
-
-    info->dlna_profile = *profile->dlna_profile;
-    info->dlna_mime = *profile->dlna_mime;
-}
-
-static void
-_fill_audio_dlna_profile(struct lms_audio_info *info)
-{
-    int i = 0;
-
-    while (true) {
-      const struct dlna_audio_profile *curr = _dlna_audio_profile_rules + i;
-      const struct dlna_audio_rule *rule;
-
-      if (curr->dlna_profile == NULL && curr->dlna_mime == NULL &&
-          curr->audio_rule == NULL)
-        break;
-
-      i++;
-      rule = curr->audio_rule;
-
-      if (rule->bitrate && info->bitrate &&
-         (info->bitrate < rule->bitrate->min ||
-          info->bitrate > rule->bitrate->max))
-        continue;
-
-      if (rule->rates &&
-          !_uint_vector_has_value(rule->rates->rates,
-                                  info->sampling_rate))
-          continue;
-
-      if (rule->channels &&
-         (info->channels < rule->channels->min ||
-          info->channels > rule->channels->max))
-        continue;
-
-      if (rule->codec && strcmp(rule->codec->str, info->codec.str))
-        continue;
-
-      if (rule->container && strcmp(rule->container->str, info->container.str))
-        continue;
-
-      info->dlna_mime = *curr->dlna_mime;
-      info->dlna_profile = *curr->dlna_profile;
-      break;
-    }
-}
-
 static void *
 _match(struct plugin *p, const char *path, int len, int base)
 {
@@ -830,6 +327,102 @@ _get_dict_value(AVDictionary *dict, const char *key)
     return tag->value;
 }
 
+static const struct codec_container *
+_find_codec_container(unsigned int codec_id)
+{
+    int i, length;
+    length = sizeof(_codecs) / sizeof(struct codec_container);
+
+    for (i = 0; i < length; i++) {
+      const struct codec_container *curr = &_codecs[i];
+      if (curr->id == codec_id) return curr;
+    }
+
+    return NULL;
+}
+
+static void
+_get_codec(AVStream *stream, struct lms_string_size *value)
+{
+    const struct codec_container *cc;
+
+    cc = _find_codec_container(stream->codec->codec_id);
+    if (!cc || !cc->get_codec) return;
+
+    cc->get_codec(stream, value);
+}
+
+static void
+_get_container(AVStream *stream, struct lms_string_size *value)
+{
+    const struct codec_container *cc;
+
+    cc = _find_codec_container(stream->codec->codec_id);
+    if (!cc || !cc->get_container) return;
+
+    cc->get_container(stream, value);
+}
+
+static int
+_get_stream_duration(AVFormatContext *fmt_ctx)
+{
+    int64_t duration;
+    if (fmt_ctx->duration == AV_NOPTS_VALUE) return 0;
+
+    duration = fmt_ctx->duration + 5000;
+    return (duration / AV_TIME_BASE);
+}
+
+static void
+_parse_audio_stream(AVFormatContext *fmt_ctx, struct lms_audio_info *info, AVStream *stream)
+{
+    AVCodecContext *ctx = stream->codec;
+
+    info->bitrate = ctx->bit_rate;
+    info->channels = av_get_channel_layout_nb_channels(ctx->channel_layout);
+    info->sampling_rate = ctx->sample_rate;
+    info->length = _get_stream_duration(fmt_ctx);
+
+    _get_codec(stream, &info->codec);
+}
+
+static void
+_parse_video_stream(AVFormatContext *fmt_ctx, struct lms_video_info *info, AVStream *stream, char *language)
+{
+    char aspect_ratio[256];
+    struct lms_stream *s;
+    AVCodecContext *ctx = stream->codec;
+
+    s = calloc(1, sizeof(*s));
+    if (!s) return;
+
+    s->stream_id = (unsigned int)stream->id;
+    lms_string_size_strndup(&s->lang, language, -1);
+
+    s->type = LMS_STREAM_TYPE_VIDEO;
+
+    _get_codec(stream, &s->codec);
+
+    s->video.bitrate = ctx->bit_rate;
+    if (!s->video.bitrate)
+        s->video.bitrate = ctx->rc_max_rate;
+
+    s->video.width = ctx->width;
+    s->video.height = ctx->height;
+
+    if (stream->r_frame_rate.den)
+        s->video.framerate = stream->r_frame_rate.num / stream->r_frame_rate.den;
+
+    snprintf(aspect_ratio, sizeof(aspect_ratio), "%d:%d",
+             ctx->sample_aspect_ratio.num, ctx->sample_aspect_ratio.den);
+
+    lms_string_size_strndup(&s->video.aspect_ratio, aspect_ratio, -1);
+
+    s->next = info->streams;
+    info->streams = s;
+    info->length = _get_stream_duration(fmt_ctx);
+}
+
 static int
 _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_info *finfo, void *match)
 {
@@ -838,7 +431,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     unsigned int i;
     AVFormatContext *fmt_ctx = NULL;
     struct mpeg_info info = { };
-    char *metadata;
+    char *metadata, *language;
     struct lms_audio_info audio_info = { };
     struct lms_video_info video_info = { };
     struct lms_string_size container = { };
@@ -848,7 +441,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         return ret;
 
     if (avformat_find_stream_info(fmt_ctx, NULL) < 0)
-    goto fail;
+        goto fail;
 
     metadata = _get_dict_value(fmt_ctx->metadata, "title");
     if (metadata)
@@ -869,93 +462,31 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     av_opt_get_int(fmt_ctx, "ts_packetsize", AV_OPT_SEARCH_CHILDREN,
                    &packet_size);
 
+    language = _get_dict_value(fmt_ctx->metadata, "language");
+
     for (i = 0; i < fmt_ctx->nb_streams; i++) {
         AVStream *stream = fmt_ctx->streams[i];
+        AVCodecContext *ctx = stream->codec;
         AVCodec *codec;
 
-        if (stream->codec->codec_id == AV_CODEC_ID_PROBE) {
+        if (ctx->codec_id == AV_CODEC_ID_PROBE) {
             printf("Failed to probe codec for input stream %d\n", stream->index);
-        } else if (!(codec = avcodec_find_decoder(stream->codec->codec_id))) {
+            continue;
+        }
+        
+        if (!(codec = avcodec_find_decoder(ctx->codec_id))) {
             printf("Unsupported codec with id %d for input stream %d\n",
                    stream->codec->codec_id, stream->index);
-        } else {
-            if (stream->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
-                audio_info.bitrate = stream->codec->bit_rate;
-                audio_info.channels = av_get_channel_layout_nb_channels
-                  (stream->codec->channel_layout);
-                audio_info.sampling_rate = stream->codec->sample_rate;
-            } else if (stream->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
-                const char *codec_name, *str_profile, *str_level;
-                char buf[256], aspect_ratio[256];
-                const char *language;
-                struct lms_stream *s;
+            continue;
+        }
 
-                s = calloc(1, sizeof(*s));
-                s->stream_id = (unsigned int)stream->id;
+        _get_container(stream, &container);
 
-                language = _get_dict_value(fmt_ctx->metadata, "language");
-                if (metadata)
-                  lms_string_size_strndup(&s->lang, language, -1);
-
-                s->type = LMS_STREAM_TYPE_VIDEO;
-                video = true;
-
-                codec_name = avcodec_get_name(stream->codec->codec_id);
-                if (codec_name) {
-                    str_profile = NULL;
-                    str_level = NULL;
-
-                    switch (stream->codec->profile) {
-                    case 6:
-                        str_profile = "simple";
-                        break;
-                    case 4:
-                        str_profile = "main";
-                        break;
-                    }
-
-                    switch (stream->codec->level) {
-                    case 5:
-                    case 8:
-                        str_level = "main";
-                        break;
-                    case 2:
-                    case 4:
-                        str_level = "high";
-                        break;
-                    case 6:
-                        str_level = "high";
-                        break;
-                    }
-
-                    snprintf(buf, sizeof(buf), "%s-p%s-l%s",
-                             codec_name, str_profile, str_level);
-
-                    lms_string_size_strndup(&s->codec, buf, -1);
-                }
-
-                s->video.bitrate = stream->codec->bit_rate;
-                if (!s->video.bitrate)
-                    s->video.bitrate = stream->codec->rc_max_rate;
-
-                s->video.width = stream->codec->width;
-                s->video.height = stream->codec->height;
-
-
-                if (stream->r_frame_rate.den)
-                    s->video.framerate = stream->r_frame_rate.num /
-                        stream->r_frame_rate.den;
-
-                snprintf(aspect_ratio, sizeof(aspect_ratio), "%d:%d",
-                         stream->codec->sample_aspect_ratio.num,
-                         stream->codec->sample_aspect_ratio.den);
-
-                lms_string_size_strndup(&s->video.aspect_ratio,
-                                        aspect_ratio, -1);
-
-                s->next = video_info.streams;
-                video_info.streams = s;
-            }
+        if (ctx->codec_type == AVMEDIA_TYPE_AUDIO)
+            _parse_audio_stream(fmt_ctx, &audio_info, stream);
+        else if (ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
+            _parse_video_stream(fmt_ctx, &video_info, stream, language);
+            video = true;
         }
     }
 
@@ -979,15 +510,16 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         lms_charset_conv(ctxt->cs_conv, &info.genre.str, &info.genre.len);
 
 
-    lms_string_size_strndup(&container, fmt_ctx->iformat->name, -1);
+    if (!container.str)
+        lms_string_size_strndup(&container, fmt_ctx->iformat->name, -1);
 
     if (video) {
         video_info.id = finfo->id;
         video_info.title = info.title;
         video_info.artist = info.artist;
         video_info.container = container;
+        video_info.packet_size = packet_size;
 
-        _fill_video_dlna_profile(&video_info, packet_size, &container);
         ret = lms_db_video_add(plugin->video_db, &video_info);
     } else {
         audio_info.id = finfo->id;
@@ -997,8 +529,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.genre = info.genre;
         audio_info.container = container;
 
-        _fill_audio_dlna_profile(&audio_info);
         ret = lms_db_audio_add(plugin->audio_db, &audio_info);
+        lms_string_size_strip_and_free(&audio_info.codec);
     }
 
     free(info.title.str);

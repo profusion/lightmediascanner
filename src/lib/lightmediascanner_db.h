@@ -81,6 +81,7 @@ extern "C" {
         unsigned short height;
         unsigned short orientation;
         struct lms_gps_info gps;
+        struct lms_string_size container;
     };
 
     typedef struct lms_db_image lms_db_image_t;
@@ -161,6 +162,7 @@ extern "C" {
         struct lms_string_size dlna_profile;
         struct lms_string_size dlna_mime;
         unsigned int length;
+        int64_t packet_size;
         struct lms_stream *streams;
     };
 

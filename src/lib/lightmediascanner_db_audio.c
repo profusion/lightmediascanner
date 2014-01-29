@@ -20,6 +20,7 @@
  * @author Gustavo Sverzut Barbieri <barbieri@profusion.mobi>
  */
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 #include "lightmediascanner_db_private.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -728,6 +729,7 @@ lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info)
 {
     int64_t album_id, genre_id, artist_id;
     int ret_album, ret_genre, ret_artist;
+    const struct lms_dlna_audio_profile *dlna;
 
     if (!lda)
         return -1;
@@ -735,6 +737,14 @@ lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info)
         return -2;
     if (info->id < 1)
         return -3;
+
+    if (info->dlna_mime.len == 0 && info->dlna_profile.len == 0) {
+        dlna = lms_dlna_get_audio_profile(info);
+        if (dlna) {
+            info->dlna_mime = *dlna->dlna_mime;
+            info->dlna_profile = *dlna->dlna_profile;
+        }
+    }
 
     ret_artist = _db_insert_artist(lda, info, &artist_id);
     if (ret_artist < 0)
