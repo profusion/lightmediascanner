@@ -172,11 +172,12 @@ _mp4_get_video_codec(AVStream *stream, struct lms_string_size *value)
 static void
 _mpeg2_get_video_codec(AVStream *stream, struct lms_string_size *value)
 {
-    const char *codec_name, *str_profile, *str_level;
+    const char *str_profile, *str_level;
+    const AVCodecDescriptor *codec;
     char buf[256];
 
-    codec_name = avcodec_get_name(stream->codec->codec_id);
-    if (!codec_name) return;
+    codec = avcodec_descriptor_get(stream->codec->codec_id);
+    if (!codec || !codec->name) return;
 
     str_profile = NULL;
     str_level = NULL;
@@ -204,7 +205,8 @@ _mpeg2_get_video_codec(AVStream *stream, struct lms_string_size *value)
         break;
     }
 
-    snprintf(buf, sizeof(buf), "%s-p%s-l%s", codec_name, str_profile, str_level);
+    snprintf(buf, sizeof(buf), "%s-p%s-l%s", codec->name, str_profile,
+             str_level);
     lms_string_size_strndup(value, buf, -1);
 }
 
@@ -459,7 +461,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     if (metadata)
         lms_string_size_strndup(&info.genre, metadata, -1);
 
-    av_opt_get_int(fmt_ctx, "ts_packetsize", AV_OPT_SEARCH_CHILDREN,
+    av_opt_get_int(fmt_ctx, "ts_packetsize",
+                   AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ,
                    &packet_size);
 
     language = _get_dict_value(fmt_ctx->metadata, "language");
