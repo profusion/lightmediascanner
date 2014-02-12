@@ -439,6 +439,9 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     struct lms_string_size container = { };
     bool video = false;
 
+    if (finfo->parsed)
+        return 0;
+
     if ((ret = avformat_open_input(&fmt_ctx, finfo->path, NULL, NULL)))
         return ret;
 

@@ -395,6 +395,7 @@ lms_parsers_run(lms_t *lms, sqlite3 *db, void **parser_match, struct lms_file_in
 
     _ctxt_init(&ctxt, lms, db);
 
+    finfo->parsed = 0;
     failed = 0;
     available = 0;
     for (i = 0; i < lms->n_parsers; i++) {
@@ -408,6 +409,8 @@ lms_parsers_run(lms_t *lms, sqlite3 *db, void **parser_match, struct lms_file_in
             r = plugin->parse(plugin, &ctxt, finfo, parser_match[i]);
             if (r != 0)
                 failed++;
+            else
+                finfo->parsed = 1;
         }
     }
 

@@ -151,6 +151,7 @@ extern "C" {
         time_t dtime; /**< deletion time */
         time_t itime; /**< insert time */
         size_t size; /**< file size in bytes */
+        unsigned char parsed : 1; /**< if file was already successfully parsed before */
     };
 
     struct lms_context {
