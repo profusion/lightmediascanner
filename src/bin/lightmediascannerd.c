@@ -1481,8 +1481,14 @@ _populate_dir_internal(const char *category, const char *dir)
             {NULL, NULL}
         };
         for (itr = defaults; itr->cat != NULL; itr++) {
-            if (strcmp(itr->cat, category) == 0)
-                scanner_category_add_dir(sc, itr->path);
+            if (strcmp(itr->cat, category) == 0) {
+                if (itr->path && itr->path[0] != '\0')
+                    scanner_category_add_dir(sc, itr->path);
+                else
+                    g_warning("Requested default directories but "
+                              "xdg-user-dirs is not setup. Category %s",
+                              category);
+            }
         }
     }
 }
