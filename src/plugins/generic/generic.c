@@ -381,7 +381,11 @@ _parse_audio_stream(AVFormatContext *fmt_ctx, struct lms_audio_info *info, AVStr
     AVCodecContext *ctx = stream->codec;
 
     info->bitrate = ctx->bit_rate;
-    info->channels = av_get_channel_layout_nb_channels(ctx->channel_layout);
+    info->channels = ctx->channels;
+
+    if (!info->channels)
+        info->channels = av_get_channel_layout_nb_channels(ctx->channel_layout);
+
     info->sampling_rate = ctx->sample_rate;
     info->length = _get_stream_duration(fmt_ctx);
 
