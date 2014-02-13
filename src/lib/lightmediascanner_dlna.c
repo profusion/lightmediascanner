@@ -350,7 +350,8 @@ lms_dlna_get_video_profile(struct lms_video_info *info) {
 static bool
 _audio_rule_is_sentinel(const struct lms_dlna_audio_profile *audio_rule)
 {
-    return (!audio_rule && !audio_rule->dlna_mime && !audio_rule->audio_rule);
+    return (!audio_rule->dlna_profile && !audio_rule->dlna_mime &&
+            !audio_rule->audio_rule);
 }
 
 const struct lms_dlna_audio_profile *
