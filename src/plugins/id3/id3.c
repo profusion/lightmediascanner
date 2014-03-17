@@ -570,7 +570,7 @@ found:
                 return r;
         }
 
-        if (!hdr.length)
+        if (!hdr.length && hdr.bitrate > 0)
             hdr.length =  (8 * (size - off)) / (1000 * hdr.bitrate);
     }
 
