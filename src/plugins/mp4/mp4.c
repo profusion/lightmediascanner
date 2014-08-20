@@ -500,7 +500,7 @@ _get_video_codec(MP4FileHandle mp4_fh, MP4TrackId id)
             }
         }
 
-        ret.len = snprintf(buf, sizeof(buf), "h264-%s-l%s",
+        ret.len = snprintf(buf, sizeof(buf), "h264-p%s-l%s",
                            str_profile, str_level);
         ret.str = buf;
         goto found;

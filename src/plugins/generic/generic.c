@@ -163,7 +163,7 @@ _mp4_get_video_codec(AVStream *stream, struct lms_string_size *value)
     else
         snprintf(str_level, sizeof(str_level), "%u.%u", level / 10, level % 10);
 
-    ret.len = snprintf(buf, sizeof(buf), "h264-%s-l%s", str_profile, str_level);
+    ret.len = snprintf(buf, sizeof(buf), "h264-p%s-l%s", str_profile, str_level);
     ret.str = buf;
 
     lms_string_size_dup(value, &ret);
