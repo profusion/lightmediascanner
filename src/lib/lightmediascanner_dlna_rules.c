@@ -1603,6 +1603,7 @@ static const struct lms_dlna_video_rule _dlna_video_rule_avc_mp4_mp_sd_eac3[] = 
         .levels = DLNA_LEVEL(DLNA_VIDEO_LEVELS_SD_EAC3),
         .framerate_range = DLNA_VIDEO_FRAMERATE_RANGE(0/1, 30/1),
     },
+    {NULL},
 };
 
 #define DLNA_VIDEO_LEVELS_MP_HD_720P                                    \
@@ -1621,6 +1622,7 @@ static const struct lms_dlna_video_rule _dlna_video_rule_avc_mp4_mp_hd_720p_aac[
         .levels = DLNA_LEVEL(DLNA_VIDEO_LEVELS_MP_HD_720P),
         .framerate_range = DLNA_VIDEO_FRAMERATE_RANGE(0/1, 60/1),
     },
+    {NULL},
 };
 
 #define DLNA_VIDEO_LEVELS_MP_HD_1080I                                   \
@@ -1639,6 +1641,7 @@ static const struct lms_dlna_video_rule _dlna_video_rule_avc_mp4_mp_hd_1080i_aac
         .levels = DLNA_LEVEL(DLNA_VIDEO_LEVELS_MP_HD_1080I),
         .framerate_range = DLNA_VIDEO_FRAMERATE_RANGE(0/1, 60/1),
     },
+    {NULL},
 };
 
 #define DLNA_VIDEO_LEVELS_AVC_MKV_HP_HD                                 \
@@ -1675,6 +1678,7 @@ static const struct lms_dlna_video_rule _dlna_video_avc_mkv_hp_hd[] = {
         .levels = DLNA_LEVEL(DLNA_VIDEO_LEVELS_AVC_MKV_HP_HD),
         .framerate_range = DLNA_VIDEO_FRAMERATE_RANGE(0/1, 60/1),
     },
+    {NULL},
 };
 
 static const struct lms_dlna_audio_rule _dlna_audio_mpeg4_p2_mp4_sp_aac = {
@@ -1971,6 +1975,7 @@ const struct lms_dlna_video_profile _dlna_mp4_video_rules[] = {
         .video_rules = _dlna_video_avc_mkv_hp_hd,
         .audio_rule = &_dlna_audio_rule_avc_mkv_mp_hd_mpeg1_l3,
     },
+    {NULL},
 };
 
 #define DLNA_AUDIO_RULE_AAC_ISO                                         \
