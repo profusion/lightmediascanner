@@ -325,7 +325,7 @@ _parse_mdpr_header(int fd, struct rm_info *info, bool *has_mdpr)
 
     /* mime type string */
     if (read(fd, &slen, sizeof(slen)) != sizeof(slen)
-        || slen > 32
+        || slen >= 32
         || read(fd, buf, slen) != slen)
         goto done;
 
