@@ -1033,7 +1033,7 @@ _parse_id3v2(int fd, long id3v2_offset, struct id3_info *info,
                 lseek(fd, 4, SEEK_CUR);
 
             frame_data = malloc(sizeof(char) * fh.frame_size);
-            if (read(fd, frame_data, fh.frame_size) != fh.frame_size) {
+            if (read(fd, frame_data, fh.frame_size) != (int)fh.frame_size) {
                 free(frame_data);
                 return -1;
             }

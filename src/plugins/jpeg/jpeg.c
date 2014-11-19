@@ -297,7 +297,7 @@ _exif_text_encoding_get(int fd, unsigned int count, int offset, struct lms_strin
 
     s->str = malloc(count + 1);
 
-    if (read(fd, s->str, count) != count) {
+    if (read(fd, s->str, count) != (int)count) {
         perror("read");
         free(s->str);
         s->str = NULL;
@@ -328,7 +328,7 @@ _exif_text_ascii_get(int fd, unsigned int count, int offset, struct lms_string_s
 
     s->str = malloc(count);
 
-    if (read(fd, s->str, count) != count) {
+    if (read(fd, s->str, count) != (int)count) {
         perror("read");
         free(s->str);
         s->str = NULL;
