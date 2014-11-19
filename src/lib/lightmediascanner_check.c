@@ -67,6 +67,7 @@ struct comm_finfo {
     int64_t id;
     time_t mtime;
     time_t dtime;
+    time_t itime;
     size_t size;
     unsigned int flags;
 #define COMM_FINFO_FLAG_OUTDATED 1
@@ -82,6 +83,7 @@ _master_send_file(const struct fds *master, const struct lms_file_info finfo, un
     ci.id = finfo.id;
     ci.mtime = finfo.mtime;
     ci.dtime = finfo.dtime;
+    ci.itime = finfo.itime;
     ci.size = finfo.size;
     ci.flags = flags;
 
@@ -161,6 +163,7 @@ _slave_recv_file(const struct fds *slave, struct lms_file_info *finfo, unsigned 
     finfo->id = ci.id;
     finfo->mtime = ci.mtime;
     finfo->dtime = ci.dtime;
+    finfo->itime = ci.itime;
     finfo->size = ci.size;
     finfo->path = NULL;
     *flags = ci.flags;
@@ -570,6 +573,7 @@ _update_finfo_from_stmt(struct lms_file_info *finfo, sqlite3_stmt *stmt)
     finfo->base = 0;
     finfo->mtime = sqlite3_column_int(stmt, 2);
     finfo->dtime = sqlite3_column_int(stmt, 3);
+    finfo->itime = sqlite3_column_int(stmt, 4);
     finfo->size = sqlite3_column_int(stmt, 5);
 }
 
