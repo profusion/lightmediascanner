@@ -275,6 +275,7 @@ progress(lms_t *lms, const char *path, int path_len, lms_progress_status_t statu
         "KILLED",
         "ERROR_PARSE",
         "ERROR_COMM",
+        "SKIPPED",
     };
     const char *cstart = "", *cend = "", *name = data;
 
