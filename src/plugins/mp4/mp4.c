@@ -94,7 +94,7 @@ DECL_STR(_codec_audio_mpeg2aac_main, "mpeg2aac-main");
 DECL_STR(_codec_audio_mpeg2aac_lc, "mpeg2aac-lc");
 DECL_STR(_codec_audio_mpeg2aac_ssr, "mpeg2aac-ssr");
 DECL_STR(_codec_audio_mpeg2audio, "mpeg2audio");
-DECL_STR(_codec_audio_mpeg1audio, "mpeg1audio");
+DECL_STR(_codec_audio_mpeg1audio, "mpeg4aac-lc");
 DECL_STR(_codec_audio_pcm16le, "pcm16le");
 DECL_STR(_codec_audio_vorbis, "vorbis");
 DECL_STR(_codec_audio_alaw, "alaw");
