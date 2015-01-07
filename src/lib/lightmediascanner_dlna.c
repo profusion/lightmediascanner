@@ -194,12 +194,12 @@ _video_rule_match_stream(const struct lms_dlna_video_rule *rule,
           video->video.bitrate <= rule->bitrate->max))
         return false;
 
-    if (rule->levels &&
+    if (rule->levels && level &&
         !_string_vector_has_value
         ((const char **)rule->levels->levels, level))
         return false;
 
-    if (rule->profiles &&
+    if (rule->profiles && profile &&
         !_string_vector_has_value
         ((const char **)rule->profiles->profiles, profile))
         return false;
@@ -221,19 +221,17 @@ _match_video_profile(const struct lms_dlna_video_profile *video_rules,
     int i;
     const struct lms_dlna_video_profile *curr;
     char *tmp, *p;
-    const char *profile, *level;
+    const char *profile = NULL, *level = NULL;
 
     tmp = strdupa(video->codec.str);
     p = strstr(tmp, "-p");
-    if (!p) profile = "";
-    else {
+    if (p) {
         p[0] = '\0';
         profile = p + 2;
     }
 
     p = strstr(profile, "-l");
-    if (!p) level = "";
-    else {
+    if (p) {
         p[0] = '\0';
         level = p + 2;
     }
