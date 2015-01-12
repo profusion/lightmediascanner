@@ -468,8 +468,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     if (metadata)
         lms_string_size_strndup(&info.genre, metadata, -1);
 
-    av_opt_get_int(fmt_ctx, "ts_packetsize",
-                   AV_OPT_SEARCH_CHILDREN | AV_OPT_SEARCH_FAKE_OBJ,
+    av_opt_get_int(fmt_ctx, "ts_packetsize", AV_OPT_SEARCH_CHILDREN,
                    &packet_size);
 
     language = _get_dict_value(fmt_ctx->metadata, "language");
