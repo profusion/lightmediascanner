@@ -23,8 +23,10 @@
 #include <lightmediascanner_db.h>
 #include <lightmediascanner_dlna.h>
 #include "lightmediascanner_db_private.h"
+#include <magic.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 struct lms_db_video {
     sqlite3 *db;
@@ -34,6 +36,7 @@ struct lms_db_video {
     sqlite3_stmt *insert_subtitle_streams;
     unsigned int _references;
     unsigned int _is_started:1;
+    magic_t magic;
 };
 
 static struct lms_db_cache _cache = { };
@@ -323,6 +326,15 @@ lms_db_video_new(sqlite3 *db)
         return NULL;
     }
 
+    ldv->magic = magic_open(MAGIC_MIME_TYPE);
+    if (ldv->magic == NULL) {
+        fprintf(stderr, "WARNING: could not initialize magic library\n");
+    } else if (magic_load(ldv->magic, NULL) != 0) {
+        printf("WARNING: could not load magic cache\n");
+        magic_close(ldv->magic);
+        ldv->magic = NULL;
+    }
+
     return ldv;
 }
 
@@ -418,6 +430,10 @@ lms_db_video_free(lms_db_video_t *ldv)
                              "insert_subtitle_streams");
 
     r = lms_db_cache_del(&_cache, ldv->db, ldv);
+
+    if (ldv->magic != NULL)
+        magic_close(ldv->magic);
+
     free(ldv);
 
     return r;
@@ -602,7 +618,7 @@ _db_insert(lms_db_video_t *ldv, const struct lms_video_info *info)
  * @ingroup LMS_Plugins
  */
 int
-lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
+lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info, const char *path)
 {
     struct lms_stream *s;
     const struct lms_dlna_video_profile *dlna;
@@ -620,6 +636,11 @@ lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info)
         if (dlna) {
             info->dlna_mime = *dlna->dlna_mime;
             info->dlna_profile = *dlna->dlna_profile;
+        } else {
+            info->dlna_mime.str = (char *)magic_file(ldv->magic, path);
+            if (info->dlna_mime.str) {
+                info->dlna_mime.len = strlen(info->dlna_mime.str);
+            }
         }
     }
 

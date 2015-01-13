@@ -529,7 +529,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         video_info.container = container;
         video_info.packet_size = packet_size;
 
-        ret = lms_db_video_add(plugin->video_db, &video_info);
+        ret = lms_db_video_add(plugin->video_db, &video_info, finfo->path);
     } else {
         audio_info.id = finfo->id;
         audio_info.title = info.title;
@@ -538,7 +538,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.genre = info.genre;
         audio_info.container = container;
 
-        ret = lms_db_audio_add(plugin->audio_db, &audio_info);
+        ret = lms_db_audio_add(plugin->audio_db, &audio_info, finfo->path);
         lms_string_size_strip_and_free(&audio_info.codec);
     }
 

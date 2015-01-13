@@ -522,7 +522,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
         audio_info.sampling_rate = info.sampling_rate;
         audio_info.bitrate = info.bitrate;
 
-        r = lms_db_audio_add(plugin->audio_db, &audio_info);
+        r = lms_db_audio_add(plugin->audio_db, &audio_info, finfo->path);
     } else if (info.type == LMS_STREAM_TYPE_VIDEO) {
         struct lms_video_info video_info = { };
 
@@ -531,7 +531,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
         video_info.artist = info.artist;
         video_info.container = _container;
         video_info.streams = (struct lms_stream *) info.streams;
-        r = lms_db_video_add(plugin->video_db, &video_info);
+        r = lms_db_video_add(plugin->video_db, &video_info, finfo->path);
     }
 
 done:

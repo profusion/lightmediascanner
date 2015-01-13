@@ -91,6 +91,10 @@ define([CHECK_MODULE_GENERIC],
         AC_LMS_CHECK_PKG(GENERIC, [libavcodec libavformat], [], [GENERIC=false])
 ])
 
+AC_CHECK_HEADERS([magic.h], [], [AC_MSG_ERROR([libmagic magic.h header file not found])])
+AC_CHECK_LIB([magic], [magic_open], [AC_SUBST([LIBMAGIC], [-lmagic])],
+             [AC_MSG_ERROR([libmagic library or magic_open function not found])], [-lz])
+
 # plugins declarations
 AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
