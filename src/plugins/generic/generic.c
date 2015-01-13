@@ -49,16 +49,20 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".m3u"),
     LMS_STATIC_STRING_SIZE(".mp4"),
     LMS_STATIC_STRING_SIZE(".wma"),
+    LMS_STATIC_STRING_SIZE(".ogg"),
 };
 
 DECL_STR(_codec_mpeg1layer3, "mpeg1layer3");
 DECL_STR(_container_3gp, "3gp");
 DECL_STR(_container_mp4, "mp4");
+DECL_STR(_container_ogg, "ogg");
 
 DECL_STR(_container_audio_wmav1, "wmav1");
 DECL_STR(_container_audio_wmav2, "wmav2");
 DECL_STR(_container_audio_wmavpro, "wmavpro");
 
+DECL_STR(_codec_video_theora, "theora");
+DECL_STR(_codec_audio_vorbis, "vorbis");
 DECL_STR(_codec_audio_asf, "asf");
 DECL_STR(_codec_audio_mpeg4aac_main, "mpeg4aac-main");
 DECL_STR(_codec_audio_mpeg4aac_lc, "mpeg4aac-lc");
@@ -85,6 +89,8 @@ static const struct codec_container_descriptor _codec_list[] = {
     {AV_CODEC_ID_WMAV1, &_codec_audio_asf},
     {AV_CODEC_ID_WMAV2, &_codec_audio_asf},
     {AV_CODEC_ID_WMAPRO, &_codec_audio_asf},
+    {AV_CODEC_ID_VORBIS, &_codec_audio_vorbis},
+    {AV_CODEC_ID_THEORA, &_codec_video_theora},
 };
 
 static const struct codec_container_descriptor _container_list[] = {
@@ -94,6 +100,8 @@ static const struct codec_container_descriptor _container_list[] = {
     {AV_CODEC_ID_WMAV2, &_container_audio_wmav2},
     {AV_CODEC_ID_WMAPRO, &_container_audio_wmavpro},
     {AV_CODEC_ID_H264, &_container_mp4},
+    {AV_CODEC_ID_VORBIS, &_container_ogg},
+    {AV_CODEC_ID_THEORA, &_container_ogg},
 };
 
 static void
@@ -245,6 +253,16 @@ static const struct codec_container _codecs[] = {
         .id = CODEC_ID_MP3,
         .get_codec = _get_common_codec,
         .get_container = NULL,
+    },
+    {
+        .id = AV_CODEC_ID_VORBIS,
+        .get_codec = _get_common_codec,
+        .get_container = _get_common_container,
+    },
+    {
+        .id = AV_CODEC_ID_THEORA,
+        .get_codec = _get_common_codec,
+        .get_container = _get_common_container,
     },
     {
         .id = AV_CODEC_ID_AAC,
