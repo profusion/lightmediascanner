@@ -116,7 +116,7 @@ extern "C" {
     API lms_db_audio_t *lms_db_audio_new(sqlite3 *db) GNUC_NON_NULL(1);
     API int lms_db_audio_start(lms_db_audio_t *lda) GNUC_NON_NULL(1);
     API int lms_db_audio_free(lms_db_audio_t *lda) GNUC_NON_NULL(1);
-    API int lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info) GNUC_NON_NULL(1, 2);
+    API int lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info, const char *path) GNUC_NON_NULL(1, 2);
 
     /* Video Records */
 
@@ -171,7 +171,7 @@ extern "C" {
     API lms_db_video_t *lms_db_video_new(sqlite3 *db) GNUC_NON_NULL(1);
     API int lms_db_video_start(lms_db_video_t *ldv) GNUC_NON_NULL(1);
     API int lms_db_video_free(lms_db_video_t *ldv) GNUC_NON_NULL(1);
-    API int lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info) GNUC_NON_NULL(1, 2);
+    API int lms_db_video_add(lms_db_video_t *ldv, struct lms_video_info *info, const char *path) GNUC_NON_NULL(1, 2);
 
     API int lms_stream_video_info_aspect_ratio_guess(struct lms_stream_video_info *info) GNUC_NON_NULL(1);
 

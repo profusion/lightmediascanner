@@ -1228,7 +1228,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     _parse_mpeg_header(fd, sync_offset, &audio_info, finfo->size);
 
     audio_info.container = _container_mp3;
-    r = lms_db_audio_add(plugin->audio_db, &audio_info);
+    r = lms_db_audio_add(plugin->audio_db, &audio_info, finfo->path);
 
   done:
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);

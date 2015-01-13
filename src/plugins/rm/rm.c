@@ -475,13 +475,13 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.id = finfo->id;
         audio_info.title = info.title;
         audio_info.artist = info.artist;
-        r = lms_db_audio_add(plugin->audio_db, &audio_info);
+        r = lms_db_audio_add(plugin->audio_db, &audio_info, finfo->path);
     }
     else {
         video_info.id = finfo->id;
         video_info.title = info.title;
         video_info.artist = info.artist;
-        r = lms_db_video_add(plugin->video_db, &video_info);
+        r = lms_db_video_add(plugin->video_db, &video_info, finfo->path);
     }
 
   done:
