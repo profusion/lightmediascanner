@@ -32,6 +32,7 @@
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 #include <lightmediascanner_utils.h>
 
 #include <assert.h>
@@ -487,6 +488,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
 {
     struct ogg_info info = { .type = LMS_STREAM_TYPE_UNKNOWN };
     int r;
+    const struct lms_dlna_video_profile *video_dlna;
+    const struct lms_dlna_audio_profile *audio_dlna;
 
     r = _parse_ogg(finfo->path, &info);
     if (r != 0)
@@ -522,6 +525,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
         audio_info.sampling_rate = info.sampling_rate;
         audio_info.bitrate = info.bitrate;
 
+        LMS_DLNA_GET_AUDIO_PROFILE_PATH_FB(&audio_info, audio_dlna,
+                                           finfo->path);
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     } else if (info.type == LMS_STREAM_TYPE_VIDEO) {
         struct lms_video_info video_info = { };
@@ -531,6 +536,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
         video_info.artist = info.artist;
         video_info.container = _container;
         video_info.streams = (struct lms_stream *) info.streams;
+        LMS_DLNA_GET_VIDEO_PROFILE_PATH_FB(&video_info, video_dlna,
+                                           finfo->path);
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 

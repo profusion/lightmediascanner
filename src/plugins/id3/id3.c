@@ -33,6 +33,7 @@
  *   http://id3.org/id3v2.3.0
  */
 
+#include <lightmediascanner_dlna.h>
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
 #include <lightmediascanner_charset_conv.h>
@@ -1140,6 +1141,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     int r, fd;
     long id3v2_offset;
     off_t sync_offset = 0;
+    const struct lms_dlna_audio_profile *audio_dlna;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -1228,6 +1230,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     _parse_mpeg_header(fd, sync_offset, &audio_info, finfo->size);
 
     audio_info.container = _container_mp3;
+    LMS_DLNA_GET_AUDIO_PROFILE_FD_FB(&audio_info, audio_dlna, fd);
     r = lms_db_audio_add(plugin->audio_db, &audio_info);
 
   done:

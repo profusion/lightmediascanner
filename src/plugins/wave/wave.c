@@ -35,6 +35,7 @@
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 #include <lightmediascanner_charset_conv.h>
 #include <shared/util.h>
 
@@ -215,6 +216,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
 {
     struct lms_audio_info info = { };
     int r, fd;
+    const struct lms_dlna_audio_profile *audio_dlna;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0)
@@ -234,6 +236,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
 
     info.id = finfo->id;
 
+    LMS_DLNA_GET_AUDIO_PROFILE_FD_FB(&info, audio_dlna, fd);
     r = lms_db_audio_add(plugin->audio_db, &info);
 
 done:
