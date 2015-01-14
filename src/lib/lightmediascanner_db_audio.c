@@ -22,8 +22,10 @@
 #include <lightmediascanner_db.h>
 #include <lightmediascanner_dlna.h>
 #include "lightmediascanner_db_private.h"
+#include <magic.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 struct lms_db_audio {
     sqlite3 *db;
@@ -36,6 +38,7 @@ struct lms_db_audio {
     sqlite3_stmt *get_genre;
     unsigned int _references;
     unsigned int _is_started:1;
+    magic_t magic;
 };
 
 static struct lms_db_cache _cache = { };
@@ -359,6 +362,15 @@ lms_db_audio_new(sqlite3 *db)
         return NULL;
     }
 
+    lda->magic = magic_open(MAGIC_MIME_TYPE);
+    if (lda->magic == NULL) {
+        fprintf(stderr, "WARNING: could not initialize magic library\n");
+    } else if (magic_load(lda->magic, NULL) != 0) {
+        printf("WARNING: could not load magic cache\n");
+        magic_close(lda->magic);
+        lda->magic = NULL;
+    }
+
     return lda;
 }
 
@@ -476,6 +488,10 @@ lms_db_audio_free(lms_db_audio_t *lda)
         lms_db_finalize_stmt(lda->get_genre, "get_genre");
 
     r = lms_db_cache_del(&_cache, lda->db, lda);
+
+    if (lda->magic != NULL)
+        magic_close(lda->magic);
+
     free(lda);
 
     return r;
@@ -725,7 +741,7 @@ done:
  * @ingroup LMS_Plugins
  */
 int
-lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info)
+lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info, const char *path)
 {
     int64_t album_id, genre_id, artist_id;
     int ret_album, ret_genre, ret_artist;
@@ -743,6 +759,11 @@ lms_db_audio_add(lms_db_audio_t *lda, struct lms_audio_info *info)
         if (dlna) {
             info->dlna_mime = *dlna->dlna_mime;
             info->dlna_profile = *dlna->dlna_profile;
+        } else {
+            info->dlna_mime.str = (char *)magic_file(lda->magic, path);
+            if (info->dlna_mime.str) {
+                info->dlna_mime.len = strlen(info->dlna_mime.str);
+            }
         }
     }
 

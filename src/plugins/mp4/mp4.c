@@ -685,14 +685,14 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.container = _get_container(mp4_fh);
         audio_info.trackno = info.trackno;
 
-        r = lms_db_audio_add(plugin->audio_db, &audio_info);
+        r = lms_db_audio_add(plugin->audio_db, &audio_info, finfo->path);
     } else {
         video_info.id = finfo->id;
         video_info.title = info.title;
         video_info.artist = info.artist;
         video_info.container = _get_container(mp4_fh);
 
-        r = lms_db_video_add(plugin->video_db, &video_info);
+        r = lms_db_video_add(plugin->video_db, &video_info, finfo->path);
     }
 
 fail:

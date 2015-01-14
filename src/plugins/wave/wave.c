@@ -234,7 +234,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt,
 
     info.id = finfo->id;
 
-    r = lms_db_audio_add(plugin->audio_db, &info);
+    r = lms_db_audio_add(plugin->audio_db, &info, finfo->path);
 
 done:
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);

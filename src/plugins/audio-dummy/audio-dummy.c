@@ -74,7 +74,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     lms_charset_conv(ctxt->cs_conv, &info.title.str, &info.title.len);
 
     info.id = finfo->id;
-    r = lms_db_audio_add(plugin->audio_db, &info);
+    r = lms_db_audio_add(plugin->audio_db, &info, finfo->path);
 
     free(info.title.str);
 

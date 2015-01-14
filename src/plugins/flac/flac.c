@@ -143,7 +143,7 @@ title_fallback:
 #endif
 
     info.id = finfo->id;
-    r = lms_db_audio_add(plugin->audio_db, &info);
+    r = lms_db_audio_add(plugin->audio_db, &info, finfo->path);
 
     free(info.title.str);
     free(info.artist.str);

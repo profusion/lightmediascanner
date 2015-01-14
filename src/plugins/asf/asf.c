@@ -789,7 +789,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             audio_info.codec = s->base.codec;
         }
 
-        r = lms_db_audio_add(plugin->audio_db, &audio_info);
+        r = lms_db_audio_add(plugin->audio_db, &audio_info, finfo->path);
     } else {
         struct lms_video_info video_info = { };
 
@@ -799,7 +799,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         video_info.length = info.length;
         video_info.container = _container;
         video_info.streams = (struct lms_stream *) info.streams;
-        r = lms_db_video_add(plugin->video_db, &video_info);
+        r = lms_db_video_add(plugin->video_db, &video_info, finfo->path);
     }
 
 done:
