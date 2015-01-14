@@ -26,6 +26,7 @@
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,6 +74,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     char *str;
     int len, r;
     unsigned int i;
+    const struct lms_dlna_audio_profile *audio_dlna;
 
     if (!FLAC__metadata_get_streaminfo(finfo->path, &si)) {
         fprintf(stderr, "ERROR: cannot retrieve file %s STREAMINFO block\n",
@@ -143,6 +145,7 @@ title_fallback:
 #endif
 
     info.id = finfo->id;
+    LMS_DLNA_GET_AUDIO_PROFILE_PATH_FB(&info, audio_dlna, finfo->path);
     r = lms_db_audio_add(plugin->audio_db, &info);
 
     free(info.title.str);

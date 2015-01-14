@@ -28,6 +28,7 @@ static const char PV[] = PACKAGE_VERSION; /* mp4.h screws PACKAGE_VERSION */
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 
 #include <mp4v2/mp4v2.h>
 #include <string.h>
@@ -577,6 +578,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     MP4FileHandle mp4_fh;
     u_int32_t num_tracks, i;
     const MP4Tags *tags;
+    const struct lms_dlna_video_profile *video_dlna;
+    const struct lms_dlna_audio_profile *audio_dlna;
 
     mp4_fh = MP4Read(finfo->path);
     if (mp4_fh == MP4_INVALID_FILE_HANDLE) {
@@ -685,6 +688,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.container = _get_container(mp4_fh);
         audio_info.trackno = info.trackno;
 
+        LMS_DLNA_GET_AUDIO_PROFILE_PATH_FB(&audio_info, audio_dlna,
+                                           finfo->path);
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     } else {
         video_info.id = finfo->id;
@@ -692,6 +697,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         video_info.artist = info.artist;
         video_info.container = _get_container(mp4_fh);
 
+        LMS_DLNA_GET_VIDEO_PROFILE_PATH_FB(&video_info, video_dlna,
+                                           finfo->path);
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 

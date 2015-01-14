@@ -29,6 +29,7 @@
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 #include <shared/util.h>
 
 #include <endian.h>
@@ -686,6 +687,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     unsigned int size;
     unsigned long long hdrsize;
     off_t pos_end, pos = 0;
+    const struct lms_dlna_video_profile *video_dlna;
+    const struct lms_dlna_audio_profile *audio_dlna;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -789,6 +792,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
             audio_info.codec = s->base.codec;
         }
 
+        LMS_DLNA_GET_AUDIO_PROFILE_FD_FB(&audio_info, audio_dlna, fd);
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     } else {
         struct lms_video_info video_info = { };
@@ -799,6 +803,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         video_info.length = info.length;
         video_info.container = _container;
         video_info.streams = (struct lms_stream *) info.streams;
+        LMS_DLNA_GET_VIDEO_PROFILE_FD_FB(&video_info, video_dlna, fd);
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 

@@ -21,6 +21,9 @@
  */
 
 #include <dlfcn.h>
+#ifdef HAVE_MAGIC_H
+#include <magic.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +36,71 @@
 
 #define DEFAULT_SLAVE_TIMEOUT 1000
 #define DEFAULT_COMMIT_INTERVAL 100
+
+#ifdef HAVE_MAGIC_H
+static magic_t _magic_handle;
+
+static void
+_magic_handle_clean(void) {
+   magic_close(_magic_handle);
+}
+
+static int
+_magic_handle_setup(void) {
+    if (_magic_handle)
+      return 1;
+
+    _magic_handle = magic_open(MAGIC_MIME_TYPE | MAGIC_PRESERVE_ATIME);
+    if (!_magic_handle) {
+        fprintf(stderr, "ERROR: failed magic_open(): %s\n",
+                magic_error(_magic_handle));
+        return 0;
+    }
+
+    if (magic_load(_magic_handle, NULL) != 0) {
+        fprintf(stderr, "ERROR: failed magic_load() - %s\n",
+                magic_error(_magic_handle));
+        magic_close(_magic_handle);
+        _magic_handle = NULL;
+        return 0;
+    }
+
+   atexit(_magic_handle_clean);
+   return 1;
+}
+#endif
+
+int
+lms_mime_type_get_from_path(const char *path, struct lms_string_size *mime) {
+#ifdef HAVE_MAGIC_H
+   const char *s;
+   if (!path || !mime) return 0;
+   if (!_magic_handle_setup()) return 0;
+   s = magic_file(_magic_handle, path);
+   if (!s) return 0;
+   mime->str = (char *)s;
+   mime->len = strlen(s);
+   return 1;
+#else
+   return 0;
+#endif
+}
+
+int
+lms_mime_type_get_from_fd(int fd, struct lms_string_size *mime) {
+#ifdef HAVE_MAGIC_H
+   const char *s;
+   if (fd < 0 || !mime) return 0;
+   if (!_magic_handle_setup()) return 0;
+   s = magic_descriptor(_magic_handle, fd);
+   if (!s) return 0;
+   mime->str = (char *)s;
+   mime->len = strlen(s);
+   return 1;
+#else
+   return 0;
+#endif
+}
 
 static int
 _parser_load(struct parser *p, const char *so_path)

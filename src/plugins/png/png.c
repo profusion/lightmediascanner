@@ -30,6 +30,7 @@
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_utils.h>
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -130,6 +131,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 {
     struct lms_image_info info = { };
     int fd, r;
+    const struct lms_dlna_image_profile *image_dlna;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -156,6 +158,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
 
     info.id = finfo->id;
     info.container = _container_png;
+    LMS_DLNA_GET_IMAGE_PROFILE_FD_FB(&info, image_dlna, fd);
     r = lms_db_image_add(plugin->img_db, &info);
 
   done:
