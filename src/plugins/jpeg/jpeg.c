@@ -473,7 +473,7 @@ static int
 _exif_data_get(int fd, int len, struct lms_image_info *info)
 {
     const unsigned char exif_hdr[6] = "Exif\0";
-    unsigned char buf[8];
+    unsigned char buf[9];
     unsigned int little_endian, offset, count;
     off_t abs_offset, tiff_base;
 
@@ -498,6 +498,7 @@ _exif_data_get(int fd, int len, struct lms_image_info *info)
         perror("read");
         return -4;
     }
+    buf[sizeof(buf) -1] = '\0';
 
     if (buf[0] == 'I' && buf[1] == 'I') {
         little_endian = 1;
