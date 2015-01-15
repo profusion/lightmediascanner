@@ -1,4 +1,11 @@
-ver 0.4.5.99: (will change to 0.5 or 1.0, to be defined)
+ver 0.5:
+        Move DLNA detection to core library, fallbacks using libmagic.
+        Daemon now monitors monuts and triggers scans.
+        Fixes to coverity security scans (mostly buffer overflows).
+        Fixed "itime" passing in the master/slave communication.
+        Fixed id3 divide by zero if no bitrate.
+
+ver 0.4.5.99:
         Improved build system (non-recursive, cleanups, etc).
         Disabled static plugins.
         Plugin symbols are now hidden by default (-fvisibility=hidden).
