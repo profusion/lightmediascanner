@@ -656,6 +656,7 @@ scan_progress_cb(lms_t *lms, const char *path, int pathlen, lms_progress_status_
     case LMS_PROGRESS_STATUS_DELETED:
         sp->deleted++;
         break;
+    case LMS_PROGRESS_STATUS_UNKNOWN:
     case LMS_PROGRESS_STATUS_KILLED:
     case LMS_PROGRESS_STATUS_ERROR_PARSE:
     case LMS_PROGRESS_STATUS_ERROR_COMM:
