@@ -171,7 +171,8 @@ extern "C" {
         LMS_PROGRESS_STATUS_KILLED,
         LMS_PROGRESS_STATUS_ERROR_PARSE,
         LMS_PROGRESS_STATUS_ERROR_COMM,
-        LMS_PROGRESS_STATUS_SKIPPED
+        LMS_PROGRESS_STATUS_SKIPPED,
+        LMS_PROGRESS_STATUS_UNKNOWN,
     } lms_progress_status_t;
 
     typedef void (*lms_free_callback_t)(void *data);

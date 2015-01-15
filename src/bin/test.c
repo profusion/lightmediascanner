@@ -276,6 +276,7 @@ progress(lms_t *lms, const char *path, int path_len, lms_progress_status_t statu
         "ERROR_PARSE",
         "ERROR_COMM",
         "SKIPPED",
+        "UNKNOWN",
     };
     const char *cstart = "", *cend = "", *name = data;
 
@@ -295,6 +296,9 @@ progress(lms_t *lms, const char *path, int path_len, lms_progress_status_t statu
         case LMS_PROGRESS_STATUS_ERROR_PARSE:
         case LMS_PROGRESS_STATUS_ERROR_COMM:
             cstart = "\033[31m";
+            break;
+        default:
+            status = LMS_PROGRESS_STATUS_UNKNOWN;
             break;
         }
     }
