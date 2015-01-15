@@ -55,15 +55,16 @@ _chunk_to_uint(unsigned char *buf)
 static int
 _png_data_get(int fd, struct lms_image_info *info)
 {
-    unsigned char buf[16], *p;
+    unsigned char buf[17], *p;
     const unsigned char sig[8] = {0x89, 0x50, 0x4e, 0x47, 0xd, 0xa, 0x1a, 0xa};
     const unsigned char ihdr[4] = {'I', 'H', 'D', 'R'};
     unsigned int length;
 
-    if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
+    if (read(fd, buf, sizeof(buf) - 1) != sizeof(buf) - 1) {
         perror("read");
         return -1;
     }
+    buf[sizeof(buf) - 1] = '\0';
 
     if (memcmp(buf, sig, sizeof(sig)) != 0) {
         fprintf(stderr, "ERROR: invalid PNG signature.\n");
