@@ -38,9 +38,6 @@ DECL_STR(_dlna_profile_aac_adts_320, "AAC_ADTS_320");
 DECL_STR(_dlna_profile_aac_adts, "AAC_ADTS");
 DECL_STR(_dlna_profile_aac_adts_mult5, "AAC_MULT5_ADTS");
 
-const struct lms_string_size _container_mp3 = LMS_STATIC_STRING_SIZE("mp3");
-const struct lms_string_size _testing = LMS_STATIC_STRING_SIZE("testing");
-
 
 static const struct lms_dlna_audio_rule _dlna_audio_rule_mpeg2_aac_adts_320 = {
     .codec = &_codec_mpeg2aac_lc,
@@ -153,9 +150,6 @@ DECL_STR(_dlna_profile_mpeg1, "MPEG1");
 
 DECL_STR(_dlna_mime_video, "video/mpeg");
 DECL_STR(_dlna_mim_video_tts, "video/vnd.dlna.mpeg-tts");
-
-const struct lms_string_size _container_mpeg = LMS_STATIC_STRING_SIZE("mpeg");
-const struct lms_string_size _container_mpegts = LMS_STATIC_STRING_SIZE("mpegts");
 
 static const struct lms_dlna_video_rule _dlna_video_rule_mpeg_ps_pal[] = {
     {

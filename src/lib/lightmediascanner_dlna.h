@@ -162,21 +162,4 @@ const struct lms_dlna_video_profile *lms_dlna_get_video_profile(struct lms_video
 const struct lms_dlna_audio_profile *lms_dlna_get_audio_profile(struct lms_audio_info *info);
 const struct lms_dlna_image_profile *lms_dlna_get_image_profile(struct lms_image_info *info);
 
-extern const struct lms_string_size _container_mp3;
-extern const struct lms_string_size _container_mpeg;
-extern const struct lms_string_size _container_mpegts;
-
-extern const struct lms_dlna_image_profile _dlna_jpeg_rules[];
-extern const struct lms_dlna_image_profile _dlna_png_rules[];
-
-extern const struct lms_dlna_audio_profile _dlna_mp3_rules[];
-extern const struct lms_dlna_audio_profile _dlna_mp4_audio_rules[];
-extern const struct lms_dlna_audio_profile _dlna_3gp_audio_rules[];
-extern const struct lms_dlna_audio_profile _dlna_wma_rules[];
-extern const struct lms_dlna_audio_profile _dlna_wave_rules[];
-
-extern const struct lms_dlna_video_profile _dlna_mpeg_rules[];
-extern const struct lms_dlna_video_profile _dlna_mpegts_rules[];
-extern const struct lms_dlna_video_profile _dlna_mp4_video_rules[];
-
 #endif /* _LIGHTMEDIASCANNER_DLNA_H_ */

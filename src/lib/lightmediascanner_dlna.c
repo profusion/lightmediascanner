@@ -41,6 +41,20 @@ struct dlna_image_container_rule {
     const struct lms_dlna_image_profile *rules;
 };
 
+extern const struct lms_dlna_image_profile _dlna_jpeg_rules[];
+extern const struct lms_dlna_image_profile _dlna_png_rules[];
+
+extern const struct lms_dlna_audio_profile _dlna_mp3_rules[];
+extern const struct lms_dlna_audio_profile _dlna_mp4_audio_rules[];
+extern const struct lms_dlna_audio_profile _dlna_3gp_audio_rules[];
+extern const struct lms_dlna_audio_profile _dlna_wma_rules[];
+extern const struct lms_dlna_audio_profile _dlna_wave_rules[];
+
+extern const struct lms_dlna_video_profile _dlna_mpeg_rules[];
+extern const struct lms_dlna_video_profile _dlna_mpegts_rules[];
+extern const struct lms_dlna_video_profile _dlna_mp4_video_rules[];
+
+DECL_STR(_container_mp3, "mp3");
 DECL_STR(_container_mp4, "mp4");
 DECL_STR(_container_3gp, "3gp");
 DECL_STR(_container_asf, "asf");
@@ -48,6 +62,8 @@ DECL_STR(_container_wma2, "wma2");
 DECL_STR(_container_jpeg, "jpeg");
 DECL_STR(_container_png, "png");
 DECL_STR(_container_wave, "wave");
+DECL_STR(_container_mpeg, "mpeg");
+DECL_STR(_container_mpegts, "mpegts");
 
 static const struct dlna_video_container_rule _video_container_rules[] = {
     {
