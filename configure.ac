@@ -91,6 +91,17 @@ define([CHECK_MODULE_GENERIC],
         AC_LMS_CHECK_PKG(GENERIC, [libavcodec libavformat], [], [GENERIC=false])
 ])
 
+AC_ARG_ENABLE([magic],
+        [AC_HELP_STRING([--disable-magic],
+                [Disable mime computation with libmagic. @<:@default=enable@:>@])],
+        [enable_magic=${enableval}], [enable_magic=yes])
+
+if test "$enable_magic" = "yes"; then
+   AC_CHECK_HEADERS([magic.h], [], [AC_MSG_ERROR([libmagic magic.h header file not found])])
+   AC_CHECK_LIB([magic], [magic_open], [AC_SUBST([LIBMAGIC], [-lmagic])],
+                [AC_MSG_ERROR([libmagic library or magic_open function not found])], [-lz])
+fi
+
 # plugins declarations
 AC_LMS_OPTIONAL_MODULE([dummy], true)
 AC_LMS_OPTIONAL_MODULE([jpeg], true)
@@ -224,3 +235,4 @@ SUMMARY_EOF
 
 echo -e " * modules........: $MODS $UNUSED_MODS"
 echo -e " * daemon.........: ${build_daemon}"
+echo -e " * use libmagic...: ${enable_magic}"

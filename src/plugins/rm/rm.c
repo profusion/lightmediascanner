@@ -29,6 +29,7 @@
 
 #include <lightmediascanner_plugin.h>
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -398,6 +399,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     char type[4];
     uint32_t size;
     bool has_cont = false, has_prop = false, has_mdpr = false;
+    const struct lms_dlna_video_profile *video_dlna;
+    const struct lms_dlna_audio_profile *audio_dlna;
 
     fd = open(finfo->path, O_RDONLY);
     if (fd < 0) {
@@ -475,12 +478,14 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.id = finfo->id;
         audio_info.title = info.title;
         audio_info.artist = info.artist;
+        LMS_DLNA_GET_AUDIO_PROFILE_FD_FB(&audio_info, audio_dlna, fd);
         r = lms_db_audio_add(plugin->audio_db, &audio_info);
     }
     else {
         video_info.id = finfo->id;
         video_info.title = info.title;
         video_info.artist = info.artist;
+        LMS_DLNA_GET_VIDEO_PROFILE_FD_FB(&video_info, video_dlna, fd);
         r = lms_db_video_add(plugin->video_db, &video_info);
     }
 

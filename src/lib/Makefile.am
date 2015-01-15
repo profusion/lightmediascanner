@@ -30,4 +30,4 @@ liblightmediascanner_la_SOURCES = \
 	lightmediascanner_dlna.c
 
 liblightmediascanner_la_LIBADD = -ldl @SQLITE3_LIBS@ @LTLIBICONV@
-liblightmediascanner_la_LDFLAGS = -version-info @version_info@
+liblightmediascanner_la_LDFLAGS = -version-info @version_info@ @LIBMAGIC@

@@ -24,6 +24,7 @@
 #include "libavutil/opt.h"
 
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_dlna.h>
 #include <lightmediascanner_plugin.h>
 
 #include <sys/types.h>
@@ -460,6 +461,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     struct lms_video_info video_info = { };
     struct lms_string_size container = { };
     bool video = false;
+    const struct lms_dlna_video_profile *video_dlna;
+    const struct lms_dlna_audio_profile *audio_dlna;
 
     if (finfo->parsed)
         return 0;
@@ -547,6 +550,8 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         video_info.container = container;
         video_info.packet_size = packet_size;
 
+        LMS_DLNA_GET_VIDEO_PROFILE_PATH_FB(&video_info, video_dlna,
+                                           finfo->path);
         ret = lms_db_video_add(plugin->video_db, &video_info);
     } else {
         audio_info.id = finfo->id;
@@ -556,7 +561,10 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
         audio_info.genre = info.genre;
         audio_info.container = container;
 
+        LMS_DLNA_GET_AUDIO_PROFILE_PATH_FB(&audio_info, audio_dlna,
+                                           finfo->path);
         ret = lms_db_audio_add(plugin->audio_db, &audio_info);
+
         lms_string_size_strip_and_free(&audio_info.codec);
     }
 

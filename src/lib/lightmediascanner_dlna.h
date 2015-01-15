@@ -19,7 +19,9 @@
  * @author Leandro Dorileo <leandro.maciel.dorileo@intel.com>
  */
 
+#include "lightmediascanner.h"
 #include <lightmediascanner_db.h>
+#include <lightmediascanner_private.h>
 #include <stdio.h>
 #include <math.h>
 
@@ -66,6 +68,76 @@
 
 #define DLNA_VIDEO_FRAMERATE_RANGE(_min, _max)                          \
     &(struct dlna_video_framerate_range) {.min = _min, .max = _max}     \
+
+#ifdef HAVE_MAGIC_H
+
+#define LMS_DLNA_GET_PROFILE_PATH_FB(_info, _type, _dlna, _path)        \
+    do {                                                                \
+        if ((_info)->dlna_mime.len == 0 &&                              \
+            (_info)->dlna_profile.len == 0) {                           \
+            _dlna = lms_dlna_get_##_type##_profile(_info);              \
+            if (_dlna) {                                                \
+                (_info)->dlna_mime = *_dlna->dlna_mime;                 \
+                (_info)->dlna_profile = *_dlna->dlna_profile;           \
+            }                                                           \
+        }                                                               \
+        if ((_info)->dlna_mime.len == 0)                                \
+            lms_mime_type_get_from_path(_path, &(_info)->dlna_mime);    \
+    } while(0)                                                          \
+
+#define LMS_DLNA_GET_VIDEO_PROFILE_PATH_FB(_info, _dlna, _path)         \
+    LMS_DLNA_GET_PROFILE_PATH_FB(_info, video, _dlna, _path)            \
+
+#define LMS_DLNA_GET_AUDIO_PROFILE_PATH_FB(_info, _dlna, _path)         \
+    LMS_DLNA_GET_PROFILE_PATH_FB(_info, audio, _dlna, _path)            \
+
+#define LMS_DLNA_GET_IMAGE_PROFILE_PATH_FB(_info, _dlna, _path)         \
+    LMS_DLNA_GET_PROFILE_PATH_FB(_info, image, _dlna, _path)            \
+
+#define LMS_DLNA_GET_PROFILE_FD_FB(_info, _type, _dlna, _fd)            \
+    do {                                                                \
+        if ((_info)->dlna_mime.len == 0 &&                              \
+            (_info)->dlna_profile.len == 0) {                           \
+            _dlna = lms_dlna_get_##_type##_profile(_info);              \
+            if (_dlna) {                                                \
+                (_info)->dlna_mime = *_dlna->dlna_mime;                 \
+                (_info)->dlna_profile = *_dlna->dlna_profile;           \
+            }                                                           \
+        }                                                               \
+        if ((_info)->dlna_mime.len == 0)                                \
+            lms_mime_type_get_from_fd(_fd, &(_info)->dlna_mime);        \
+    } while(0)                                                          \
+
+#define LMS_DLNA_GET_VIDEO_PROFILE_FD_FB(_info, _dlna, _fd)             \
+    LMS_DLNA_GET_PROFILE_FD_FB(_info, video, _dlna, _fd)                \
+
+#define LMS_DLNA_GET_AUDIO_PROFILE_FD_FB(_info, _dlna, _fd)             \
+    LMS_DLNA_GET_PROFILE_FD_FB(_info, audio, _dlna, _fd)                \
+
+#define LMS_DLNA_GET_IMAGE_PROFILE_FD_FB(_info, _dlna, _fd)             \
+    LMS_DLNA_GET_PROFILE_FD_FB(_info, image, _dlna, _fd)                \
+
+#else
+
+#define LMS_DLNA_GET_VIDEO_PROFILE_PATH_FB(_info, _dlna, _path)         \
+    do { _dlna = _dlna;} while(0)                                       \
+
+#define LMS_DLNA_GET_AUDIO_PROFILE_PATH_FB(_info, _dlna, _path)         \
+    do { _dlna = _dlna;} while(0)                                       \
+
+#define LMS_DLNA_GET_IMAGE_PROFILE_PATH_FB(_info, _dlna, _path)         \
+    do { _dlna = _dlna;} while(0)                                       \
+
+#define LMS_DLNA_GET_VIDEO_PROFILE_FD_FB(_info, _dlna, _fd)             \
+    do { _dlna = _dlna;} while(0)                                       \
+
+#define LMS_DLNA_GET_AUDIO_PROFILE_FD_FB(_info, _dlna, _fd)             \
+    do { _dlna = _dlna;} while(0)                                       \
+
+#define LMS_DLNA_GET_IMAGE_PROFILE_FD_FB(_info, _dlna, _fd)             \
+    do { _dlna = _dlna;} while(0)                                       \
+
+#endif
 
 struct dlna_bitrate {
     const unsigned int min;
@@ -158,9 +230,9 @@ struct lms_dlna_image_profile {
     const struct lms_dlna_image_rule *image_rule;
 };
 
-const struct lms_dlna_video_profile *lms_dlna_get_video_profile(struct lms_video_info *info);
-const struct lms_dlna_audio_profile *lms_dlna_get_audio_profile(struct lms_audio_info *info);
-const struct lms_dlna_image_profile *lms_dlna_get_image_profile(struct lms_image_info *info);
+API const struct lms_dlna_video_profile *lms_dlna_get_video_profile(struct lms_video_info *info);
+API const struct lms_dlna_audio_profile *lms_dlna_get_audio_profile(struct lms_audio_info *info);
+API const struct lms_dlna_image_profile *lms_dlna_get_image_profile(struct lms_image_info *info);
 
 extern const struct lms_string_size _container_mp3;
 extern const struct lms_string_size _container_mpeg;

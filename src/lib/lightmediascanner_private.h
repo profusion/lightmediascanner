@@ -33,6 +33,7 @@
 
 #include "lightmediascanner.h"
 #include "lightmediascanner_plugin.h"
+#include "lightmediascanner_utils.h"
 #include "lightmediascanner_charset_conv.h"
 #include <sys/types.h>
 #include <poll.h>
@@ -106,6 +107,8 @@ int lms_parsers_start(lms_t *lms, sqlite3 *db) GNUC_NON_NULL(1, 2);
 int lms_parsers_finish(lms_t *lms, sqlite3 *db) GNUC_NON_NULL(1, 2);
 int lms_parsers_check_using(lms_t *lms, void **parser_match, struct lms_file_info *finfo) GNUC_NON_NULL(1, 2, 3);
 int lms_parsers_run(lms_t *lms, sqlite3 *db, void **parser_match, struct lms_file_info *finfo) GNUC_NON_NULL(1, 2, 3, 4);
+API int lms_mime_type_get_from_path(const char *path, struct lms_string_size *mime) GNUC_NON_NULL(1, 2);
+API int lms_mime_type_get_from_fd(int fd, struct lms_string_size *mime) GNUC_NON_NULL(2);
 
 
 #endif /* _LIGHTMEDIASCANNER_PRIVATE_H_ */
