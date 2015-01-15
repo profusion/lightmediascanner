@@ -40,6 +40,7 @@ static const struct lms_string_size _exts[] = {
     LMS_STATIC_STRING_SIZE(".ram"),
     LMS_STATIC_STRING_SIZE(".ogm"),
     LMS_STATIC_STRING_SIZE(".flv"),
+    LMS_STATIC_STRING_SIZE(".webm"),
 };
 static const char *_cats[] = {
     "multimedia",
@@ -145,7 +146,7 @@ lms_plugin_info(void)
     static struct lms_plugin_info info = {
         _name,
         _cats,
-        "Accept all video extensions (AVI, MPG, MPEG, RAM, OGM, FLV), "
+        "Accept all video extensions (AVI, MPG, MPEG, RAM, OGM, FLV, WEBM), "
         "but no metadata is processed.",
         PACKAGE_VERSION,
         _authors,
