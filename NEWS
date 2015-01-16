@@ -1,6 +1,6 @@
-ver 0.5:
+ver 0.5.0:
         Move DLNA detection to core library, fallbacks using libmagic.
-        Daemon now monitors monuts and triggers scans.
+        Daemon now monitors mounts and triggers scans.
         Fixes to coverity security scans (mostly buffer overflows).
         Fixed "itime" passing in the master/slave communication.
         Fixed id3 divide by zero if no bitrate.

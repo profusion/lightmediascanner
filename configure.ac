@@ -1,4 +1,4 @@
-AC_INIT(lightmediascanner, 0.5, https://github.com/profusion/lightmediascanner/)
+AC_INIT(lightmediascanner, 0.5.0, https://github.com/profusion/lightmediascanner/)
 AC_PREREQ(2.60)
 AC_CONFIG_SRCDIR(configure.ac)
 AC_CANONICAL_BUILD
