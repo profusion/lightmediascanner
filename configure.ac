@@ -99,7 +99,7 @@ AC_ARG_ENABLE([magic],
 if test "$enable_magic" = "yes"; then
    AC_CHECK_HEADERS([magic.h], [], [AC_MSG_ERROR([libmagic magic.h header file not found])])
    AC_CHECK_LIB([magic], [magic_open], [AC_SUBST([LIBMAGIC], [-lmagic])],
-                [AC_MSG_ERROR([libmagic library or magic_open function not found])], [-lz])
+                [AC_MSG_ERROR([libmagic library or magic_open function not found])])
 fi
 
 # plugins declarations
