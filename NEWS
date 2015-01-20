@@ -1,3 +1,6 @@
+ver 0.5.1:
+        Remove dependency on zlib, not required anymore.
+
 ver 0.5.0:
         Move DLNA detection to core library, fallbacks using libmagic.
         Daemon now monitors mounts and triggers scans.
