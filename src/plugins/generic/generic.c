@@ -86,7 +86,7 @@ struct codec_container_descriptor {
 };
 
 static const struct codec_container_descriptor _codec_list[] = {
-    {CODEC_ID_MP3, &_codec_mpeg1layer3},
+    {AV_CODEC_ID_MP3, &_codec_mpeg1layer3},
     {AV_CODEC_ID_WMAV1, &_codec_audio_asf},
     {AV_CODEC_ID_WMAV2, &_codec_audio_asf},
     {AV_CODEC_ID_WMAPRO, &_codec_audio_asf},
@@ -251,7 +251,7 @@ _get_common_container(AVStream *stream, struct lms_string_size *value)
 
 static const struct codec_container _codecs[] = {
     {
-        .id = CODEC_ID_MP3,
+        .id = AV_CODEC_ID_MP3,
         .get_codec = _get_common_codec,
         .get_container = NULL,
     },
@@ -435,8 +435,8 @@ _parse_video_stream(AVFormatContext *fmt_ctx, struct lms_video_info *info, AVStr
     s->video.width = ctx->width;
     s->video.height = ctx->height;
 
-    if (stream->r_frame_rate.den)
-        s->video.framerate = stream->r_frame_rate.num / stream->r_frame_rate.den;
+    if (stream->avg_frame_rate.den)
+        s->video.framerate = stream->avg_frame_rate.num / stream->avg_frame_rate.den;
 
     snprintf(aspect_ratio, sizeof(aspect_ratio), "%d:%d",
              ctx->sample_aspect_ratio.num, ctx->sample_aspect_ratio.den);
