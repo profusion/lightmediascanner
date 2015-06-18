@@ -410,8 +410,10 @@ lms_charset_conv_force(lms_charset_conv_t *lcc, char **p_str, unsigned int *p_le
         if (_conv(lcc->convs[i], p_str, p_len, outstr, outlen) == 0)
             return 0;
 
-    if (lcc->fallback == (iconv_t)-1)
+    if (lcc->fallback == (iconv_t)-1) {
+        free(outstr);
         return -5;
+    }
 
     fprintf(stderr,
             "WARNING: could not convert '%*s' to any charset, use fallback\n",
