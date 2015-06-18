@@ -348,8 +348,6 @@ work(lms_t *lms, int method, int verbose, const char *path)
         r = lms_process_single_process(lms, path);
     else if (method == 2)
         r = lms_process(lms, path);
-    else
-        r = -1;
 
     if (r != 0) {
         if (verbose)
