@@ -311,6 +311,7 @@ _parse(struct plugin *plugin, struct lms_context *ctxt, const struct lms_file_in
     if (_pls_parse(fd, finfo, &info) != 0) {
         fprintf(stderr,
                 "WARNING: could not parse playlist '%s'.\n", finfo->path);
+        close(fd);
         return -1;
     }
 
