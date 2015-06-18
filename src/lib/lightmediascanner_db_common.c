@@ -404,17 +404,16 @@ lms_db_cache_find_db(const struct lms_db_cache *cache, const sqlite3 *db)
 }
 
 static int
-lms_db_cache_resize(struct lms_db_cache *cache, int new_size)
+lms_db_cache_resize(struct lms_db_cache *cache, unsigned int new_size)
 {
-    cache->size = new_size;
-    cache->entries = realloc(cache->entries,
-                             cache->size * sizeof(*cache->entries));
-    if (cache->size && !cache->entries) {
+    void *tmp = realloc(cache->entries,
+                        cache->size * sizeof(*cache->entries));
+    if (new_size > 0 && !tmp) {
         perror("realloc");
-        cache->size = 0;
         return -1;
     }
-
+    cache->size = new_size;
+    cache->entries = tmp;
     return 0;
 }
 

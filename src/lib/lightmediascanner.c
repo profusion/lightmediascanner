@@ -292,6 +292,7 @@ lms_plugin_t *
 lms_parser_add(lms_t *lms, const char *so_path)
 {
     struct parser *parser;
+    void *tmp;
 
     if (!lms)
         return NULL;
@@ -304,12 +305,13 @@ lms_parser_add(lms_t *lms, const char *so_path)
         return NULL;
     }
 
-    lms->parsers = realloc(lms->parsers,
-                           (lms->n_parsers + 1) * sizeof(struct parser));
-    if (!lms->parsers) {
+    tmp = realloc(lms->parsers,
+                  (lms->n_parsers + 1) * sizeof(struct parser));
+    if (!tmp) {
         perror("realloc");
         return NULL;
     }
+    lms->parsers = tmp;
 
     parser = lms->parsers + lms->n_parsers;
     if (_parser_load(parser, so_path) != 0) {
@@ -378,18 +380,17 @@ lms_parser_del_int(lms_t *lms, int i)
         return 0;
     } else {
         int dif;
+        void *tmp;
 
         dif = lms->n_parsers - i;
         if (dif)
             memmove(parser, parser + 1, dif * sizeof(struct parser));
 
-        lms->parsers = realloc(lms->parsers,
-                               lms->n_parsers * sizeof(struct parser));
-        if (!lms->parsers) {
-            lms->n_parsers = 0;
+        tmp = realloc(lms->parsers,
+                      lms->n_parsers * sizeof(struct parser));
+        if (!tmp)
             return -1;
-        }
-
+        lms->parsers = tmp;
         return 0;
     }
 }

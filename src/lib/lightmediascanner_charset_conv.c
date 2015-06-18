@@ -293,13 +293,20 @@ _conv(iconv_t cd, char **p_str, unsigned int *p_len, char *ostr, unsigned int ol
     *p_str = ostr;
 
     outbuf = realloc(*p_str, *p_len + 1);
-    if (!outbuf)
-        perror("realloc");
-    else
+    if (outbuf)
         *p_str = outbuf;
+    else {
+        perror("realloc");
+        if (*p_len > 0)
+            (*p_len)--;
+        else {
+            free(*p_str);
+            *p_str = NULL;
+            return 0;
+        }
+    }
 
     (*p_str)[*p_len] = '\0';
-
     return 0;
 }
 
