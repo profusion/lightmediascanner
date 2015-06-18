@@ -171,8 +171,8 @@ _slave_recv_file(const struct fds *slave, struct lms_file_info *finfo, unsigned 
     if (ci.path_len == -1)
         return 0;
 
-    if (ci.path_len > PATH_SIZE) {
-        fprintf(stderr, "ERROR: path too long (%d/%d)\n",
+    if (ci.path_len > PATH_SIZE || ci.path_len < 0) {
+        fprintf(stderr, "ERROR: invalid path size (%d) (min: 0, max: %d)\n",
                 ci.path_len, PATH_SIZE);
         return -2;
     }
