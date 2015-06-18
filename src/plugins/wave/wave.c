@@ -123,6 +123,10 @@ _parse_info(int fd, struct lms_audio_info *info)
             break;
 
         size = le32toh(size);
+        if (size > 1024) {
+            /* we don't expect any info field to be that big. */
+            goto next_field;
+        }
 
         if (memcmp(chunkid, "INAM", 4) == 0)
             str = &info->title;
