@@ -480,6 +480,7 @@ handle_options_work(lms_t *lms, int argc, char **argv)
                         "ERROR: invalid method=%s, should be 'mono' (1) or "
                         "'dual' (2). Default is dual.\n",
                         optarg);
+            break;
         case 'v':
             if (optarg)
                 verbose = !!atoi(optarg);
