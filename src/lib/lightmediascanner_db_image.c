@@ -163,14 +163,14 @@ lms_db_image_new(sqlite3 *db)
     lms_db_image_t *ldi;
     void *p;
 
+    if (!db)
+        return NULL;
+
     if (lms_db_cache_get(&_cache, db, &p) == 0) {
         ldi = p;
         ldi->_references++;
         return ldi;
     }
-
-    if (!db)
-        return NULL;
 
     if (_db_create_table_if_required(db) != 0) {
         fprintf(stderr, "ERROR: could not create table.\n");

@@ -336,14 +336,14 @@ lms_db_audio_new(sqlite3 *db)
     lms_db_audio_t *lda;
     void *p;
 
+    if (!db)
+        return NULL;
+
     if (lms_db_cache_get(&_cache, db, &p) == 0) {
         lda = p;
         lda->_references++;
         return lda;
     }
-
-    if (!db)
-        return NULL;
 
     if (_db_create_tables_if_required(db) != 0) {
         fprintf(stderr, "ERROR: could not create tables.\n");

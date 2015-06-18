@@ -300,14 +300,14 @@ lms_db_video_new(sqlite3 *db)
     lms_db_video_t *ldv;
     void *p;
 
+    if (!db)
+        return NULL;
+
     if (lms_db_cache_get(&_cache, db, &p) == 0) {
         ldv = p;
         ldv->_references++;
         return ldv;
     }
-
-    if (!db)
-        return NULL;
 
     if (_db_create_table_if_required(db) != 0) {
         fprintf(stderr, "ERROR: could not create table.\n");
