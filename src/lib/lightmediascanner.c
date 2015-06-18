@@ -785,6 +785,8 @@ lms_parser_info(const char *so_path)
     errmsg = dlerror();
     if (errmsg) {
         fprintf(stderr, "ERROR: could not dlopen() %s\n", errmsg);
+        if (dl_handle)
+            dlclose(dl_handle);
         return NULL;
     }
 
