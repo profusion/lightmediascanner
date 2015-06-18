@@ -617,8 +617,15 @@ _consume_garbage(struct pollfd *pfd)
             return 0;
         else if (pfd->revents & POLLIN) {
             char c;
+            ssize_t s;
 
-            read(pfd->fd, &c, sizeof(c));
+            s = read(pfd->fd, &c, sizeof(c));
+            if (s == 0)
+                return 0;
+            else if (s < 0) {
+                perror("read");
+                return -1;
+            }
         }
     }
 
