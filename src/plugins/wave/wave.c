@@ -125,6 +125,11 @@ _parse_info(int fd, struct lms_audio_info *info)
         size = le32toh(size);
         if (size > 1024) {
             /* we don't expect any info field to be that big. */
+            if (lseek(fd, size, SEEK_CUR) < 0) {
+                perror("lseek");
+                return -1;
+            }
+            maxsize -= size;
             goto next_field;
         }
 
@@ -152,7 +157,10 @@ _parse_info(int fd, struct lms_audio_info *info)
          * size */
         while (maxsize > 0 && read(fd, chunkid, 1) == 1) {
             if (chunkid[0] != '\0') {
-                lseek(fd, -1, SEEK_CUR);
+                if (lseek(fd, -1, SEEK_CUR) < 0) {
+                    perror("lseek");
+                    return -1;
+                }
                 break;
             }
             maxsize--;
