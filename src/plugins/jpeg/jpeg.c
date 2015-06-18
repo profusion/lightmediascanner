@@ -159,7 +159,10 @@ _jpeg_info_get(int fd, int len, struct lms_image_info *info)
                 return -4;
             found++;
         } else if (buf[1] == JPEG_MARKER_COMM && !info->title.str) {
-            if (_jpeg_com_process(fd, len, &info->title) != 0)
+            /* abort if COMM is too big, it's unexpected and we suspect
+             * it's a broken or malicious JPEG header.
+             */
+            if (len > 1024 || _jpeg_com_process(fd, len, &info->title) != 0)
                 return -5;
             found++;
         } else if (buf[1] == JPEG_MARKER_SOS)
