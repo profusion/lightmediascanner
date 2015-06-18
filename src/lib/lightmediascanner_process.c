@@ -131,8 +131,9 @@ _slave_recv_path(const struct fds *slave, int *plen, int *dlen, char *path)
     if (*plen == -1)
         return 0;
 
-    if (*plen > PATH_SIZE) {
-        fprintf(stderr, "ERROR: path too long (%d/%d)\n", *plen, PATH_SIZE);
+    if (*plen > PATH_SIZE || *plen < 0) {
+        fprintf(stderr, "ERROR: invalid path size (%d) (min: 0, max: %d)\n",
+                *plen, PATH_SIZE);
         return -2;
     }
 
