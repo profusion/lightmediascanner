@@ -239,6 +239,9 @@ _match_video_profile(const struct lms_dlna_video_profile *video_rules,
     char *tmp, *p;
     const char *profile = NULL, *level = NULL;
 
+    if (!video)
+        return NULL;
+
     tmp = strdupa(video->codec.str);
     p = strstr(tmp, "-p");
     if (p) {
