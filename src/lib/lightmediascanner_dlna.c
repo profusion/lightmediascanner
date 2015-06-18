@@ -246,13 +246,17 @@ _match_video_profile(const struct lms_dlna_video_profile *video_rules,
     p = strstr(tmp, "-p");
     if (p) {
         p[0] = '\0';
-        profile = p + 2;
+        p += 2;
+        profile = p;
+    } else {
+        p = tmp;
     }
 
-    p = strstr(profile, "-l");
+    p = strstr(p, "-l");
     if (p) {
         p[0] = '\0';
-        level = p + 2;
+        p += 2;
+        level = p;
     }
 
     curr = video_rules;
