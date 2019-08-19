@@ -407,7 +407,7 @@ static int
 lms_db_cache_resize(struct lms_db_cache *cache, unsigned int new_size)
 {
     void *tmp = realloc(cache->entries,
-                        cache->size * sizeof(*cache->entries));
+                        new_size * sizeof(*cache->entries));
     if (new_size > 0 && !tmp) {
         perror("realloc");
         return -1;
