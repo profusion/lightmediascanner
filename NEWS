@@ -1,3 +1,11 @@
+ver 0.5.2:
+        Fix a regression in lms_db_cache_resize
+        lighmediascanner_process: check the return of 'read()'.
+        wave: move in file before going to the next field.
+        Make realloc() usage more robust.
+        Port to libav 10 API
+        Many Covertiy (mostly harmless) bugfixes
+
 ver 0.5.1:
         Remove dependency on zlib, not required anymore.
 
