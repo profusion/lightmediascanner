@@ -93,7 +93,7 @@ pkg_LTLIBRARIES += id3/id3.la
 id3_id3_la_SOURCES = id3/id3.c id3/id3v1_genres.c
 id3_id3_la_LIBADD = $(PLUGINS_LIBADD)
 
-id3/id3v1_genres.c: $(srcdir)/id3/id3v1_genres.def $(srcdir)/id3/id3v1_genres_gen.awk
+$(srcdir)/id3/id3v1_genres.c: $(srcdir)/id3/id3v1_genres.def $(srcdir)/id3/id3v1_genres_gen.awk
 	$(AWK) -f $(srcdir)/id3/id3v1_genres_gen.awk $(srcdir)/id3/id3v1_genres.def > $@
 
 EXTRA_DIST += id3/id3v1_genres.def id3/id3v1_genres_gen.awk
